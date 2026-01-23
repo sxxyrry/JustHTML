@@ -138,7 +138,7 @@ const ToolsData = [
             "content": "Base64FileEncoderAndDecoder - Base64 文件 编码 / 解码"
           },
           {
-            "link": "./Tools/HexEncoder.html",
+            "link": "./Tools/HexEncoderAndDecoder.html",
             "content": "HexEncoderAndDecoder - HEX 编码 / 解码"
           }
         ]
@@ -545,8 +545,8 @@ const ToolsData = [
         "name": "🤖 AI 工具",
         "items": [
           {
-            "link": "./Tools/AIChat.html",
-            "content": "AIChat - AI 聊天（ Free QWQ 提供后端支持 ）"
+            "link": "./BackendTools/AIChat.html",
+            "content": "AIChat - AI 聊天（ Free QWQ 提供后端支持 ）-未实现"
           }
         ]
       }
