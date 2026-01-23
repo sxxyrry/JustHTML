@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base58编码解码工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Base58编码解码工具</h2>
+        <p>Base58编码和解码工具</p>
+        
+        <div class="info-box">
+          <p><strong>说明：</strong></p>
+          <p>Base58是一种基于58个可打印字符的编码方式，常用于比特币地址等场景，使用123456789ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz字符集</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要编码或解码的文本..."
+            rows="8"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="encodeBase58">编码为Base58</button>
+            <button @click="decodeBase58">解码Base58</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const encodeBase58 = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            result.value = base58Encode(inputText.value);
+          } catch (e) {
+            error.value = `编码错误: ${e.message}`;
+          }
+        };
+
+        const decodeBase58 = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            result.value = base58Decode(inputText.value);
+          } catch (e) {
+            error.value = `解码错误: ${e.message}`;
+          }
+        };
+
+        // Base58编码函数
+        const base58Encode = (str) => {
+          const alphabet = '123456789ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+          
+          // 将字符串转换为字节数组
+          const bytes = new TextEncoder().encode(str);
+          
+          if (bytes.length === 0) return '';
+          
+          // 计算前导零的个数（用于前导1）
+          let zeros = 0;
+          while (zeros < bytes.length && bytes[zeros] === 0) {
+            zeros++;
+          }
+          
+          // 转换为Base58
+          let length = (bytes.length - zeros) * 1.39; // log(256) / log(58)
+          const digits = new Uint8Array(Math.ceil(length));
+          
+          let digitsLen = 1;
+          for (let i = zeros; i < bytes.length; i++) {
+            let carry = bytes[i];
+            for (let j = 0; j < digitsLen; j++) {
+              carry += digits[j] << 8;
+              digits[j] = carry % 58;
+              carry = (carry / 58) | 0;
+            }
+            
+            while (carry > 0) {
+              digits[digitsLen++] = carry % 58;
+              carry = (carry / 58) | 0;
+            }
+          }
+          
+          // 添加前导1（代表零字节）
+          let result = '';
+          for (let i = 0; i < zeros; i++) {
+            result += '1';
+          }
+          
+          // 添加转换后的字符
+          for (let i = digitsLen - 1; i >= 0; i--) {
+            result += alphabet[digits[i]];
+          }
+          
+          return result;
+        };
+
+        // Base58解码函数
+        const base58Decode = (str) => {
+          const alphabet = '123456789ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+          
+          if (str === '') return '';
+          
+          // 计算前导1的个数（代表零字节）
+          let zeros = 0;
+          let length = 0;
+          while (zeros < str.length && str[zeros] === '1') {
+            zeros++;
+          }
+          
+          // 转换为字节数组
+          const size = (str.length - zeros) * 0.72; // log(58) / log(256)
+          const bytes = new Uint8Array(Math.ceil(size));
+          
+          for (let i = zeros; i < str.length; i++) {
+            let carry = alphabet.indexOf(str[i]);
+            if (carry < 0) {
+              throw new Error(`无效的Base58字符: ${str[i]}`);
+            }
+            
+            for (let j = 0; j < bytes.length; j++) {
+              carry += bytes[j] * 58;
+              bytes[j] = carry & 0xff;
+              carry >>= 8;
+            }
+            
+            if (carry !== 0) {
+              throw new Error('Carry should be zero at this point');
+            }
+          }
+          
+          // 计算实际的字节长度
+          let actualLen = 0;
+          for (let i = bytes.length - 1; i >= 0; i--) {
+            if (bytes[i] !== 0) {
+              actualLen = i + 1;
+              break;
+            }
+          }
+          
+          // 创建最终的字节数组
+          const finalBytes = new Uint8Array(zeros + actualLen);
+          for (let i = 0; i < actualLen; i++) {
+            finalBytes[zeros + i] = bytes[i];
+          }
+          
+          // 转换回字符串
+          return new TextDecoder().decode(finalBytes);
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          encodeBase58,
+          decodeBase58,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

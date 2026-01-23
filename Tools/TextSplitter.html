@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本拆分器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .split-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+    
+    .split-result {
+      margin-top: 20px;
+    }
+    
+    .split-part {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .split-part-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>文本拆分器</h2>
+        <p>按指定规则拆分文本</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 按字符数拆分：将文本按固定字符数拆分成多个片段</p>
+          <p>• 按分隔符拆分：使用自定义分隔符拆分文本</p>
+          <p>• 按行拆分：将多行文本按行拆分</p>
+          <p>• 按句子拆分：根据句号、问号、感叹号拆分句子</p>
+        </div>
+        
+        <div class="split-options">
+          <div class="option-item">
+            <label for="splitMethod">拆分方式</label>
+            <select id="splitMethod" v-model="splitMethod" @change="onMethodChange">
+              <option value="byCharCount">按字符数拆分</option>
+              <option value="byDelimiter">按分隔符拆分</option>
+              <option value="byLines">按行拆分</option>
+              <option value="bySentences">按句子拆分</option>
+            </select>
+          </div>
+          
+          <div class="option-item" v-if="splitMethod === 'byCharCount'">
+            <label for="charCount">每段字符数</label>
+            <input 
+              type="number" 
+              id="charCount" 
+              v-model.number="charCount" 
+              min="1"
+              placeholder="输入每段字符数"
+            >
+          </div>
+          
+          <div class="option-item" v-if="splitMethod === 'byDelimiter'">
+            <label for="delimiter">分隔符</label>
+            <input 
+              type="text" 
+              id="delimiter" 
+              v-model="delimiter" 
+              placeholder="输入分隔符"
+            >
+          </div>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要拆分的文本..."
+            rows="10"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="splitText">拆分文本</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyAll">复制全部</button>
+          </div>
+          
+          <div class="split-result" v-if="resultParts.length > 0">
+            <h3>拆分结果 (共{{ resultParts.length }}段)：</h3>
+            <div v-for="(part, index) in resultParts" :key="index" class="split-part">
+              <div class="split-part-header">
+                <span>第{{ index + 1 }}段 ({{ part.length }}字符)</span>
+                <button @click="copyPart(part)">复制此段</button>
+              </div>
+              <pre>{{ part }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const splitMethod = ref('byCharCount');
+        const charCount = ref(100);
+        const delimiter = ref(',');
+        const resultParts = ref([]);
+
+        // 方法改变时重置结果
+        const onMethodChange = () => {
+          resultParts.value = [];
+        };
+
+        // 拆分文本
+        const splitText = () => {
+          if (!inputText.value) {
+            resultParts.value = [];
+            return;
+          }
+
+          switch(splitMethod.value) {
+            case 'byCharCount':
+              // 按字符数拆分
+              if (!charCount.value || charCount.value <= 0) {
+                alert('请输入有效的字符数');
+                return;
+              }
+              
+              resultParts.value = [];
+              for (let i = 0; i < inputText.value.length; i += charCount.value) {
+                resultParts.value.push(inputText.value.substring(i, i + charCount.value));
+              }
+              break;
+              
+            case 'byDelimiter':
+              // 按分隔符拆分
+              if (!delimiter.value) {
+                alert('请输入分隔符');
+                return;
+              }
+              
+              resultParts.value = inputText.value.split(delimiter.value);
+              // 过滤空字符串
+              resultParts.value = resultParts.value.filter(part => part.trim() !== '');
+              break;
+              
+            case 'byLines':
+              // 按行拆分
+              resultParts.value = inputText.value.split(/\r?\n/);
+              // 过滤空行
+              resultParts.value = resultParts.value.filter(line => line.trim() !== '');
+              break;
+              
+            case 'bySentences':
+              // 按句子拆分
+              // 使用句号、问号、感叹号作为句子分隔符
+              const sentences = inputText.value.split(/([。.!?！？])/);
+              resultParts.value = [];
+              
+              for (let i = 0; i < sentences.length; i += 2) {
+                let sentence = sentences[i] || '';
+                if (i + 1 < sentences.length) {
+                  sentence += sentences[i + 1]; // 添加标点符号
+                }
+                
+                if (sentence.trim() !== '') {
+                  resultParts.value.push(sentence);
+                }
+              }
+              break;
+              
+            default:
+              resultParts.value = [];
+          }
+        };
+
+        // 清空文本
+        const clearText = () => {
+          inputText.value = '';
+          resultParts.value = [];
+        };
+
+        // 复制全部结果
+        const copyAll = () => {
+          if (resultParts.value.length > 0) {
+            const allText = resultParts.value.join('\n---\n'); // 用分隔线分隔各部分
+            navigator.clipboard.writeText(allText)
+              .then(() => {
+                alert('全部结果已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        // 复制单个部分
+        const copyPart = (part) => {
+          navigator.clipboard.writeText(part)
+            .then(() => {
+              alert('已复制此段到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+              alert('复制失败');
+            });
+        };
+
+        return {
+          inputText,
+          splitMethod,
+          charCount,
+          delimiter,
+          resultParts,
+          onMethodChange,
+          splitText,
+          clearText,
+          copyAll,
+          copyPart
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

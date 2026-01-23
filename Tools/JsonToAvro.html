@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到Avro转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到Avro转换工具</h2>
+        <p>分析JSON结构并生成对应的Avro Schema</p>
+        
+        <div class="info-box">
+          <p><strong>说明：</strong></p>
+          <p>此工具分析JSON数据结构并生成相应的Avro Schema，实际的序列化/反序列化需要在服务端完成</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>JSON数据</h3>
+            <textarea 
+              v-model="jsonData" 
+              placeholder='输入JSON数据，例如: {"name": "张三", "age": 30, "email": "zhangsan@example.com"}'
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>生成的Avro Schema</h3>
+            <textarea 
+              v-model="avroSchema" 
+              placeholder="Avro Schema将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertJsonToAvro">生成Avro Schema</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>分析结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const jsonData = ref('');
+        const avroSchema = ref('');
+        const result = ref('');
+
+        const convertJsonToAvro = () => {
+          if (!jsonData.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonData.value);
+            avroSchema.value = JSON.stringify(generateAvroSchema(parsed, 'Root'), null, 2);
+            result.value = 'Avro Schema生成成功！';
+          } catch (e) {
+            result.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const generateAvroSchema = (data, recordName) => {
+          if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+            // 如果是基本类型或数组，创建一个包含该类型的记录
+            if (Array.isArray(data)) {
+              return {
+                type: "record",
+                name: recordName,
+                fields: [
+                  {
+                    name: "data",
+                    type: {
+                      type: "array",
+                      items: determineAvroType(data.length > 0 ? data[0] : null)
+                    }
+                  }
+                ]
+              };
+            } else {
+              return {
+                type: "record",
+                name: recordName,
+                fields: [
+                  {
+                    name: "value",
+                    type: determineAvroType(data)
+                  }
+                ]
+              };
+            }
+          }
+
+          // 处理对象类型
+          const fields = [];
+          for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+              const field = {
+                name: key,
+                type: determineAvroType(data[key])
+              };
+              fields.push(field);
+            }
+          }
+
+          return {
+            type: "record",
+            name: recordName,
+            fields: fields
+          };
+        };
+
+        const determineAvroType = (value) => {
+          if (value === null) {
+            return ["null", "string"];
+          }
+          
+          if (Array.isArray(value)) {
+            if (value.length === 0) {
+              return {
+                type: "array",
+                items: "string"
+              };
+            }
+            
+            // 确定数组元素类型
+            const itemType = determineAvroType(value[0]);
+            return {
+              type: "array",
+              items: itemType
+            };
+          }
+          
+          if (typeof value === 'object' && value !== null) {
+            // 递归处理嵌套对象
+            return generateAvroSchema(value, capitalizeFirstLetter(value.constructor.name));
+          }
+          
+          if (typeof value === 'string') {
+            // 检查是否为特殊格式的字符串
+            if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+              return "string"; // Avro没有原生datetime类型
+            }
+            if (/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(value)) {
+              return "string";
+            }
+            if (/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(value)) {
+              return "string";
+            }
+            return "string";
+          }
+          
+          if (typeof value === 'number') {
+            return Number.isInteger(value) ? "long" : "double";
+          }
+          
+          if (typeof value === 'boolean') {
+            return "boolean";
+          }
+          
+          return "string";
+        };
+
+        const capitalizeFirstLetter = (str) => {
+          return str.charAt(0).toUpperCase() + str.slice(1);
+        };
+
+        const loadExample = () => {
+          jsonData.value = JSON.stringify({
+            name: "张三",
+            age: 30,
+            email: "zhangsan@example.com",
+            address: {
+              street: "中山路123号",
+              city: "北京",
+              zipCode: "100000"
+            },
+            hobbies: ["读书", "游泳", "编程"],
+            isActive: true
+          }, null, 2);
+        };
+
+        const clearAll = () => {
+          jsonData.value = '';
+          avroSchema.value = '';
+          result.value = '';
+        };
+
+        return {
+          jsonData,
+          avroSchema,
+          result,
+          convertJsonToAvro,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

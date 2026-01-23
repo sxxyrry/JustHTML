@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base64文件编码/解码 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .file-input-container {
+      margin: 15px 0;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .file-input-container input {
+      margin: 10px 0;
+      padding: 8px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Base64文件编码/解码</h2>
+        <p>将文件转换为Base64编码或将Base64编码还原为文件</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 将文件转换为Base64编码字符串</p>
+          <p>• 将Base64编码还原为原始文件</p>
+          <p>• 支持各种类型的文件（文本、图片、视频等）</p>
+        </div>
+        
+        <div>
+          <div class="file-input-container">
+            <h3>选择文件进行编码</h3>
+            <input 
+              type="file" 
+              @change="handleFileSelect"
+              id="fileInput"
+            >
+            <div v-if="selectedFile" class="file-info">
+              <p>已选择文件: {{ selectedFile.name }} ({{ formatFileSize(selectedFile.size) }})</p>
+            </div>
+            <button @click="encodeFile" :disabled="!selectedFile">编码为Base64</button>
+          </div>
+          
+          <textarea 
+            v-model="base64Data" 
+            placeholder="粘贴Base64编码或上方编码后的内容..."
+            rows="10"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="decodeToFile" :disabled="!base64Data">解码为文件</button>
+            <button @click="clearAll">清空所有</button>
+            <button @click="copyResult">复制Base64</button>
+          </div>
+          
+          <div class="result" v-if="resultMessage">
+            <h3>操作结果：</h3>
+            <p>{{ resultMessage }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const selectedFile = ref(null);
+        const base64Data = ref('');
+        const resultMessage = ref('');
+
+        // 处理文件选择
+        const handleFileSelect = (event) => {
+          const file = event.target.files[0];
+          if (file) {
+            selectedFile.value = file;
+            resultMessage.value = '';
+          }
+        };
+
+        // 将文件编码为Base64
+        const encodeFile = () => {
+          if (!selectedFile.value) {
+            resultMessage.value = '请先选择一个文件';
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            // 移除data:部分的MIME类型信息，只保留Base64数据
+            base64Data.value = e.target.result.split(',')[1];
+            resultMessage.value = `文件 "${selectedFile.value.name}" 已成功编码为Base64 (${base64Data.value.length} 字符)`;
+          };
+          reader.onerror = (e) => {
+            resultMessage.value = '文件编码失败: ' + e.target.error;
+          };
+          reader.readAsDataURL(selectedFile.value);
+        };
+
+        // 将Base64解码为文件
+        const decodeToFile = () => {
+          if (!base64Data.value) {
+            resultMessage.value = '请输入Base64编码';
+            return;
+          }
+
+          try {
+            // 创建Blob对象
+            const byteCharacters = atob(base64Data.value);
+            const byteArrays = [];
+
+            for (let offset = 0; offset < byteCharacters.length; offset += 1024) {
+              const slice = byteCharacters.slice(offset, offset + 1024);
+
+              const byteNumbers = new Array(slice.length);
+              for (let i = 0; i < slice.length; i++) {
+                byteNumbers[i] = slice.charCodeAt(i);
+              }
+
+              const byteArray = new Uint8Array(byteNumbers);
+              byteArrays.push(byteArray);
+            }
+
+            const blob = new Blob(byteArrays, { type: 'application/octet-stream' });
+
+            // 创建下载链接
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(blob);
+            downloadLink.download = 'decoded_file.dat'; // 默认文件名
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+
+            resultMessage.value = '文件已成功下载';
+          } catch (error) {
+            resultMessage.value = '解码失败: ' + error.message;
+          }
+        };
+
+        // 格式化文件大小
+        const formatFileSize = (bytes) => {
+          if (bytes === 0) return '0 Bytes';
+          const k = 1024;
+          const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        };
+
+        // 清空所有
+        const clearAll = () => {
+          selectedFile.value = null;
+          base64Data.value = '';
+          resultMessage.value = '';
+          document.getElementById('fileInput').value = ''; // 清空文件输入
+        };
+
+        // 复制Base64结果
+        const copyResult = () => {
+          if (base64Data.value) {
+            navigator.clipboard.writeText(base64Data.value)
+              .then(() => {
+                alert('Base64数据已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          selectedFile,
+          base64Data,
+          resultMessage,
+          handleFileSelect,
+          encodeFile,
+          decodeToFile,
+          formatFileSize,
+          clearAll,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

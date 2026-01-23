@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON模式验证器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .validator-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .validator-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .validator-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .validation-result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: var(--border-radius);
+      background-color: var(--bg-tertiary);
+    }
+    
+    .validation-success {
+      border-left: 4px solid #4caf50;
+    }
+    
+    .validation-error {
+      border-left: 4px solid #f44336;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .validator-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON模式验证器</h2>
+        <p>验证JSON数据是否符合指定的JSON Schema</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>在左侧输入JSON Schema，在右侧输入要验证的JSON数据，点击验证按钮</p>
+        </div>
+        
+        <div class="validator-container">
+          <div class="validator-section">
+            <h3>JSON Schema</h3>
+            <textarea 
+              v-model="schema" 
+              placeholder='输入JSON Schema，例如: {"type": "object", "properties": {"name": {"type": "string"}, "age": {"type": "number"}}}'
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="validator-section">
+            <h3>JSON数据</h3>
+            <textarea 
+              v-model="jsonData" 
+              placeholder='输入要验证的JSON数据，例如: {"name": "张三", "age": 30}'
+              rows="12"
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="validateJson">验证JSON</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div v-if="validationResult" :class="['validation-result', validationResult.success ? 'validation-success' : 'validation-error']">
+          <h3>验证结果</h3>
+          <p v-if="validationResult.success" style="color: #4caf50;">✓ JSON数据符合Schema规范</p>
+          <div v-else>
+            <p style="color: #f44336;">✗ JSON数据不符合Schema规范</p>
+            <ul>
+              <li v-for="(error, index) in validationResult.errors" :key="index">{{ error }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const schema = ref('');
+        const jsonData = ref('');
+        const validationResult = ref(null);
+
+        const validateJson = () => {
+          try {
+            // 解析schema和json数据
+            const parsedSchema = JSON.parse(schema.value);
+            const parsedJson = JSON.parse(jsonData.value);
+            
+            // 验证JSON数据
+            const result = validateAgainstSchema(parsedJson, parsedSchema);
+            validationResult.value = result;
+          } catch (e) {
+            validationResult.value = {
+              success: false,
+              errors: [`验证错误: ${e.message}`]
+            };
+          }
+        };
+
+        // 简单的JSON Schema验证器
+        const validateAgainstSchema = (data, schema) => {
+          const errors = [];
+
+          // 验证类型
+          if (schema.type) {
+            if (schema.type === 'object' && typeof data !== 'object') {
+              errors.push(`期望类型为对象(object)，实际类型为 ${typeof data}`);
+            } else if (schema.type === 'array' && !Array.isArray(data)) {
+              errors.push(`期望类型为数组(array)，实际类型为 ${typeof data}`);
+            } else if (schema.type === 'string' && typeof data !== 'string') {
+              errors.push(`期望类型为字符串(string)，实际类型为 ${typeof data}`);
+            } else if (schema.type === 'number' && typeof data !== 'number') {
+              errors.push(`期望类型为数字(number)，实际类型为 ${typeof data}`);
+            } else if (schema.type === 'boolean' && typeof data !== 'boolean') {
+              errors.push(`期望类型为布尔值(boolean)，实际类型为 ${typeof data}`);
+            } else if (schema.type === 'null' && data !== null) {
+              errors.push(`期望类型为null，实际值为 ${data}`);
+            }
+          }
+
+          // 验证属性
+          if (schema.properties && typeof data === 'object' && !Array.isArray(data)) {
+            for (const prop in schema.properties) {
+              if (schema.required && schema.required.includes(prop) && (data[prop] === undefined)) {
+                errors.push(`缺少必需属性: ${prop}`);
+              }
+              
+              if (data[prop] !== undefined) {
+                const propValidation = validateAgainstSchema(data[prop], schema.properties[prop]);
+                if (!propValidation.success) {
+                  errors.push(...propValidation.errors.map(error => `属性 "${prop}": ${error}`));
+                }
+              }
+            }
+            
+            // 检查不允许额外属性
+            if (schema.additionalProperties === false) {
+              for (const key in data) {
+                if (!schema.properties[key]) {
+                  errors.push(`不允许额外属性: ${key}`);
+                }
+              }
+            }
+          }
+
+          // 验证数组
+          if (schema.items && Array.isArray(data)) {
+            for (let i = 0; i < data.length; i++) {
+              const itemValidation = validateAgainstSchema(data[i], schema.items);
+              if (!itemValidation.success) {
+                errors.push(...itemValidation.errors.map(error => `数组索引[${i}]: ${error}`));
+              }
+            }
+          }
+
+          // 验证枚举值
+          if (schema.enum && !schema.enum.includes(data)) {
+            errors.push(`值 "${data}" 不在允许的枚举值中: [${schema.enum.join(', ')}]`);
+          }
+
+          // 验证字符串长度
+          if (typeof data === 'string') {
+            if (schema.minLength !== undefined && data.length < schema.minLength) {
+              errors.push(`字符串长度小于最小长度 ${schema.minLength}，实际长度: ${data.length}`);
+            }
+            if (schema.maxLength !== undefined && data.length > schema.maxLength) {
+              errors.push(`字符串长度大于最大长度 ${schema.maxLength}，实际长度: ${data.length}`);
+            }
+          }
+
+          // 验证数字范围
+          if (typeof data === 'number') {
+            if (schema.minimum !== undefined && data < schema.minimum) {
+              errors.push(`数值 ${data} 小于最小值 ${schema.minimum}`);
+            }
+            if (schema.maximum !== undefined && data > schema.maximum) {
+              errors.push(`数值 ${data} 大于最大值 ${schema.maximum}`);
+            }
+          }
+
+          return {
+            success: errors.length === 0,
+            errors: errors
+          };
+        };
+
+        const loadExample = () => {
+          schema.value = JSON.stringify({
+            type: "object",
+            required: ["name", "email"],
+            properties: {
+              name: {
+                type: "string",
+                minLength: 2,
+                maxLength: 50
+              },
+              email: {
+                type: "string",
+                format: "email"
+              },
+              age: {
+                type: "number",
+                minimum: 0,
+                maximum: 120
+              },
+              isActive: {
+                type: "boolean"
+              }
+            }
+          }, null, 2);
+          
+          jsonData.value = JSON.stringify({
+            name: "张三",
+            email: "zhangsan@example.com",
+            age: 30,
+            isActive: true
+          }, null, 2);
+        };
+
+        const clearAll = () => {
+          schema.value = '';
+          jsonData.value = '';
+          validationResult.value = null;
+        };
+
+        return {
+          schema,
+          jsonData,
+          validationResult,
+          validateJson,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

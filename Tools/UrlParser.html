@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL解析器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .input-group {
+      margin: 15px 0;
+    }
+    
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .input-group input, .input-group textarea {
+      width: 100%;
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .url-components {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .component-item {
+      margin: 10px 0;
+      padding: 8px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .component-name {
+      font-weight: bold;
+      color: var(--accent-color);
+      flex: 0 0 120px;
+    }
+    
+    .component-value {
+      flex: 1;
+      word-break: break-all;
+    }
+    
+    .query-params {
+      margin-top: 15px;
+    }
+    
+    .param-item {
+      display: flex;
+      margin: 5px 0;
+    }
+    
+    .param-key {
+      font-weight: bold;
+      color: var(--accent-color);
+      flex: 0 0 100px;
+    }
+    
+    .param-value {
+      flex: 1;
+      word-break: break-all;
+    }
+    
+    .validation-result {
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    .valid {
+      background-color: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+    }
+    
+    .invalid {
+      background-color: rgba(231, 76, 60, 0.2);
+      color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>URL解析器</h2>
+        <p>解析URL并提取其各个组成部分</p>
+        
+        <div class="info-box">
+          <p><strong>URL结构：</strong></p>
+          <p>协议://用户名:密码@主机:端口/路径?查询参数#锚点</p>
+          <p>示例: https://user:pass@example.com:8080/path/to/page?param1=value1&amp;param2=value2#section</p>
+        </div>
+        
+        <div>
+          <div class="input-group">
+            <label for="urlInput">输入URL</label>
+            <input 
+              type="text" 
+              id="urlInput" 
+              v-model="urlInput" 
+              placeholder="https://example.com/path?query=value#anchor"
+              @input="parseUrl"
+            >
+          </div>
+          
+          <div class="validation-result" :class="validationClass">
+            {{ validationMessage }}
+          </div>
+          
+          <div class="controls">
+            <button @click="parseUrl" :disabled="!urlInput">解析URL</button>
+            <button @click="clearInput">清空</button>
+            <button @click="useExample">示例URL</button>
+            <button @click="copyParsed">复制解析结果</button>
+          </div>
+          
+          <div class="url-components" v-if="parsedComponents">
+            <h3>URL组成部分</h3>
+            <div class="component-item">
+              <span class="component-name">完整URL:</span>
+              <span class="component-value">{{ parsedComponents.href }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">协议 (Protocol):</span>
+              <span class="component-value">{{ parsedComponents.protocol || 'N/A' }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">主机 (Host):</span>
+              <span class="component-value">{{ parsedComponents.host || 'N/A' }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">主机名 (Hostname):</span>
+              <span class="component-value">{{ parsedComponents.hostname || 'N/A' }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">端口 (Port):</span>
+              <span class="component-value">{{ parsedComponents.port || 'N/A' }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">路径 (Pathname):</span>
+              <span class="component-value">{{ parsedComponents.pathname || 'N/A' }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">查询字符串 (Search):</span>
+              <span class="component-value">{{ parsedComponents.search || 'N/A' }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">锚点 (Hash):</span>
+              <span class="component-value">{{ parsedComponents.hash || 'N/A' }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">用户名 (Username):</span>
+              <span class="component-value">{{ parsedComponents.username || 'N/A' }}</span>
+            </div>
+            <div class="component-item">
+              <span class="component-name">密码 (Password):</span>
+              <span class="component-value">{{ parsedComponents.password || 'N/A' }}</span>
+            </div>
+            
+            <!-- 查询参数 -->
+            <div class="query-params" v-if="parsedComponents.queryParams && Object.keys(parsedComponents.queryParams).length > 0">
+              <h4>查询参数</h4>
+              <div v-for="(value, key) in parsedComponents.queryParams" :key="key" class="param-item">
+                <span class="param-key">{{ key }}:</span>
+                <span class="param-value">{{ value }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const urlInput = ref('');
+
+        // 解析URL组件
+        const parsedComponents = ref(null);
+        
+        // 验证消息
+        const validationMessage = computed(() => {
+          if (!urlInput.value) {
+            return '请输入一个URL';
+          }
+          
+          try {
+            new URL(urlInput.value);
+            return '有效的URL';
+          } catch (e) {
+            return '无效的URL';
+          }
+        });
+        
+        // 验证样式类
+        const validationClass = computed(() => {
+          if (!urlInput.value) {
+            return '';
+          }
+          
+          try {
+            new URL(urlInput.value);
+            return 'valid';
+          } catch (e) {
+            return 'invalid';
+          }
+        });
+
+        // 解析URL
+        const parseUrl = () => {
+          if (!urlInput.value) {
+            parsedComponents.value = null;
+            return;
+          }
+
+          try {
+            // 如果没有协议，尝试添加默认协议
+            let urlStr = urlInput.value;
+            if (!urlStr.startsWith('http://') && !urlStr.startsWith('https://')) {
+              if (urlStr.startsWith('//')) {
+                urlStr = 'http:' + urlStr;
+              } else {
+                urlStr = 'http://' + urlStr;
+              }
+            }
+            
+            const url = new URL(urlStr);
+            
+            // 解析查询参数
+            const queryParams = {};
+            for (const [key, value] of url.searchParams) {
+              queryParams[key] = value;
+            }
+            
+            parsedComponents.value = {
+              href: url.href,
+              protocol: url.protocol ? url.protocol.replace(':', '') : '',
+              host: url.host,
+              hostname: url.hostname,
+              port: url.port,
+              pathname: url.pathname,
+              search: url.search,
+              hash: url.hash ? url.hash.replace('#', '') : '',
+              username: url.username,
+              password: url.password,
+              queryParams: queryParams
+            };
+          } catch (error) {
+            console.error('URL解析错误:', error);
+            parsedComponents.value = null;
+          }
+        };
+
+        // 清空输入
+        const clearInput = () => {
+          urlInput.value = '';
+          parsedComponents.value = null;
+        };
+
+        // 使用示例URL
+        const useExample = () => {
+          urlInput.value = 'https://user:pass@example.com:8080/path/to/page?param1=value1&param2=value2#section';
+          parseUrl();
+        };
+
+        // 复制解析结果
+        const copyParsed = () => {
+          if (parsedComponents.value) {
+            let result = `URL解析结果:\n\n`;
+            result += `完整URL: ${parsedComponents.value.href}\n`;
+            result += `协议: ${parsedComponents.value.protocol || 'N/A'}\n`;
+            result += `主机: ${parsedComponents.value.host || 'N/A'}\n`;
+            result += `主机名: ${parsedComponents.value.hostname || 'N/A'}\n`;
+            result += `端口: ${parsedComponents.value.port || 'N/A'}\n`;
+            result += `路径: ${parsedComponents.value.pathname || 'N/A'}\n`;
+            result += `查询字符串: ${parsedComponents.value.search || 'N/A'}\n`;
+            result += `锚点: ${parsedComponents.value.hash || 'N/A'}\n`;
+            result += `用户名: ${parsedComponents.value.username || 'N/A'}\n`;
+            result += `密码: ${parsedComponents.value.password || 'N/A'}\n`;
+            
+            if (parsedComponents.value.queryParams && Object.keys(parsedComponents.value.queryParams).length > 0) {
+              result += `\n查询参数:\n`;
+              for (const [key, value] of Object.entries(parsedComponents.value.queryParams)) {
+                result += `${key}: ${value}\n`;
+              }
+            }
+            
+            navigator.clipboard.writeText(result)
+              .then(() => {
+                alert('解析结果已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          urlInput,
+          parsedComponents,
+          validationMessage,
+          validationClass,
+          parseUrl,
+          clearInput,
+          useExample,
+          copyParsed
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

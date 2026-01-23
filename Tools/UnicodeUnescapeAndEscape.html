@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unicode转义/反转义工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Unicode转义/反转义工具</h2>
+        <p>将文本转换为Unicode转义序列或将Unicode转义序列还原为文本</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• Unicode转义：将文本转换为\uXXXX格式的Unicode转义序列</p>
+          <p>• Unicode反转义：将\uXXXX格式的Unicode转义序列还原为原始文本</p>
+          <p>• 清空：清空输入和输出框</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要转义或反转义的文本..."
+            rows="10"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="unicodeEscape">Unicode转义</button>
+            <button @click="unicodeUnescape">Unicode反转义</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>转换结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+
+        const unicodeEscape = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          try {
+            result.value = inputText.value.replace(/[\s\S]/g, function(ch) {
+              const cc = ch.charCodeAt(0);
+              if (cc < 0x10000) {
+                return '\\u' + ('0000' + cc.toString(16)).slice(-4);
+              } else {
+                // 处理超出BMP的字符
+                const code = cc - 0x10000;
+                const high = Math.floor(code / 0x400) + 0xD800;
+                const low = (code % 0x400) + 0xDC00;
+                return '\\u' + ('0000' + high.toString(16)).slice(-4) + '\\u' + ('0000' + low.toString(16)).slice(-4);
+              }
+            });
+          } catch (error) {
+            result.value = '转义失败：' + error.message;
+          }
+        };
+
+        const unicodeUnescape = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          try {
+            result.value = inputText.value.replace(/\\u([0-9a-fA-F]{4})|\\u\{([0-9a-fA-F]+)\}/g, function(match, short, long) {
+              const codePoint = short ? parseInt(short, 16) : parseInt(long, 16);
+              if (codePoint < 0x10000) {
+                return String.fromCharCode(codePoint);
+              } else {
+                // 处理超出BMP的字符
+                const code = codePoint - 0x10000;
+                const high = Math.floor(code / 0x400) + 0xD800;
+                const low = (code % 0x400) + 0xDC00;
+                return String.fromCharCode(high) + String.fromCharCode(low);
+              }
+            });
+          } catch (error) {
+            result.value = '反转义失败：' + error.message;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = async () => {
+          if (result.value) {
+            try {
+              await navigator.clipboard.writeText(result.value);
+              alert('已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              // 降级方案
+              const textArea = document.createElement('textarea');
+              textArea.value = result.value;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              alert('已复制到剪贴板！');
+            }
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          unicodeEscape,
+          unicodeUnescape,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

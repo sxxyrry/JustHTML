@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TSV转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>TSV转换工具</h2>
+        <p>TSV与其他格式之间的转换</p>
+        
+        <div class="info-box">
+          <p><strong>支持的转换：</strong></p>
+          <p>• TSV → JSON</p>
+          <p>• TSV → CSV</p>
+          <p>• TSV → XML</p>
+          <p>• JSON → TSV</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入TSV或JSON数据..."
+            rows="12"
+          ></textarea>
+          
+          <div class="converter-options">
+            <div class="option-item">
+              <label for="convertTo">转换为</label>
+              <select id="convertTo" v-model="convertTo">
+                <option value="json">JSON</option>
+                <option value="csv">CSV</option>
+                <option value="xml">XML</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="convertData">转换数据</button>
+            <button @click="validateTsv">验证TSV</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const convertTo = ref('json');
+
+        const convertData = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 检测输入格式
+            const isJson = inputText.value.trim().startsWith('{') || inputText.value.trim().startsWith('[');
+            
+            if (isJson) {
+              // JSON to TSV
+              result.value = jsonToTsv(inputText.value);
+            } else {
+              // TSV to other formats
+              switch(convertTo.value) {
+                case 'json':
+                  result.value = tsvToJson(inputText.value);
+                  break;
+                case 'csv':
+                  result.value = tsvToCsv(inputText.value);
+                  break;
+                case 'xml':
+                  result.value = tsvToXml(inputText.value);
+                  break;
+                default:
+                  result.value = inputText.value;
+              }
+            }
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const validateTsv = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入TSV内容';
+            return;
+          }
+
+          try {
+            const lines = inputText.value.split('\n');
+            if (lines.length === 0) {
+              throw new Error('TSV内容为空');
+            }
+            
+            result.value = `✓ TSV格式有效，共 ${lines.length} 行`;
+          } catch (e) {
+            error.value = `TSV格式错误: ${e.message}`;
+          }
+        };
+
+        // TSV to JSON converter
+        const tsvToJson = (tsv) => {
+          const lines = tsv.split('\n');
+          if (lines.length === 0) return '[]';
+
+          const headers = lines[0].split('\t');
+          
+          const result = [];
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue; // Skip empty lines
+            
+            const currentline = lines[i].split('\t');
+            const obj = {};
+            
+            for (let j = 0; j < headers.length; j++) {
+              obj[headers[j]] = currentline[j] || '';
+            }
+            
+            result.push(obj);
+          }
+
+          return JSON.stringify(result, null, 2);
+        };
+
+        // JSON to TSV converter
+        const jsonToTsv = (jsonStr) => {
+          const arr = JSON.parse(jsonStr);
+          if (!arr || arr.length === 0) return '';
+
+          const headers = Object.keys(arr[0]);
+
+          const tsvRows = [];
+          tsvRows.push(headers.join('\t'));
+
+          for (const row of arr) {
+            const values = headers.map(header => {
+              const val = row[header] !== undefined ? row[header] : '';
+              // Escape any tabs in the value
+              return String(val).replace(/\t/g, ' ');
+            });
+            tsvRows.push(values.join('\t'));
+          }
+
+          return tsvRows.join('\n');
+        };
+
+        // TSV to CSV converter
+        const tsvToCsv = (tsv) => {
+          const lines = tsv.split('\n');
+          const result = [];
+          
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            
+            const fields = line.split('\t');
+            // Wrap fields containing commas in quotes
+            const csvFields = fields.map(field => {
+              if (field.includes(',')) {
+                return `"${field.replace(/"/g, '""')}"`;
+              }
+              return field;
+            });
+            result.push(csvFields.join(','));
+          }
+          
+          return result.join('\n');
+        };
+
+        // TSV to XML converter
+        const tsvToXml = (tsv) => {
+          const lines = tsv.split('\n');
+          if (lines.length === 0) return '';
+
+          const headers = lines[0].split('\t');
+          
+          let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<data>\n';
+          
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            
+            const currentline = lines[i].split('\t');
+            xml += '  <row>\n';
+            
+            for (let j = 0; j < headers.length; j++) {
+              const value = currentline[j] ? currentline[j] : '';
+              const escapedValue = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+              xml += `    <${headers[j]}>${escapedValue}</${headers[j]}>\n`;
+            }
+            
+            xml += '  </row>\n';
+          }
+          
+          xml += '</data>';
+          return xml;
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          convertTo,
+          convertData,
+          validateTsv,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

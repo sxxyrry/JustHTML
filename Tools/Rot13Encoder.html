@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ROT13编码器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>ROT13编码器</h2>
+        <p>ROT13（回转13位）是一种简单的字母替换加密技术，将字母表中的每个字母替换为向后移动13位的字母</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• ROT13编码：将文本进行ROT13转换</p>
+          <p>• ROT13解码：由于ROT13是对称的，解码与编码相同</p>
+          <p>• 清空：清空输入和输出框</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要进行ROT13转换的文本..."
+            rows="10"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="rot13Encode">ROT13编码</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>转换结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+
+        const rot13 = (str) => {
+          return str.replace(/[A-Za-z]/g, function(char) {
+            return String.fromCharCode(
+              char.charCodeAt(0) <= 90 
+                ? (char.charCodeAt(0) - 65 + 13) % 26 + 65 
+                : (char.charCodeAt(0) - 97 + 13) % 26 + 97
+            );
+          });
+        };
+
+        const rot13Encode = () => {
+          result.value = rot13(inputText.value);
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = async () => {
+          if (result.value) {
+            try {
+              await navigator.clipboard.writeText(result.value);
+              alert('已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              // 降级方案
+              const textArea = document.createElement('textarea');
+              textArea.value = result.value;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              alert('已复制到剪贴板！');
+            }
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          rot13Encode,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

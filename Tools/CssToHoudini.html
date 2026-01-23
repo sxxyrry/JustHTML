@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到CSS Houdini转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .houdini-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .feature-card {
+      background-color: var(--bg-secondary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      border-left: 3px solid var(--accent-color);
+    }
+    
+    .compatibility-info {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到CSS Houdini转换工具</h2>
+        <p>将CSS代码转换为CSS Houdini特性（实验性）</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将传统CSS转换为使用CSS Houdini特性的代码，如CSS Paint API、CSS Typed OM等</p>
+        </div>
+        
+        <div class="houdini-features">
+          <div class="feature-card">
+            <h4>CSS Paint API</h4>
+            <p>使用JS绘制自定义图形</p>
+          </div>
+          <div class="feature-card">
+            <h4>CSS Typed OM</h4>
+            <p>解析和操作CSS值</p>
+          </div>
+          <div class="feature-card">
+            <h4>Animation Worklet</h4>
+            <p>高性能动画</p>
+          </div>
+          <div class="feature-card">
+            <h4>Layout Worklet</h4>
+            <p>自定义布局算法</p>
+          </div>
+        </div>
+        
+        <div class="compatibility-info">
+          <h3>兼容性说明:</h3>
+          <p>CSS Houdini特性目前仍处于实验阶段，仅在部分现代浏览器中支持。请在生产环境中谨慎使用。</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>CSS Houdini代码</h3>
+            <textarea 
+              v-model="houdiniOutput" 
+              placeholder="转换后的CSS Houdini代码将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToHoudini">CSS → CSS Houdini</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const houdiniOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertToHoudini = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            houdiniOutput.value = convertCssToHoudiniFeatures(inputCss.value);
+            result.value = 'CSS已成功转换为CSS Houdini特性代码！';
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertCssToHoudiniFeatures = (cssCode) => {
+          // 解析CSS代码
+          const rules = parseCss(cssCode);
+          
+          // 生成CSS Houdini代码
+          let houdiniCode = '/* CSS Houdini Features */\n\n';
+          
+          // 添加Paint Worklet示例
+          houdiniCode += `/* Example Paint Worklet Registration */\n`;
+          houdiniCode += `if ('paintWorklet' in CSS) {\n`;
+          houdiniCode += `  CSS.paintWorklet.addModule('path/to/custom-paint.js');\n`;
+          houdiniCode += `}\n\n`;
+          
+          // 添加Animation Worklet示例
+          houdiniCode += `/* Example Animation Worklet Registration */\n`;
+          houdiniCode += `if ('animationWorklet' in CSS) {\n`;
+          houdiniCode += `  CSS.animationWorklet.addModule('path/to/animation-worklet.js');\n`;
+          houdiniCode += `}\n\n`;
+          
+          // 处理每条CSS规则
+          for (const rule of rules) {
+            const selector = rule.selector;
+            const properties = rule.properties;
+            
+            houdiniCode += `${selector} {\n`;
+            
+            for (const [property, value] of Object.entries(properties)) {
+              // 尝试将某些属性转换为Houdini特性
+              if (property.includes('background') && value.includes('linear-gradient')) {
+                // 将复杂背景转换为Paint Worklet
+                houdiniCode += `  /* Replaced with Paint Worklet */\n`;
+                houdiniCode += `  background-image: paint(customGradient);\n`;
+                houdiniCode += `  --gradient-start: #3498db;\n`;
+                houdiniCode += `  --gradient-end: #2c3e50;\n`;
+              } else if (property.includes('border-radius') && value.includes('calc')) {
+                // 使用Houdini的Typed OM进行动态计算
+                houdiniCode += `  /* Using Typed OM for dynamic calculation */\n`;
+                houdiniCode += `  border-radius: calc(var(--radius, 10px) * 1px);\n`;
+              } else {
+                // 保持原值，但使用CSS变量以便Houdini动态修改
+                houdiniCode += `  ${property}: ${value};\n`;
+              }
+            }
+            
+            houdiniCode += `}\n\n`;
+          }
+          
+          // 添加一个Paint Worklet实现示例
+          houdiniCode += `/* Custom Paint Worklet Example (save as separate file) */\n`;
+          houdiniCode += `/*\nclass CustomBackgroundPainter {\n`;
+          houdiniCode += `  static get inputProperties() {\n    return ['--bg-color', '--pattern-size'];\n  }\n\n`;
+          houdiniCode += `  paint(ctx, geom, properties) {\n    const bgColor = properties.get('--bg-color').toString();\n    const patternSize = parseFloat(properties.get('--pattern-size').toString());\n\n`;
+          houdiniCode += `    ctx.fillStyle = bgColor;\n    ctx.fillRect(0, 0, geom.width, geom.height);\n\n`;
+          houdiniCode += `    ctx.fillStyle = '#f0f0f0';\n    for (let y = 0; y < geom.height; y += patternSize * 2) {\n`;
+          houdiniCode += `      for (let x = 0; x < geom.width; x += patternSize * 2) {\n`;
+          houdiniCode += `        ctx.beginPath();\n        ctx.arc(x, y, patternSize / 2, 0, Math.PI * 2);\n`;
+          houdiniCode += `        ctx.fill();\n      }\n    }\n  }\n}\n`;
+          houdiniCode += `registerPaint('customBackground', CustomBackgroundPainter);\n*/\n`;
+          
+          return houdiniCode;
+        };
+
+        const parseCss = (cssCode) => {
+          const rules = [];
+          
+          // 简单的CSS解析器
+          const ruleRegex = /([^{]+)\s*{\s*([^}]+)\s*}/g;
+          let match;
+          
+          while ((match = ruleRegex.exec(cssCode)) !== null) {
+            const selector = match[1].trim();
+            const propertiesStr = match[2].trim();
+            
+            // 解析属性
+            const properties = {};
+            const propRegex = /([a-zA-Z-]+)\s*:\s*([^;]+);?/g;
+            let propMatch;
+            
+            while ((propMatch = propRegex.exec(propertiesStr)) !== null) {
+              const prop = propMatch[1].trim();
+              const value = propMatch[2].trim();
+              properties[prop] = value;
+            }
+            
+            rules.push({
+              selector: selector,
+              properties: properties
+            });
+          }
+          
+          return rules;
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 300px;
+  height: 200px;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.button:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          houdiniOutput.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          houdiniOutput,
+          result,
+          error,
+          convertToHoudini,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

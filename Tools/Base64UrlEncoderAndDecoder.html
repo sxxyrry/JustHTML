@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base64 URL编码/解码 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Base64 URL安全编码/解码</h2>
+        <p>Base64 URL安全编码与解码（处理URL中的特殊字符）</p>
+        
+        <div class="info-box">
+          <p><strong>Base64 URL安全编码说明：</strong></p>
+          <p>Base64 URL安全编码将标准Base64中的"+"和"/"分别替换为"-"和"_"，并且省略末尾的填充"="，以适应URL和文件名的使用场景。</p>
+          <p>• 标准Base64: + / =</p>
+          <p>• URL安全: - _ (无=)</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要进行Base64 URL安全编码或解码的文本..."
+            rows="8"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="encodeUrlSafe">URL安全编码</button>
+            <button @click="decodeUrlSafe">URL安全解码</button>
+            <button @click="standardEncode">标准Base64编码</button>
+            <button @click="standardDecode">标准Base64解码</button>
+            <button @click="swapTexts">交换内容</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>转换结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+
+        // Base64 URL安全编码
+        const encodeUrlSafe = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 使用标准btoa进行Base64编码
+            // 先将字符串转换为UTF-8字节序列
+            const utf8Bytes = unescape(encodeURIComponent(inputText.value));
+            const binaryStr = btoa(utf8Bytes);
+            
+            // 将标准Base64转换为URL安全的Base64
+            // 替换+为-，/为_
+            let urlSafe = binaryStr
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, ''); // 移除填充字符
+            
+            result.value = urlSafe;
+          } catch (error) {
+            result.value = `编码错误: ${error.message}`;
+          }
+        };
+
+        // Base64 URL安全解码
+        const decodeUrlSafe = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 将URL安全的Base64转换为标准Base64
+            let standardBase64 = inputText.value
+              .replace(/-/g, '+')
+              .replace(/_/g, '/');
+            
+            // 根据长度补充适当的'='填充
+            const padding = 4 - (standardBase64.length % 4);
+            if (padding !== 4) {
+              standardBase64 += '='.repeat(padding);
+            }
+
+            // 使用atob进行解码
+            const utf8Bytes = atob(standardBase64);
+            const decodedStr = decodeURIComponent(escape(utf8Bytes));
+            
+            result.value = decodedStr;
+          } catch (error) {
+            result.value = `解码错误: ${error.message}`;
+          }
+        };
+
+        // 标准Base64编码
+        const standardEncode = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 将字符串转换为UTF-8字节序列，然后进行Base64编码
+            const utf8Bytes = unescape(encodeURIComponent(inputText.value));
+            result.value = btoa(utf8Bytes);
+          } catch (error) {
+            result.value = `编码错误: ${error.message}`;
+          }
+        };
+
+        // 标准Base64解码
+        const standardDecode = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 先解码Base64，然后将UTF-8字节序列转换回字符串
+            const utf8Bytes = atob(inputText.value);
+            result.value = decodeURIComponent(escape(utf8Bytes));
+          } catch (error) {
+            result.value = `解码错误: ${error.message}`;
+          }
+        };
+
+        // 交换输入和输出
+        const swapTexts = () => {
+          const temp = inputText.value;
+          inputText.value = result.value;
+          result.value = temp;
+        };
+
+        // 清空文本
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        // 复制结果
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          encodeUrlSafe,
+          decodeUrlSafe,
+          standardEncode,
+          standardDecode,
+          swapTexts,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

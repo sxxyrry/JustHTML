@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON路径提取器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON路径提取器</h2>
+        <p>从JSON中提取指定路径的值</p>
+        
+        <div class="info-box">
+          <p><strong>路径语法：</strong></p>
+          <p>$.property - 获取根对象的属性</p>
+          <p>$.array[0] - 获取数组第一个元素</p>
+          <p>$.property.subProperty - 获取嵌套属性</p>
+          <p>$.array[*].property - 获取数组中所有对象的某个属性</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="jsonInput" 
+            placeholder="在此输入JSON数据..."
+            rows="8"
+          ></textarea>
+          
+          <input 
+            type="text" 
+            v-model="pathInput" 
+            placeholder="输入路径，例如: $.name 或 $.users[0].email"
+            style="width: 100%; padding: 10px; margin: 10px 0; border-radius: var(--border-radius); border: 1px solid var(--bg-tertiary); background-color: var(--bg-primary); color: var(--text-primary);"
+          >
+          
+          <div class="controls">
+            <button @click="extractByPath">提取路径值</button>
+            <button @click="findAllPaths">查找所有路径</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearAll">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="allPaths.length > 0">
+            <p><strong>所有可用路径:</strong></p>
+            <ul style="max-height: 200px; overflow-y: auto; padding-left: 20px;">
+              <li v-for="(path, index) in allPaths" :key="index" style="margin: 5px 0; cursor: pointer;" @click="selectPath(path)">
+                {{ path }}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const jsonInput = ref('');
+        const pathInput = ref('');
+        const result = ref('');
+        const allPaths = ref([]);
+
+        const extractByPath = () => {
+          if (!jsonInput.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+          
+          if (!pathInput.value) {
+            result.value = '请输入路径';
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(jsonInput.value);
+            const extracted = evaluatePath(jsonData, pathInput.value);
+            result.value = JSON.stringify(extracted, null, 2);
+          } catch (e) {
+            result.value = `错误: ${e.message}`;
+          }
+        };
+
+        const evaluatePath = (data, path) => {
+          // 简化的JSON路径评估器
+          if (!path.startsWith('$')) {
+            throw new Error('路径必须以$开头');
+          }
+
+          // 移除$前缀并分割路径
+          let remainingPath = path.substring(1);
+          if (remainingPath === '') {
+            return data;
+          }
+
+          // 分割路径组件
+          const parts = remainingPath.split(/[.\[]/).filter(p => p !== '');
+          let current = data;
+
+          for (let part of parts) {
+            // 处理数组索引 [n]
+            if (part.includes(']')) {
+              const arrayPart = part.split(']');
+              const index = parseInt(arrayPart[0]);
+              if (isNaN(index)) {
+                throw new Error(`无效的数组索引: ${arrayPart[0]}`);
+              }
+              current = current[index];
+              
+              // 如果还有属性部分
+              if (arrayPart[1]) {
+                const prop = arrayPart[1].replace('.', '');
+                if (prop) {
+                  current = current[prop];
+                }
+              }
+            } else {
+              // 处理对象属性
+              current = current[part];
+            }
+
+            if (current === undefined) {
+              throw new Error(`路径不存在: ${path}`);
+            }
+          }
+
+          return current;
+        };
+
+        const findAllPaths = () => {
+          if (!jsonInput.value) {
+            result.value = '请输入JSON数据';
+            allPaths.value = [];
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(jsonInput.value);
+            allPaths.value = [];
+            extractPaths(jsonData, '$');
+            result.value = `找到 ${allPaths.value.length} 个路径`;
+          } catch (e) {
+            result.value = `错误: ${e.message}`;
+            allPaths.value = [];
+          }
+        };
+
+        const extractPaths = (obj, currentPath, visited = new WeakSet()) => {
+          if (obj === null || typeof obj !== 'object') {
+            // 基本类型，添加到路径列表
+            allPaths.value.push(currentPath);
+            return;
+          }
+
+          // 避免循环引用
+          if (visited.has(obj)) {
+            return;
+          }
+          visited.add(obj);
+
+          if (Array.isArray(obj)) {
+            for (let i = 0; i < obj.length; i++) {
+              const newPath = `${currentPath}[${i}]`;
+              extractPaths(obj[i], newPath, visited);
+            }
+          } else {
+            for (const key of Object.keys(obj)) {
+              const newPath = `${currentPath}.${key}`;
+              extractPaths(obj[key], newPath, visited);
+            }
+          }
+        };
+
+        const selectPath = (path) => {
+          pathInput.value = path;
+        };
+
+        const validateJson = () => {
+          if (!jsonInput.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            JSON.parse(jsonInput.value);
+            result.value = '✓ JSON格式有效';
+          } catch (e) {
+            result.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearAll = () => {
+          jsonInput.value = '';
+          pathInput.value = '';
+          result.value = '';
+          allPaths.value = [];
+        };
+
+        return {
+          jsonInput,
+          pathInput,
+          result,
+          allPaths,
+          extractByPath,
+          findAllPaths,
+          selectPath,
+          validateJson,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

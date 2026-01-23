@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL转JSON工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .options-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .stat-item {
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>SQL转JSON工具</h2>
+        <p>将SQL查询结果转换为JSON格式</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 将SQL查询结果转换为JSON格式</p>
+          <p>• 支持INSERT、SELECT等多种SQL语句</p>
+          <p>• 可配置JSON格式选项</p>
+        </div>
+        
+        <div class="options-container">
+          <div class="option-item">
+            <input type="checkbox" id="formatJson" v-model="options.formatJson">
+            <label for="formatJson">格式化JSON输出</label>
+          </div>
+          
+          <div class="option-item">
+            <input type="checkbox" id="includeHeaders" v-model="options.includeHeaders">
+            <label for="includeHeaders">包含列名作为键</label>
+          </div>
+          
+          <div class="option-item">
+            <input type="checkbox" id="parseValues" v-model="options.parseValues">
+            <label for="parseValues">解析数值和布尔值</label>
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>SQL查询结果</h3>
+            <textarea 
+              v-model="inputSql" 
+              placeholder="在此输入SQL查询结果或INSERT语句..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>转换后的JSON</h3>
+            <textarea 
+              v-model="jsonResult" 
+              placeholder="转换后的JSON将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="stats-container">
+          <div class="stat-item">
+            <div class="stat-value">{{ recordCount }}</div>
+            <div class="stat-label">记录数量</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ columnCount }}</div>
+            <div class="stat-label">列数量</div>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertSqlToJson">转换为JSON</button>
+          <button @click="convertInsertToJson">解析INSERT语句</button>
+          <button @click="clearAll">清空</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="resultMessage">
+          {{ resultMessage }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputSql = ref('');
+        const jsonResult = ref('');
+        const resultMessage = ref('');
+        const options = ref({
+          formatJson: true,
+          includeHeaders: true,
+          parseValues: true
+        });
+        
+        const recordCount = computed(() => {
+          if (!jsonResult.value) return 0;
+          try {
+            const obj = JSON.parse(jsonResult.value);
+            return Array.isArray(obj) ? obj.length : 1;
+          } catch (e) {
+            return 0;
+          }
+        });
+        
+        const columnCount = computed(() => {
+          if (!jsonResult.value) return 0;
+          try {
+            const obj = JSON.parse(jsonResult.value);
+            const firstRecord = Array.isArray(obj) ? (obj.length > 0 ? obj[0] : {}) : obj;
+            return Object.keys(firstRecord).length;
+          } catch (e) {
+            return 0;
+          }
+        });
+        
+        // 将SQL查询结果转换为JSON
+        const convertSqlToJson = () => {
+          if (!inputSql.value.trim()) {
+            jsonResult.value = '';
+            resultMessage.value = '请输入SQL查询结果';
+            return;
+          }
+          
+          try {
+            // 简单的解析 - 假设输入的是表格形式的查询结果
+            const lines = inputSql.value.split('\n').map(line => line.trim()).filter(line => line);
+            
+            if (lines.length === 0) {
+              resultMessage.value = '未找到有效的SQL查询结果';
+              return;
+            }
+            
+            // 检查是否是INSERT语句
+            if (inputSql.value.toUpperCase().includes('INSERT INTO')) {
+              resultMessage.value = '检测到INSERT语句，请使用"解析INSERT语句"功能';
+              return;
+            }
+            
+            // 解析表格格式的结果
+            const result = parseTableFormat(lines);
+            
+            if (result) {
+              jsonResult.value = options.value.formatJson 
+                ? JSON.stringify(result, null, 2) 
+                : JSON.stringify(result);
+              resultMessage.value = '转换成功！';
+            } else {
+              resultMessage.value = '无法解析输入的SQL结果，请检查格式';
+            }
+          } catch (error) {
+            resultMessage.value = `转换失败: ${error.message}`;
+          }
+        };
+        
+        // 解析表格格式的SQL结果
+        const parseTableFormat = (lines) => {
+          // 查找列名行（通常是第一行，包含字母和下划线）
+          let headers = [];
+          let startIndex = 0;
+          
+          // 简单查找包含字母的行作为列名
+          for (let i = 0; i < lines.length; i++) {
+            if (/[a-zA-Z_]/.test(lines[i])) {
+              headers = lines[i].split(/\s*\|\s*|\s+/).filter(h => h);
+              startIndex = i + 1;
+              break;
+            }
+          }
+          
+          if (headers.length === 0) {
+            // 如果没找到列名，尝试从INSERT语句中解析
+            return null;
+          }
+          
+          // 解析数据行
+          const records = [];
+          for (let i = startIndex; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // 按分隔符分割
+            const values = line.split(/\s*\|\s*|\s+(?=\w)/).filter(v => v);
+            
+            if (values.length === headers.length) {
+              const record = {};
+              headers.forEach((header, idx) => {
+                let value = values[idx];
+                
+                // 如果启用了值解析，尝试解析数值和布尔值
+                if (options.value.parseValues) {
+                  if (value === 'true') value = true;
+                  else if (value === 'false') value = false;
+                  else if (!isNaN(Number(value))) value = Number(value);
+                  else if (value === 'null' || value === 'NULL') value = null;
+                }
+                
+                if (options.value.includeHeaders) {
+                  record[header] = value;
+                } else {
+                  record[idx] = value;
+                }
+              });
+              
+              records.push(record);
+            }
+          }
+          
+          return records;
+        };
+        
+        // 解析INSERT语句
+        const convertInsertToJson = () => {
+          if (!inputSql.value.trim()) {
+            jsonResult.value = '';
+            resultMessage.value = '请输入INSERT语句';
+            return;
+          }
+          
+          try {
+            const insertStatement = inputSql.value.trim();
+            
+            // 解析INSERT INTO语句
+            const insertRegex = /INSERT\s+INTO\s+\w+\s*(?:\(([^)]+)\))?\s+VALUES\s*(.*)/i;
+            const match = insertStatement.match(insertRegex);
+            
+            if (!match) {
+              resultMessage.value = '无效的INSERT语句格式';
+              return;
+            }
+            
+            const columnsStr = match[1];
+            const valuesStr = match[2];
+            
+            // 解析列名
+            let columns = [];
+            if (columnsStr) {
+              columns = columnsStr.split(',').map(col => col.trim().replace(/`/g, ''));
+            }
+            
+            // 解析值部分 - 处理可能的多行插入
+            const valuesRegex = /\(([^)]+)\)/g;
+            const records = [];
+            
+            let valueMatch;
+            while ((valueMatch = valuesRegex.exec(valuesStr)) !== null) {
+              const values = valueMatch[1]
+                .split(',')
+                .map(val => val.trim())
+                .map(val => {
+                  // 去除外层引号
+                  if ((val.startsWith("'") && val.endsWith("'")) || 
+                      (val.startsWith('"') && val.endsWith('"'))) {
+                    return val.substring(1, val.length - 1);
+                  }
+                  return val;
+                });
+              
+              const record = {};
+              if (columns.length > 0) {
+                columns.forEach((col, idx) => {
+                  let value = values[idx];
+                  
+                  // 如果启用了值解析，尝试解析数值和布尔值
+                  if (options.value.parseValues) {
+                    if (value === 'true') value = true;
+                    else if (value === 'false') value = false;
+                    else if (!isNaN(Number(value))) value = Number(value);
+                    else if (value === 'null' || value === 'NULL') value = null;
+                  }
+                  
+                  record[col] = value;
+                });
+              } else {
+                // 如果没有列名，则使用索引作为键
+                values.forEach((val, idx) => {
+                  let value = val;
+                  
+                  if (options.value.parseValues) {
+                    if (value === 'true') value = true;
+                    else if (value === 'false') value = false;
+                    else if (!isNaN(Number(value))) value = Number(value);
+                    else if (value === 'null' || value === 'NULL') value = null;
+                  }
+                  
+                  record[idx] = value;
+                });
+              }
+              
+              records.push(record);
+            }
+            
+            jsonResult.value = options.value.formatJson 
+              ? JSON.stringify(records, null, 2) 
+              : JSON.stringify(records);
+              
+            resultMessage.value = 'INSERT语句解析成功！';
+          } catch (error) {
+            resultMessage.value = `解析失败: ${error.message}`;
+          }
+        };
+        
+        // 清空所有内容
+        const clearAll = () => {
+          inputSql.value = '';
+          jsonResult.value = '';
+          resultMessage.value = '';
+        };
+        
+        // 复制结果到剪贴板
+        const copyResult = async () => {
+          if (!jsonResult.value) {
+            resultMessage.value = '没有可复制的内容';
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(jsonResult.value);
+            resultMessage.value = '已复制到剪贴板';
+          } catch (error) {
+            resultMessage.value = '复制失败，请手动复制';
+          }
+        };
+        
+        // 加载示例
+        const loadExample = () => {
+          inputSql.value = `INSERT INTO users (id, name, email, active) VALUES 
+(1, '张三', 'zhangsan@example.com', true),
+(2, '李四', 'lisi@example.com', false),
+(3, '王五', 'wangwu@example.com', true);`;
+          
+          convertInsertToJson(); // 自动解析示例
+        };
+        
+        return {
+          inputSql,
+          jsonResult,
+          resultMessage,
+          options,
+          recordCount,
+          columnCount,
+          convertSqlToJson,
+          convertInsertToJson,
+          clearAll,
+          copyResult,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

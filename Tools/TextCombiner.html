@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本合并器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .text-area-group {
+      margin-bottom: 15px;
+    }
+    
+    .text-area-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    
+    .add-remove-btns {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .combine-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>文本合并器</h2>
+        <p>将多个文本块按指定方式合并</p>
+        
+        <div>
+          <div class="combine-options">
+            <div class="option-item">
+              <label for="combineMethod">合并方式</label>
+              <select id="combineMethod" v-model="combineMethod">
+                <option value="newline">换行连接</option>
+                <option value="space">空格连接</option>
+                <option value="comma">逗号连接</option>
+                <option value="custom">自定义分隔符</option>
+              </select>
+            </div>
+            
+            <div class="option-item" v-if="combineMethod === 'custom'">
+              <label for="customDelimiter">自定义分隔符</label>
+              <input 
+                type="text" 
+                id="customDelimiter" 
+                v-model="customDelimiter" 
+                placeholder="输入分隔符"
+              >
+            </div>
+          </div>
+          
+          <div v-for="(textArea, index) in textAreas" :key="index" class="text-area-group">
+            <div class="text-area-header">
+              <label>文本块 {{ index + 1 }}</label>
+              <div class="add-remove-btns">
+                <button @click="addTextArea(index)" style="padding: 3px 8px; font-size: 12px;">+</button>
+                <button @click="removeTextArea(index)" style="padding: 3px 8px; font-size: 12px;" v-if="textAreas.length > 1">-</button>
+              </div>
+            </div>
+            <textarea 
+              v-model="textAreas[index]" 
+              :placeholder="'在此输入第' + (index + 1) + '个文本块...'"
+              rows="4"
+            ></textarea>
+          </div>
+          
+          <button @click="addTextArea()">添加文本块</button>
+          <button @click="combineTexts">合并文本</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="clearAll">清空全部</button>
+          
+          <div class="result" v-if="result">
+            <p><strong>合并结果:</strong></p>
+            <pre style="white-space: pre-wrap; word-break: break-word;">{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive } = Vue;
+
+    createApp({
+      setup() {
+        const combineMethod = ref('newline');
+        const customDelimiter = ref(',');
+        const result = ref('');
+        const error = ref('');
+        
+        // 使用reactive来管理动态文本框数组
+        const textAreas = reactive(['']);
+
+        const addTextArea = (index = null) => {
+          if (index !== null) {
+            textAreas.splice(index + 1, 0, '');
+          } else {
+            textAreas.push('');
+          }
+        };
+
+        const removeTextArea = (index) => {
+          if (textAreas.length > 1) {
+            textAreas.splice(index, 1);
+          }
+        };
+
+        const combineTexts = () => {
+          error.value = '';
+          result.value = '';
+          
+          // 过滤掉空文本
+          const nonEmptyTexts = textAreas.filter(text => text.trim() !== '');
+          
+          if (nonEmptyTexts.length === 0) {
+            error.value = '请至少输入一个非空文本块';
+            return;
+          }
+          
+          try {
+            let delimiter = '';
+            
+            switch(combineMethod.value) {
+              case 'newline':
+                delimiter = '\n';
+                break;
+              case 'space':
+                delimiter = ' ';
+                break;
+              case 'comma':
+                delimiter = ', ';
+                break;
+              case 'custom':
+                delimiter = customDelimiter.value;
+                break;
+              default:
+                delimiter = '\n';
+            }
+            
+            result.value = nonEmptyTexts.join(delimiter);
+          } catch (e) {
+            error.value = `合并文本时出错: ${e.message}`;
+          }
+        };
+
+        const copyResult = () => {
+          if (!result.value) {
+            error.value = '没有可复制的结果';
+            return;
+          }
+          
+          navigator.clipboard.writeText(result.value)
+            .then(() => {
+              alert('合并结果已复制到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+              error.value = '复制失败';
+            });
+        };
+
+        const clearAll = () => {
+          // 清空所有文本框，但保留一个
+          textAreas.splice(0, textAreas.length);
+          textAreas.push('');
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          combineMethod,
+          customDelimiter,
+          result,
+          error,
+          textAreas,
+          addTextArea,
+          removeTextArea,
+          combineTexts,
+          copyResult,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

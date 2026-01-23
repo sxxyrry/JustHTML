@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>百分比计算器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .calculator-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    .calculator-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .calculator-section input, .calculator-section select {
+      padding: 8px;
+      margin-top: 5px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .calculation-result {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+    
+    .examples {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .example-item {
+      margin: 8px 0;
+      padding: 5px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .calculator-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>百分比计算器</h2>
+        <p>计算百分比及相关运算</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 计算一个数是另一个数的百分之几</p>
+          <p>• 计算一个数的百分之几是多少</p>
+          <p>• 计算两数之间的百分比变化</p>
+          <p>• 计算增加或减少百分之几后的数值</p>
+        </div>
+        
+        <div>
+          <div class="calculator-container">
+            <div class="calculator-section">
+              <label for="calculationType">计算类型</label>
+              <select id="calculationType" v-model="calculationType">
+                <option value="percentageOf">计算 X 的 Y% 是多少</option>
+                <option value="whatPercent">计算 X 是 Y 的百分之几</option>
+                <option value="percentChange">计算从 X 到 Y 的百分比变化</option>
+                <option value="percentIncrease">计算 X 增加 Y% 后的值</option>
+                <option value="percentDecrease">计算 X 减少 Y% 后的值</option>
+              </select>
+              
+              <div v-if="calculationType === 'percentageOf'">
+                <label for="number1">数值 (X)</label>
+                <input 
+                  type="number" 
+                  id="number1" 
+                  v-model.number="number1" 
+                  placeholder="输入数值"
+                >
+                
+                <label for="percentage">百分比 (Y%)</label>
+                <input 
+                  type="number" 
+                  id="percentage" 
+                  v-model.number="percentage" 
+                  placeholder="输入百分比"
+                >
+              </div>
+              
+              <div v-else-if="calculationType === 'whatPercent'">
+                <label for="number1">部分值 (X)</label>
+                <input 
+                  type="number" 
+                  id="number1" 
+                  v-model.number="number1" 
+                  placeholder="输入部分值"
+                >
+                
+                <label for="number2">总数值 (Y)</label>
+                <input 
+                  type="number" 
+                  id="number2" 
+                  v-model.number="number2" 
+                  placeholder="输入总数值"
+                >
+              </div>
+              
+              <div v-else-if="calculationType === 'percentChange'">
+                <label for="number1">初始值 (X)</label>
+                <input 
+                  type="number" 
+                  id="number1" 
+                  v-model.number="number1" 
+                  placeholder="输入初始值"
+                >
+                
+                <label for="number2">新值 (Y)</label>
+                <input 
+                  type="number" 
+                  id="number2" 
+                  v-model.number="number2" 
+                  placeholder="输入新值"
+                >
+              </div>
+              
+              <div v-else-if="calculationType === 'percentIncrease'">
+                <label for="number1">初始值 (X)</label>
+                <input 
+                  type="number" 
+                  id="number1" 
+                  v-model.number="number1" 
+                  placeholder="输入初始值"
+                >
+                
+                <label for="percentage">增加百分比 (Y%)</label>
+                <input 
+                  type="number" 
+                  id="percentage" 
+                  v-model.number="percentage" 
+                  placeholder="输入增加百分比"
+                >
+              </div>
+              
+              <div v-else-if="calculationType === 'percentDecrease'">
+                <label for="number1">初始值 (X)</label>
+                <input 
+                  type="number" 
+                  id="number1" 
+                  v-model.number="number1" 
+                  placeholder="输入初始值"
+                >
+                
+                <label for="percentage">减少百分比 (Y%)</label>
+                <input 
+                  type="number" 
+                  id="percentage" 
+                  v-model.number="percentage" 
+                  placeholder="输入减少百分比"
+                >
+              </div>
+            </div>
+            
+            <div class="calculator-section">
+              <label>计算公式</label>
+              <div class="result" style="padding: 10px; margin-top: 5px;">
+                <p>{{ formula }}</p>
+              </div>
+              
+              <label>计算结果</label>
+              <div class="result" style="padding: 10px; margin-top: 5px;">
+                <p>{{ result }}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="calculate">计算</button>
+            <button @click="clearAll">清空</button>
+          </div>
+          
+          <div class="calculation-result" v-if="result">
+            <p>{{ calculationDescription }}</p>
+          </div>
+          
+          <div class="examples">
+            <h3>计算示例</h3>
+            <div class="example-item">200的25%是50 (200 × 0.25 = 50)</div>
+            <div class="example-item">50是200的25% (50 ÷ 200 × 100 = 25%)</div>
+            <div class="example-item">从100到150的变化是50%增长 ((150-100) ÷ 100 × 100 = 50%)</div>
+            <div class="example-item">100增加20%后是120 (100 × (1 + 0.20) = 120)</div>
+            <div class="example-item">100减少20%后是80 (100 × (1 - 0.20) = 80)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const calculationType = ref('percentageOf');
+        const number1 = ref(100);
+        const number2 = ref(200);
+        const percentage = ref(25);
+        const result = ref('');
+
+        // 根据计算类型显示相应公式
+        const formula = computed(() => {
+          switch(calculationType.value) {
+            case 'percentageOf':
+              return `${number1.value || 'X'} × ${percentage.value || 'Y%'} = ?`;
+            case 'whatPercent':
+              return `(${number1.value || 'X'} ÷ ${number2.value || 'Y'}) × 100 = ?%`;
+            case 'percentChange':
+              return `((${number2.value || 'Y'} - ${number1.value || 'X'}) ÷ ${number1.value || 'X'}) × 100 = ?%`;
+            case 'percentIncrease':
+              return `${number1.value || 'X'} × (1 + ${percentage.value || 'Y%'}) = ?`;
+            case 'percentDecrease':
+              return `${number1.value || 'X'} × (1 - ${percentage.value || 'Y%'}) = ?`;
+            default:
+              return '请选择计算类型';
+          }
+        });
+
+        // 计算描述
+        const calculationDescription = computed(() => {
+          switch(calculationType.value) {
+            case 'percentageOf':
+              return `${number1.value || '?'} 的 ${percentage.value || '?'}% 是 ${result.value}`;
+            case 'whatPercent':
+              return `${number1.value || '?'} 是 ${number2.value || '?'} 的 ${result.value}`;
+            case 'percentChange':
+              const changeValue = parseFloat(result.value);
+              const changeType = changeValue >= 0 ? '增长' : '减少';
+              return `从 ${number1.value || '?'} 到 ${number2.value || '?'} ${changeType}了 ${Math.abs(changeValue)}%`;
+            case 'percentIncrease':
+              return `${number1.value || '?'} 增加 ${percentage.value || '?'}% 后是 ${result.value}`;
+            case 'percentDecrease':
+              return `${number1.value || '?'} 减少 ${percentage.value || '?'}% 后是 ${result.value}`;
+            default:
+              return '计算结果';
+          }
+        });
+
+        // 执行计算
+        const calculate = () => {
+          if (isNaN(number1.value) || number1.value === '') {
+            result.value = '请输入有效的数值';
+            return;
+          }
+
+          switch(calculationType.value) {
+            case 'percentageOf':
+              if (isNaN(percentage.value) || percentage.value === '') {
+                result.value = '请输入有效的百分比';
+                return;
+              }
+              result.value = (number1.value * (percentage.value / 100)).toFixed(6);
+              break;
+              
+            case 'whatPercent':
+              if (isNaN(number2.value) || number2.value === '') {
+                result.value = '请输入有效的总数值';
+                return;
+              }
+              if (number2.value === 0) {
+                result.value = '总数值不能为0';
+                return;
+              }
+              result.value = ((number1.value / number2.value) * 100).toFixed(6) + '%';
+              break;
+              
+            case 'percentChange':
+              if (isNaN(number2.value) || number2.value === '') {
+                result.value = '请输入有效的新值';
+                return;
+              }
+              if (number1.value === 0) {
+                result.value = '初始值不能为0';
+                return;
+              }
+              const change = ((number2.value - number1.value) / number1.value) * 100;
+              result.value = change.toFixed(6) + '%';
+              break;
+              
+            case 'percentIncrease':
+              if (isNaN(percentage.value) || percentage.value === '') {
+                result.value = '请输入有效的百分比';
+                return;
+              }
+              result.value = (number1.value * (1 + percentage.value / 100)).toFixed(6);
+              break;
+              
+            case 'percentDecrease':
+              if (isNaN(percentage.value) || percentage.value === '') {
+                result.value = '请输入有效的百分比';
+                return;
+              }
+              result.value = (number1.value * (1 - percentage.value / 100)).toFixed(6);
+              break;
+              
+            default:
+              result.value = '请选择计算类型';
+          }
+        };
+
+        // 清空所有
+        const clearAll = () => {
+          number1.value = '';
+          number2.value = '';
+          percentage.value = '';
+          result.value = '';
+        };
+
+        return {
+          calculationType,
+          number1,
+          number2,
+          percentage,
+          result,
+          formula,
+          calculationDescription,
+          calculate,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

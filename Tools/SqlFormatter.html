@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL格式化工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .options-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .stat-item {
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>SQL格式化工具</h2>
+        <p>格式化或压缩SQL代码，使其更易读或更紧凑</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 格式化：使SQL代码结构清晰，易于阅读和编辑</p>
+          <p>• 压缩：移除不必要的空白和换行，减少文件大小</p>
+          <p>• 验证：检查SQL代码的基本语法</p>
+        </div>
+        
+        <div class="stats-container">
+          <div class="stat-item">
+            <div class="stat-value">{{ inputSize }}</div>
+            <div class="stat-label">输入大小 (字符)</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ outputSize }}</div>
+            <div class="stat-label">输出大小 (字符)</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ savedSize }}</div>
+            <div class="stat-label">节省大小 (字符)</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ savedPercent }}%</div>
+            <div class="stat-label">压缩率</div>
+          </div>
+        </div>
+        
+        <div class="options-container">
+          <div class="option-item">
+            <input type="checkbox" id="uppercaseKeywords" v-model="options.uppercaseKeywords">
+            <label for="uppercaseKeywords">关键字大写</label>
+          </div>
+          
+          <div class="option-item">
+            <input type="checkbox" id="indentQueries" v-model="options.indentQueries">
+            <label for="indentQueries">缩进查询</label>
+          </div>
+          
+          <div class="option-item">
+            <input type="checkbox" id="newLineClauses" v-model="options.newLineClauses">
+            <label for="newLineClauses">每条子句换行</label>
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始SQL</h3>
+            <textarea 
+              v-model="inputSql" 
+              placeholder="在此输入SQL代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>格式化后的SQL</h3>
+            <textarea 
+              v-model="formattedSql" 
+              placeholder="格式化后的SQL代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="formatSql">格式化SQL</button>
+          <button @click="minifySql">压缩SQL</button>
+          <button @click="validateSql">验证SQL</button>
+          <button @click="clearAll">清空</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="validationResult">
+          {{ validationResult }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputSql = ref('');
+        const formattedSql = ref('');
+        const validationResult = ref('');
+        const options = ref({
+          uppercaseKeywords: true,
+          indentQueries: true,
+          newLineClauses: true
+        });
+        
+        const inputSize = computed(() => inputSql.value.length);
+        const outputSize = computed(() => formattedSql.value.length);
+        const savedSize = computed(() => inputSize.value - outputSize.value);
+        const savedPercent = computed(() => {
+          if (inputSize.value === 0) return 0;
+          return Math.round((Math.abs(savedSize.value) / inputSize.value) * 100);
+        });
+        
+        // 格式化SQL的函数
+        const formatSql = () => {
+          if (!inputSql.value.trim()) {
+            formattedSql.value = '';
+            validationResult.value = '请输入SQL代码';
+            return;
+          }
+          
+          try {
+            let sql = inputSql.value;
+            
+            // 定义SQL关键字
+            const sqlKeywords = [
+              'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 
+              'DROP', 'ALTER', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'OUTER', 
+              'ON', 'ORDER', 'BY', 'GROUP', 'HAVING', 'DISTINCT', 'AS', 'AND', 
+              'OR', 'NOT', 'IN', 'EXISTS', 'LIKE', 'BETWEEN', 'IS', 'NULL',
+              'UNION', 'INTERSECT', 'EXCEPT', 'LIMIT', 'OFFSET', 'VALUES', 'SET',
+              'INTO', 'TABLE', 'INDEX', 'VIEW', 'PROCEDURE', 'FUNCTION', 'TRIGGER'
+            ];
+            
+            // 如果需要大写关键字
+            if (options.value.uppercaseKeywords) {
+              sqlKeywords.forEach(keyword => {
+                const regex = new RegExp('\\b' + keyword + '\\b', 'gi');
+                sql = sql.replace(regex, keyword);
+              });
+            }
+            
+            // 处理换行和缩进
+            if (options.value.newLineClauses) {
+              // 在关键字前添加换行
+              sqlKeywords.forEach(keyword => {
+                if (['SELECT', 'FROM', 'WHERE', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT'].includes(keyword)) {
+                  const regex = new RegExp('(\\b' + keyword + '\\b)', 'gi');
+                  sql = sql.replace(regex, '\n$1');
+                }
+              });
+            }
+            
+            // 处理缩进
+            if (options.value.indentQueries) {
+              const lines = sql.split('\n');
+              let indentLevel = 0;
+              const indentedLines = [];
+              
+              for (let line of lines) {
+                line = line.trim();
+                if (!line) continue;
+                
+                // 减少缩进
+                if (line.includes('FROM') || line.includes('WHERE') || line.includes('ORDER BY') || 
+                    line.includes('GROUP BY') || line.includes('HAVING') || line.includes('LIMIT')) {
+                  indentLevel = 1;
+                }
+                
+                // 添加缩进
+                const indent = '  '.repeat(indentLevel);
+                indentedLines.push(indent + line);
+              }
+              
+              sql = indentedLines.join('\n');
+            }
+            
+            // 清理多余的空白行
+            sql = sql.replace(/\n\s*\n/g, '\n\n');
+            
+            formattedSql.value = sql.trim();
+            validationResult.value = 'SQL格式化成功';
+          } catch (error) {
+            validationResult.value = `格式化失败: ${error.message}`;
+          }
+        };
+        
+        // 压缩SQL的函数
+        const minifySql = () => {
+          if (!inputSql.value.trim()) {
+            formattedSql.value = '';
+            validationResult.value = '请输入SQL代码';
+            return;
+          }
+          
+          try {
+            let sql = inputSql.value;
+            
+            // 移除注释
+            sql = sql.replace(/--.*$/gm, ''); // 单行注释
+            sql = sql.replace(/\/\*[\s\S]*?\*\//g, ''); // 多行注释
+            
+            // 移除多余空白
+            sql = sql.replace(/\s+/g, ' ');
+            
+            // 移除首尾空白
+            sql = sql.trim();
+            
+            formattedSql.value = sql;
+            validationResult.value = 'SQL压缩成功';
+          } catch (error) {
+            validationResult.value = `压缩失败: ${error.message}`;
+          }
+        };
+        
+        // 验证SQL的函数
+        const validateSql = () => {
+          if (!inputSql.value.trim()) {
+            validationResult.value = '请先输入SQL代码';
+            return;
+          }
+          
+          try {
+            // 简单的语法验证 - 检查是否包含基本的SQL结构
+            const upperSql = inputSql.value.toUpperCase();
+            
+            // 检查是否有基本的SQL语句结构
+            if (!upperSql.includes('SELECT') && !upperSql.includes('INSERT') && 
+                !upperSql.includes('UPDATE') && !upperSql.includes('DELETE') &&
+                !upperSql.includes('CREATE') && !upperSql.includes('DROP') &&
+                !upperSql.includes('ALTER')) {
+              validationResult.value = '警告: 未检测到常见的SQL语句 (SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER)';
+              return;
+            }
+            
+            // 检查括号匹配
+            const openParentheses = (inputSql.value.match(/\(/g) || []).length;
+            const closeParentheses = (inputSql.value.match(/\)/g) || []).length;
+            
+            if (openParentheses !== closeParentheses) {
+              validationResult.value = `SQL语法警告: 括号不匹配 (${openParentheses} 个 (, ${closeParentheses} 个 ))`;
+              return;
+            }
+            
+            validationResult.value = 'SQL语法检查完成，未发现明显错误';
+          } catch (error) {
+            validationResult.value = `验证失败: ${error.message}`;
+          }
+        };
+        
+        // 清空所有内容
+        const clearAll = () => {
+          inputSql.value = '';
+          formattedSql.value = '';
+          validationResult.value = '';
+        };
+        
+        // 复制结果到剪贴板
+        const copyResult = async () => {
+          if (!formattedSql.value) {
+            validationResult.value = '没有可复制的内容';
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(formattedSql.value);
+            validationResult.value = '已复制到剪贴板';
+          } catch (error) {
+            validationResult.value = '复制失败，请手动复制';
+          }
+        };
+        
+        // 加载示例
+        const loadExample = () => {
+          inputSql.value = `SELECT u.id, u.name, p.title FROM users u INNER JOIN posts p ON u.id = p.user_id WHERE u.active = 1 AND p.created_at > '2023-01-01' ORDER BY p.created_at DESC LIMIT 10`;
+          formatSql(); // 自动格式化示例
+        };
+        
+        return {
+          inputSql,
+          formattedSql,
+          validationResult,
+          options,
+          inputSize,
+          outputSize,
+          savedSize,
+          savedPercent,
+          formatSql,
+          minifySql,
+          validateSql,
+          clearAll,
+          copyResult,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

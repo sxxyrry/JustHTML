@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meta标签生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .setting-group {
+      margin: 15px 0;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .setting-item {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+    }
+    
+    .setting-item input, .setting-item select, .setting-item textarea {
+      margin-left: 10px;
+      padding: 5px;
+      flex: 1;
+    }
+    
+    .setting-item label {
+      flex: 0 0 150px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .tag-preview {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Meta标签生成器</h2>
+        <p>生成HTML Meta标签</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 生成SEO友好的Meta标签</p>
+          <p>• 包括基本标签、Open Graph、Twitter Card等</p>
+          <p>• 有助于提高网站在搜索引擎和社交媒体上的表现</p>
+        </div>
+        
+        <div>
+          <div class="setting-group">
+            <h3>基本Meta标签</h3>
+            
+            <div class="setting-item">
+              <label for="title">标题:</label>
+              <input 
+                type="text" 
+                id="title" 
+                v-model="basicTags.title" 
+                placeholder="页面标题"
+              >
+            </div>
+            
+            <div class="setting-item">
+              <label for="description">描述:</label>
+              <textarea 
+                id="description" 
+                v-model="basicTags.description" 
+                placeholder="页面描述，建议150-160字符"
+                rows="2"
+              ></textarea>
+            </div>
+            
+            <div class="setting-item">
+              <label for="keywords">关键词:</label>
+              <input 
+                type="text" 
+                id="keywords" 
+                v-model="basicTags.keywords" 
+                placeholder="关键词，用逗号分隔"
+              >
+            </div>
+            
+            <div class="setting-item">
+              <label for="author">作者:</label>
+              <input 
+                type="text" 
+                id="author" 
+                v-model="basicTags.author" 
+                placeholder="作者姓名或公司"
+              >
+            </div>
+          </div>
+          
+          <div class="setting-group">
+            <h3>Open Graph标签 (社交分享)</h3>
+            
+            <div class="setting-item">
+              <label for="ogTitle">OG标题:</label>
+              <input 
+                type="text" 
+                id="ogTitle" 
+                v-model="ogTags.title" 
+                placeholder="社交分享标题"
+              >
+            </div>
+            
+            <div class="setting-item">
+              <label for="ogDescription">OG描述:</label>
+              <textarea 
+                id="ogDescription" 
+                v-model="ogTags.description" 
+                placeholder="社交分享描述"
+                rows="2"
+              ></textarea>
+            </div>
+            
+            <div class="setting-item">
+              <label for="ogImage">OG图片:</label>
+              <input 
+                type="text" 
+                id="ogImage" 
+                v-model="ogTags.image" 
+                placeholder="https://example.com/image.jpg"
+              >
+            </div>
+            
+            <div class="setting-item">
+              <label for="ogUrl">OG网址:</label>
+              <input 
+                type="text" 
+                id="ogUrl" 
+                v-model="ogTags.url" 
+                placeholder="https://example.com/page"
+              >
+            </div>
+            
+            <div class="setting-item">
+              <label for="ogType">OG类型:</label>
+              <select 
+                id="ogType" 
+                v-model="ogTags.type"
+              >
+                <option value="website">Website</option>
+                <option value="article">Article</option>
+                <option value="book">Book</option>
+                <option value="profile">Profile</option>
+                <option value="video">Video</option>
+                <option value="music">Music</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="setting-group">
+            <h3>Twitter Card标签</h3>
+            
+            <div class="setting-item">
+              <label for="twitterCard">卡片类型:</label>
+              <select 
+                id="twitterCard" 
+                v-model="twitterTags.card"
+              >
+                <option value="summary">Summary</option>
+                <option value="summary_large_image">Summary Large Image</option>
+                <option value="app">App</option>
+                <option value="player">Player</option>
+              </select>
+            </div>
+            
+            <div class="setting-item">
+              <label for="twitterTitle">Twitter标题:</label>
+              <input 
+                type="text" 
+                id="twitterTitle" 
+                v-model="twitterTags.title" 
+                placeholder="Twitter分享标题"
+              >
+            </div>
+            
+            <div class="setting-item">
+              <label for="twitterDescription">Twitter描述:</label>
+              <textarea 
+                id="twitterDescription" 
+                v-model="twitterTags.description" 
+                placeholder="Twitter分享描述"
+                rows="2"
+              ></textarea>
+            </div>
+            
+            <div class="setting-item">
+              <label for="twitterImage">Twitter图片:</label>
+              <input 
+                type="text" 
+                id="twitterImage" 
+                v-model="twitterTags.image" 
+                placeholder="https://example.com/twitter-image.jpg"
+              >
+            </div>
+            
+            <div class="setting-item">
+              <label for="twitterSite">Twitter账号:</label>
+              <input 
+                type="text" 
+                id="twitterSite" 
+                v-model="twitterTags.site" 
+                placeholder="@username"
+              >
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="generateMetaTags">生成Meta标签</button>
+            <button @click="resetAll">重置所有</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="tag-preview" v-if="result">
+            <h3>生成的Meta标签：</h3>
+            <pre>{{ result }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, watch } = Vue;
+
+    createApp({
+      setup() {
+        // 基本Meta标签
+        const basicTags = reactive({
+          title: '',
+          description: '',
+          keywords: '',
+          author: ''
+        });
+        
+        // Open Graph标签
+        const ogTags = reactive({
+          title: '',
+          description: '',
+          image: '',
+          url: '',
+          type: 'website'
+        });
+        
+        // Twitter Card标签
+        const twitterTags = reactive({
+          card: 'summary',
+          title: '',
+          description: '',
+          image: '',
+          site: ''
+        });
+        
+        const result = ref('');
+
+        // 生成Meta标签
+        const generateMetaTags = () => {
+          let metaTags = '';
+          
+          // 基本Meta标签
+          if (basicTags.title) {
+            metaTags += `<meta name="title" content="${basicTags.title}">\n`;
+          }
+          if (basicTags.description) {
+            metaTags += `<meta name="description" content="${basicTags.description}">\n`;
+          }
+          if (basicTags.keywords) {
+            metaTags += `<meta name="keywords" content="${basicTags.keywords}">\n`;
+          }
+          if (basicTags.author) {
+            metaTags += `<meta name="author" content="${basicTags.author}">\n`;
+          }
+          
+          // Open Graph标签
+          if (ogTags.title) {
+            metaTags += `<meta property="og:title" content="${ogTags.title}">\n`;
+          }
+          if (ogTags.description) {
+            metaTags += `<meta property="og:description" content="${ogTags.description}">\n`;
+          }
+          if (ogTags.image) {
+            metaTags += `<meta property="og:image" content="${ogTags.image}">\n`;
+          }
+          if (ogTags.url) {
+            metaTags += `<meta property="og:url" content="${ogTags.url}">\n`;
+          }
+          if (ogTags.type) {
+            metaTags += `<meta property="og:type" content="${ogTags.type}">\n`;
+          }
+          
+          // Twitter Card标签
+          if (twitterTags.card) {
+            metaTags += `<meta name="twitter:card" content="${twitterTags.card}">\n`;
+          }
+          if (twitterTags.title) {
+            metaTags += `<meta name="twitter:title" content="${twitterTags.title}">\n`;
+          }
+          if (twitterTags.description) {
+            metaTags += `<meta name="twitter:description" content="${twitterTags.description}">\n`;
+          }
+          if (twitterTags.image) {
+            metaTags += `<meta name="twitter:image" content="${twitterTags.image}">\n`;
+          }
+          if (twitterTags.site) {
+            metaTags += `<meta name="twitter:site" content="${twitterTags.site}">\n`;
+          }
+          
+          result.value = metaTags.trim();
+        };
+
+        // 重置所有
+        const resetAll = () => {
+          basicTags.title = '';
+          basicTags.description = '';
+          basicTags.keywords = '';
+          basicTags.author = '';
+          
+          ogTags.title = '';
+          ogTags.description = '';
+          ogTags.image = '';
+          ogTags.url = '';
+          ogTags.type = 'website';
+          
+          twitterTags.card = 'summary';
+          twitterTags.title = '';
+          twitterTags.description = '';
+          twitterTags.image = '';
+          twitterTags.site = '';
+          
+          result.value = '';
+        };
+
+        // 监听所有设置变化，自动生成结果
+        watch(() => ({
+          basic: {...basicTags},
+          og: {...ogTags},
+          twitter: {...twitterTags}
+        }), () => {
+          generateMetaTags();
+        }, { deep: true });
+
+        // 复制结果
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('Meta标签已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          basicTags,
+          ogTags,
+          twitterTags,
+          result,
+          generateMetaTags,
+          resetAll,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到Sass转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到Sass转换工具</h2>
+        <p>将CSS代码转换为Sass格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将普通的CSS代码转换为Sass格式，支持嵌套结构和变量建议</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>CSS代码</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>Sass代码</h3>
+            <textarea 
+              v-model="sassOutput" 
+              placeholder="转换后的Sass代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertCssToSass">CSS → Sass</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const sassOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertCssToSass = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            // 将CSS转换为Sass格式
+            sassOutput.value = convertToSassFormat(inputCss.value);
+            result.value = 'CSS已成功转换为Sass格式！';
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertToSassFormat = (cssCode) => {
+          // 首先标准化换行符
+          cssCode = cssCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+          
+          // 分割成行
+          const lines = cssCode.split('\n');
+          
+          // 结果数组
+          const resultLines = [];
+          
+          // 当前嵌套级别
+          let indentLevel = 0;
+          const indent = '  '; // 两个空格作为缩进
+          
+          // 逐行处理
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (!line) {
+              resultLines.push('');
+              continue;
+            }
+            
+            // 处理注释
+            if (line.startsWith('/*') || line.startsWith('//')) {
+              resultLines.push(indent.repeat(indentLevel) + line);
+              continue;
+            }
+            
+            // 如果行以 } 开始，减少缩进
+            if (line.startsWith('}')) {
+              indentLevel = Math.max(0, indentLevel - 1);
+              continue; // SASS使用缩进而不是大括号
+            }
+            
+            // 检查是否是规则声明（如 .class 或 #id）
+            if (line.includes('{') && !line.includes('}') && 
+                (line.includes('.') || line.includes('#') || 
+                 line.includes('[') || line.includes(':') || 
+                 /^[a-zA-Z]/.test(line))) {
+              // 这是一个CSS规则开始 - 移除大括号
+              let rule = line.replace(/\s*{\s*$/, '').trim();
+              resultLines.push(indent.repeat(indentLevel) + rule);
+              indentLevel++;
+            } else if (line.endsWith('{')) {
+              // 检查是否是简单的嵌套规则 - 移除大括号
+              let rule = line.replace(/\s*{\s*$/, '').trim();
+              resultLines.push(indent.repeat(indentLevel) + rule);
+              indentLevel++;
+            } else if (line.endsWith('}')) {
+              // 减少缩进，不添加行（SASS不使用大括号）
+              indentLevel = Math.max(0, indentLevel - 1);
+            } else if (line.includes(':') && !line.includes('{') && !line.includes('}')) {
+              // 这是一个CSS属性 - 移除分号，如果有的话
+              let prop = line.replace(/;$/, '').trim();
+              resultLines.push(indent.repeat(indentLevel) + prop);
+            } else if (line === '{') {
+              // SASS不使用大括号
+              continue;
+            } else {
+              // 其他情况，保持原有缩进但移除大括号
+              if (line !== '{' && line !== '}') {
+                resultLines.push(indent.repeat(indentLevel) + line);
+              }
+            }
+          }
+          
+          // 处理可能的嵌套选择器和建议变量
+          let sassOutput = resultLines.join('\n');
+          
+          // 尝试转换伪类和伪元素为嵌套格式
+          sassOutput = convertPseudoSelectors(sassOutput);
+          
+          // 检查是否有重复的颜色值，建议创建变量
+          sassOutput = suggestVariables(sassOutput);
+          
+          return sassOutput;
+        };
+
+        // 转换伪类和伪元素为嵌套格式
+        const convertPseudoSelectors = (sassCode) => {
+          // 正则表达式匹配伪类和伪元素
+          const pseudoRegex = /([^{]+)(:[^:{]+)\s*{([^}]*)}/g;
+          
+          return sassCode.replace(pseudoRegex, (match, selector, pseudo, content) => {
+            // 去除选择器和伪类的前后空格
+            selector = selector.trim();
+            pseudo = pseudo.trim();
+            
+            // 将CSS格式转换为Sass格式（移除大括号，使用缩进）
+            const pseudoContent = content.trim().split('\n').map(line => '  ' + line.trim()).join('\n');
+            return `${selector}\n  ${pseudo}\n${pseudoContent.split('\n').map(line => '    ' + line).join('\n')}`;
+          });
+        };
+
+        // 建议创建变量以减少重复
+        const suggestVariables = (sassCode) => {
+          // 查找颜色值
+          const colorRegex = /#[0-9a-fA-F]{3,6}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*#[0-9a-fA-F]{3,6}|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*rgba?\([^)]+\)|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*hsla?\([^)]+\)/gi;
+          const matches = sassCode.match(colorRegex) || [];
+          
+          // 统计颜色出现次数
+          const colorCount = {};
+          matches.forEach(color => {
+            // 提取实际颜色值（去除属性名）
+            const actualColor = color.includes(':') ? color.split(':')[1].trim() : color.trim();
+            colorCount[actualColor] = (colorCount[actualColor] || 0) + 1;
+          });
+          
+          // 找出出现超过一次的颜色
+          const repeatedColors = Object.keys(colorCount).filter(color => colorCount[color] > 1);
+          
+          // 创建变量定义
+          if (repeatedColors.length > 0) {
+            let variableDefinitions = '// Suggested variables:\n';
+            repeatedColors.forEach((color, index) => {
+              variableDefinitions += `$color-${index + 1}: ${color};\n`;
+            });
+            variableDefinitions += '\n';
+            
+            // 替换代码中的颜色值为变量
+            let updatedCode = sassCode;
+            repeatedColors.forEach((color, index) => {
+              // 替换颜色值，但确保不替换部分匹配
+              const colorPattern = new RegExp(`(?<![-\\w#])${color.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![-\\w])`, 'g');
+              updatedCode = updatedCode.replace(colorPattern, `$color-${index + 1}`);
+            });
+            
+            return variableDefinitions + updatedCode;
+          }
+          
+          return sassCode;
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.header {
+  background-color: #333;
+  padding: 20px;
+}
+
+.header h1 {
+  color: #fff;
+  margin: 0;
+}
+
+.header a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.header a:hover {
+  color: #0056b3;
+}
+
+.button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          sassOutput.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          sassOutput,
+          result,
+          error,
+          convertCssToSass,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

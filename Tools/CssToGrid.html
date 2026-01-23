@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS转Grid工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .conversion-info {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    .conversion-item {
+      margin: 8px 0;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--bg-primary);
+    }
+    
+    .mapping {
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .css-prop {
+      color: #ff6b6b;
+      font-family: monospace;
+    }
+    
+    .grid-class {
+      color: #4a9eff;
+      font-family: monospace;
+    }
+    
+    .preview-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .grid-item {
+      background-color: var(--accent-color);
+      color: white;
+      padding: 15px;
+      text-align: center;
+      border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS转Grid工具</h2>
+        <p>将CSS样式转换为CSS Grid布局代码</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 将CSS样式转换为CSS Grid布局</p>
+          <p>• 支持网格容器和网格项目的转换</p>
+          <p>• 生成完整的Grid布局代码</p>
+        </div>
+        
+        <div class="conversion-info">
+          <h3>支持的转换映射</h3>
+          <div class="conversion-item">
+            <div class="mapping">
+              <span class="css-prop">display: grid;</span> → <span class="grid-class">grid container</span>
+            </div>
+            <div class="mapping">
+              <span class="css-prop">grid-template-columns:</span> → <span class="grid-class">列定义</span>
+            </div>
+            <div class="mapping">
+              <span class="css-prop">grid-template-rows:</span> → <span class="grid-class">行定义</span>
+            </div>
+            <div class="mapping">
+              <span class="css-prop">grid-column:</span> → <span class="grid-class">列跨度</span>
+            </div>
+            <div class="mapping">
+              <span class="css-prop">grid-row:</span> → <span class="grid-class">行跨度</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码，例如: .container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }"
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>转换后的Grid布局</h3>
+            <textarea 
+              v-model="convertedGrid" 
+              placeholder="转换后的Grid布局代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToGrid">转换为Grid</button>
+          <button @click="clearAll">清空</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="resultMessage">
+          {{ resultMessage }}
+        </div>
+        
+        <div class="preview-grid" v-if="gridPreview.length > 0">
+          <div 
+            v-for="(item, index) in gridPreview" 
+            :key="index" 
+            :style="item.style"
+            class="grid-item"
+          >
+            Grid Item {{ index + 1 }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const convertedGrid = ref('');
+        const resultMessage = ref('');
+        const gridPreview = ref([]);
+        
+        // 转换CSS到Grid
+        const convertToGrid = () => {
+          if (!inputCss.value.trim()) {
+            convertedGrid.value = '';
+            gridPreview.value = [];
+            resultMessage.value = '请输入CSS代码';
+            return;
+          }
+          
+          try {
+            // 解析CSS
+            const parsedRules = parseCss(inputCss.value);
+            
+            // 查找grid相关规则
+            let gridContainerRule = null;
+            const gridItemRules = [];
+            
+            for (const rule of parsedRules) {
+              if (rule.type === 'rule') {
+                // 检查是否是grid容器
+                const hasDisplayGrid = rule.declarations.some(decl => 
+                  decl.property === 'display' && decl.value.includes('grid')
+                );
+                
+                if (hasDisplayGrid) {
+                  gridContainerRule = rule;
+                } else {
+                  // 检查是否是grid项目
+                  const hasGridProperty = rule.declarations.some(decl => 
+                    decl.property.startsWith('grid-')
+                  );
+                  
+                  if (hasGridProperty) {
+                    gridItemRules.push(rule);
+                  }
+                }
+              }
+            }
+            
+            if (!gridContainerRule) {
+              resultMessage.value = '未找到Grid容器 (包含 display: grid 的元素)';
+              return;
+            }
+            
+            // 生成Grid代码
+            let gridCode = `/* Grid容器样式 */\n${gridContainerRule.selector} {\n`;
+            
+            for (const decl of gridContainerRule.declarations) {
+              gridCode += `  ${decl.property}: ${decl.value};\n`;
+            }
+            
+            gridCode += '}\n\n';
+            
+            // 添加Grid项目样式
+            for (const rule of gridItemRules) {
+              gridCode += `/* Grid项目样式 */\n${rule.selector} {\n`;
+              
+              for (const decl of rule.declarations) {
+                gridCode += `  ${decl.property}: ${decl.value};\n`;
+              }
+              
+              gridCode += '}\n\n';
+            }
+            
+            // 生成HTML示例
+            gridCode += `<!-- HTML结构示例 -->\n<div class="${gridContainerRule.selector.replace('.', '').replace('#', '')}">\n`;
+            
+            // 假设有几个项目，根据grid-template-columns的数量估算
+            let itemCount = 6; // 默认数量
+            
+            for (let i = 0; i < itemCount; i++) {
+              gridCode += `  <div class="grid-item">Item ${i + 1}</div>\n`;
+            }
+            
+            gridCode += '</div>';
+            
+            convertedGrid.value = gridCode;
+            
+            // 生成预览
+            generatePreview(gridContainerRule, gridItemRules, itemCount);
+            
+            resultMessage.value = 'Grid转换完成！';
+          } catch (error) {
+            resultMessage.value = `转换失败: ${error.message}`;
+          }
+        };
+        
+        // 生成预览
+        const generatePreview = (containerRule, itemRules, itemCount) => {
+          gridPreview.value = [];
+          
+          // 根据容器规则生成样式
+          const containerStyle = {};
+          for (const decl of containerRule.declarations) {
+            containerStyle[camelCase(decl.property)] = decl.value;
+          }
+          
+          // 生成预览项目
+          for (let i = 0; i < itemCount; i++) {
+            const itemStyle = { gridColumn: 'auto', gridRow: 'auto' };
+            
+            // 应用项目规则
+            for (const rule of itemRules) {
+              if (rule.selector.includes(':nth-child') && 
+                  rule.selector.includes(`(${i + 1})`)) {
+                for (const decl of rule.declarations) {
+                  itemStyle[camelCase(decl.property)] = decl.value;
+                }
+              }
+            }
+            
+            gridPreview.value.push({
+              style: itemStyle
+            });
+          }
+        };
+        
+        // 驼峰转换
+        const camelCase = (str) => {
+          return str.replace(/-([a-z])/g, g => g[1].toUpperCase());
+        };
+        
+        // 简单的CSS解析器
+        const parseCss = (cssText) => {
+          const rules = [];
+          // 移除注释
+          cssText = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+          
+          // 匹配规则
+          const ruleRegex = /([^{]+)\{([^}]*)\}/g;
+          let match;
+          
+          while ((match = ruleRegex.exec(cssText)) !== null) {
+            const selector = match[1].trim();
+            const declarationsText = match[2].trim();
+            
+            const declarations = [];
+            const declRegex = /([\w\-]+)\s*:\s*([^;]+);?/g;
+            let declMatch;
+            
+            while ((declMatch = declRegex.exec(declarationsText)) !== null) {
+              const property = declMatch[1].trim();
+              const value = declMatch[2].trim();
+              declarations.push({ property, value });
+            }
+            
+            rules.push({
+              type: 'rule',
+              selector,
+              declarations
+            });
+          }
+          
+          return rules;
+        };
+        
+        // 清空所有内容
+        const clearAll = () => {
+          inputCss.value = '';
+          convertedGrid.value = '';
+          gridPreview.value = [];
+          resultMessage.value = '';
+        };
+        
+        // 复制结果到剪贴板
+        const copyResult = async () => {
+          if (!convertedGrid.value) {
+            resultMessage.value = '没有可复制的内容';
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(convertedGrid.value);
+            resultMessage.value = '已复制到剪贴板';
+          } catch (error) {
+            resultMessage.value = '复制失败，请手动复制';
+          }
+        };
+        
+        // 加载示例
+        const loadExample = () => {
+          inputCss.value = `.grid-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 200px);
+  gap: 10px;
+}
+
+.item-1 {
+  grid-column: 1 / 3;
+}`;
+
+          convertToGrid(); // 自动转换示例
+        };
+        
+        return {
+          inputCss,
+          convertedGrid,
+          resultMessage,
+          gridPreview,
+          convertToGrid,
+          clearAll,
+          copyResult,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

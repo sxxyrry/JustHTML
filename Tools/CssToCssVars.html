@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到CSS变量转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .variable-list {
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    .variable-item {
+      margin: 5px 0;
+      padding: 5px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到CSS变量转换工具</h2>
+        <p>将CSS中的重复值转换为CSS变量</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将CSS中的重复颜色、尺寸等值提取为CSS变量，实现更好的可维护性</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>带有CSS变量的代码</h3>
+            <textarea 
+              v-model="cssWithVars" 
+              placeholder="转换后的CSS变量代码将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToCssVars">CSS → CSS变量</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="variable-list" v-if="extractedVars.length > 0">
+          <h3>提取的变量:</h3>
+          <div class="variable-item" v-for="(variable, index) in extractedVars" :key="index">
+            <code>{{ variable.name }}: {{ variable.value }}</code> (出现 {{ variable.count }} 次)
+          </div>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const cssWithVars = ref('');
+        const result = ref('');
+        const error = ref('');
+        const extractedVars = ref([]);
+
+        const convertToCssVars = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            const { convertedCss, vars } = convertToCssVariables(inputCss.value);
+            cssWithVars.value = convertedCss;
+            extractedVars.value = vars;
+            result.value = `CSS已成功转换为包含${vars.length}个变量的代码！`;
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertToCssVariables = (cssCode) => {
+          // 提取颜色值、尺寸值等常见重复值
+          const colorMatches = cssCode.match(/#[0-9a-fA-F]{3,6}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*#[0-9a-fA-F]{3,6}|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*rgba?\([^)]+\)|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*hsla?\([^)]+\)/gi) || [];
+          
+          // 统计每个颜色值的出现次数
+          const colorCount = {};
+          colorMatches.forEach(color => {
+            // 提取实际颜色值（去除属性名）
+            const actualColor = color.includes(':') ? color.split(':')[1].trim() : color.trim();
+            colorCount[actualColor] = (colorCount[actualColor] || 0) + 1;
+          });
+          
+          // 提取尺寸值
+          const dimensionMatches = cssCode.match(/\b\d+(\.\d+)?(px|em|rem|%|pt|cm|mm|in|pc|ch|ex|vw|vh|vmin|vmax)\b/g) || [];
+          
+          // 统计每个尺寸值的出现次数
+          const dimensionCount = {};
+          dimensionMatches.forEach(dimension => {
+            dimensionCount[dimension] = (dimensionCount[dimension] || 0) + 1;
+          });
+          
+          // 找出出现超过一次的颜色和尺寸
+          const repeatedColors = Object.keys(colorCount).filter(color => colorCount[color] > 1);
+          const repeatedDimensions = Object.keys(dimensionCount).filter(dim => dimensionCount[dim] > 1);
+          
+          // 创建变量映射
+          const varMap = {};
+          const vars = [];
+          
+          // 添加颜色变量
+          repeatedColors.forEach((color, index) => {
+            const varName = `--color-${index + 1}`;
+            varMap[color] = `var(${varName})`;
+            vars.push({
+              name: varName,
+              value: color,
+              count: colorCount[color]
+            });
+          });
+          
+          // 添加尺寸变量
+          repeatedDimensions.forEach((dim, index) => {
+            const varName = `--size-${index + 1}`;
+            varMap[dim] = `var(${varName})`;
+            vars.push({
+              name: varName,
+              value: dim,
+              count: dimensionCount[dim]
+            });
+          });
+          
+          // 创建CSS变量定义
+          let varDefinitions = ':root {\n';
+          vars.forEach(v => {
+            varDefinitions += `  ${v.name}: ${v.value};\n`;
+          });
+          varDefinitions += '}\n\n';
+          
+          // 替换CSS代码中的值
+          let updatedCss = cssCode;
+          
+          // 替换颜色值
+          repeatedColors.forEach(color => {
+            // 使用正则表达式替换，确保只替换完整的颜色值
+            const colorPattern = new RegExp(`(?<![-\\w#])${color.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![-\\w])`, 'g');
+            updatedCss = updatedCss.replace(colorPattern, varMap[color]);
+          });
+          
+          // 替换尺寸值
+          repeatedDimensions.forEach(dim => {
+            // 使用正则表达式替换，确保只替换完整的尺寸值
+            const dimPattern = new RegExp(`\\b${dim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+            updatedCss = updatedCss.replace(dimPattern, varMap[dim]);
+          });
+          
+          return {
+            convertedCss: varDefinitions + updatedCss,
+            vars: vars
+          };
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.header {
+  background-color: #333;
+  padding: 20px;
+  color: #fff;
+}
+
+.header h1 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.nav-link {
+  color: #007bff;
+  text-decoration: none;
+  padding: 10px;
+}
+
+.nav-link:hover {
+  color: #0056b3;
+  background-color: #f8f9fa;
+}
+
+.button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}
+
+.card {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 20px;
+  margin: 10px;
+  background-color: #fff;
+}
+
+.card-title {
+  color: #333;
+  font-size: 1.25rem;
+  margin-bottom: 10px;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          cssWithVars.value = '';
+          result.value = '';
+          error.value = '';
+          extractedVars.value = [];
+        };
+
+        return {
+          inputCss,
+          cssWithVars,
+          result,
+          error,
+          extractedVars,
+          convertToCssVars,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

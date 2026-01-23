@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到HTML表格转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .preview-container {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      border-left: 4px solid var(--accent-color);
+      overflow-x: auto;
+    }
+    
+    .preview-container table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    
+    .preview-container th, 
+    .preview-container td {
+      border: 1px solid var(--bg-secondary);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    
+    .preview-container th {
+      background-color: var(--bg-secondary);
+      font-weight: bold;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到HTML表格转换工具</h2>
+        <p>将JSON数据转换为HTML表格</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将JSON数组转换为HTML表格格式，支持预览功能</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder='在此输入JSON数组，例如: [{"name": "张三", "age": 30, "city": "北京"}, {"name": "李四", "age": 25, "city": "上海"}]'
+            rows="12"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertJsonToHtmlTable">转换为HTML表格</button>
+            <button @click="togglePreview">切换预览</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result && !showPreview">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="preview-container" v-if="showPreview && result" v-html="result"></div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const showPreview = ref(false);
+
+        const convertJsonToHtmlTable = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(inputText.value);
+            
+            if (!Array.isArray(jsonData)) {
+              throw new Error('JSON数据必须是数组格式');
+            }
+
+            if (jsonData.length === 0) {
+              result.value = '<p>输入数组为空</p>';
+              return;
+            }
+
+            // 获取所有可能的键（用于列名）
+            const allKeys = new Set();
+            jsonData.forEach(item => {
+              if (typeof item === 'object' && item !== null) {
+                Object.keys(item).forEach(key => allKeys.add(key));
+              }
+            });
+
+            const keys = Array.from(allKeys);
+
+            // 生成HTML表格
+            let html = '<table>\n  <thead>\n    <tr>\n';
+            
+            // 表头
+            keys.forEach(key => {
+              html += `      <th>${escapeHtml(key)}</th>\n`;
+            });
+            
+            html += '    </tr>\n  </thead>\n  <tbody>\n';
+            
+            // 表格数据行
+            jsonData.forEach(row => {
+              html += '    <tr>\n';
+              keys.forEach(key => {
+                const value = row[key] !== undefined ? row[key] : '';
+                html += `      <td>${escapeHtml(String(value))}</td>\n`;
+              });
+              html += '    </tr>\n';
+            });
+            
+            html += '  </tbody>\n</table>';
+
+            result.value = html;
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const escapeHtml = (text) => {
+          if (text === null || text === undefined) {
+            return '';
+          }
+          return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        };
+
+        const togglePreview = () => {
+          if (!result.value) {
+            convertJsonToHtmlTable();
+          }
+          showPreview.value = !showPreview.value;
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(inputText.value);
+            if (Array.isArray(parsed)) {
+              result.value = `✓ JSON格式有效，数组包含 ${parsed.length} 个项目`;
+            } else {
+              result.value = '✓ JSON格式有效，但数据不是数组';
+            }
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+          showPreview.value = false;
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          showPreview,
+          convertJsonToHtmlTable,
+          togglePreview,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

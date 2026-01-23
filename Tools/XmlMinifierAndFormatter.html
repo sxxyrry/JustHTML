@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XML格式化与压缩工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .formatter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--bg-tertiary);
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+      margin-right: 5px;
+    }
+    
+    .tab.active {
+      background-color: var(--accent-color);
+      color: white;
+    }
+    
+    .code-output {
+      position: relative;
+    }
+    
+    .copy-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>XML格式化与压缩工具</h2>
+        <p>格式化或压缩XML代码</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 格式化XML代码 - 使代码更易读</p>
+          <p>• 压缩XML代码 - 移除多余字符减小体积</p>
+          <p>• 代码美化 - 统一缩进和换行</p>
+        </div>
+        
+        <div class="tabs">
+          <div class="tab" :class="{ active: activeTab === 'format' }" @click="activeTab = 'format'">格式化</div>
+          <div class="tab" :class="{ active: activeTab === 'minify' }" @click="activeTab = 'minify'">压缩</div>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputCode" 
+            placeholder="在此输入XML代码..."
+            rows="15"
+          ></textarea>
+          
+          <div class="formatter-options" v-if="activeTab === 'format'">
+            <div class="option-item">
+              <input type="checkbox" id="beautify" v-model="formatOptions.beautify" checked>
+              <label for="beautify">美化代码</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="insertSpaces" v-model="formatOptions.insertSpaces" checked>
+              <label for="insertSpaces">使用空格代替制表符</label>
+            </div>
+            
+            <div class="option-item">
+              <label for="indentSize">缩进大小:</label>
+              <input type="number" id="indentSize" v-model.number="formatOptions.indentSize" min="1" max="8" style="width: 60px; margin-left: 10px;">
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button v-if="activeTab === 'format'" @click="formatCode">格式化代码</button>
+            <button v-if="activeTab === 'minify'" @click="minifyCode">压缩代码</button>
+            <button @click="clearCode">清空</button>
+            <button @click="loadExample">加载示例</button>
+            <button @click="downloadCode">下载代码</button>
+          </div>
+          
+          <div class="code-output" v-if="outputCode">
+            <button class="copy-button" @click="copyCode">复制代码</button>
+            <textarea 
+              v-model="outputCode" 
+              placeholder="处理后的代码将显示在这里..."
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCode = ref('');
+        const outputCode = ref('');
+        const activeTab = ref('format'); // 'format' or 'minify'
+        
+        const formatOptions = ref({
+          beautify: true,
+          insertSpaces: true,
+          indentSize: 2
+        });
+        
+        // XML格式化函数
+        const formatCode = () => {
+          if (!inputCode.value.trim()) {
+            alert('请先输入XML代码');
+            return;
+          }
+          
+          try {
+            let xml = inputCode.value;
+            let formatted = '';
+            let indent = 0;
+            const indentChar = formatOptions.value.insertSpaces ? 
+              ' '.repeat(formatOptions.value.indentSize) : '\t';
+              
+            // 将XML分解为标签和内容
+            xml.split(/</).forEach((part) => {
+              if (part === '') return;
+              
+              if (part.charAt(0) === '/') {
+                // 结束标签
+                indent--;
+                formatted += indentChar.repeat(Math.max(0, indent)) + '</' + part;
+              } else if (part.charAt(0) === '?') {
+                // XML声明
+                formatted += indentChar.repeat(indent) + '<?' + part.substring(1);
+              } else if (part.charAt(0) === '!') {
+                // 注释或DOCTYPE
+                formatted += indentChar.repeat(indent) + '<' + part;
+              } else {
+                // 开始标签
+                if (part.indexOf('>') !== -1) {
+                  const tagContent = part.substring(0, part.indexOf('>') + 1);
+                  const content = part.substring(part.indexOf('>') + 1);
+                  
+                  formatted += indentChar.repeat(indent) + '<' + tagContent;
+                  
+                  if (content.trim()) {
+                    formatted += content.trim();
+                  }
+                  
+                  if (!tagContent.includes('/>')) {
+                    indent++;
+                  }
+                } else {
+                  formatted += indentChar.repeat(indent) + '<' + part;
+                  indent++;
+                }
+              }
+              
+              if (part.indexOf('?>') !== -1 || part.indexOf('>') !== -1) {
+                formatted += '\n';
+              }
+            });
+            
+            outputCode.value = formatted.trim();
+          } catch (error) {
+            alert('格式化失败: ' + error.message);
+          }
+        };
+        
+        // XML压缩函数
+        const minifyCode = () => {
+          if (!inputCode.value.trim()) {
+            alert('请先输入XML代码');
+            return;
+          }
+          
+          try {
+            // 移除多余的空白字符和注释
+            let minified = inputCode.value
+              // 移除XML注释
+              .replace(/<!--[\s\S]*?-->/g, '')
+              // 移除多余的空白字符
+              .replace(/\s+/g, ' ')
+              // 清理标签内的空格
+              .replace(/> </g, '><')
+              .trim();
+            
+            outputCode.value = minified;
+          } catch (error) {
+            alert('压缩失败: ' + error.message);
+          }
+        };
+        
+        const clearCode = () => {
+          inputCode.value = '';
+          outputCode.value = '';
+        };
+        
+        const loadExample = () => {
+          inputCode.value = `<?xml version="1.0" encoding="UTF-8"?>
+<bookstore>
+  <book id="1">
+    <title>Learning JavaScript</title>
+    <author>John Doe</author>
+    <year>2022</year>
+    <price currency="USD">29.99</price>
+  </book>
+  <book id="2">
+    <title>Advanced CSS</title>
+    <author>Jane Smith</author>
+    <year>2023</year>
+    <price currency="USD">39.99</price>
+  </book>
+</bookstore>`;
+          
+          if (activeTab.value === 'format') {
+            formatCode();
+          } else {
+            minifyCode();
+          }
+        };
+        
+        const copyCode = async () => {
+          try {
+            await navigator.clipboard.writeText(outputCode.value);
+            alert('代码已复制到剪贴板！');
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动选择并复制代码');
+          }
+        };
+        
+        const downloadCode = () => {
+          if (!outputCode.value) {
+            alert('没有可下载的代码');
+            return;
+          }
+          
+          const blob = new Blob([outputCode.value], { type: 'application/xml' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = activeTab.value === 'format' ? 'formatted-xml.xml' : 'minified-xml.xml';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+        
+        return {
+          inputCode,
+          outputCode,
+          activeTab,
+          formatOptions,
+          formatCode,
+          minifyCode,
+          clearCode,
+          loadExample,
+          copyCode,
+          downloadCode
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YAML验证器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .validation-result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: var(--border-radius);
+      font-weight: bold;
+    }
+    
+    .valid {
+      background-color: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+    }
+    
+    .invalid {
+      background-color: rgba(231, 76, 60, 0.2);
+      color: #e74c3c;
+    }
+    
+    .yaml-features {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .feature-item {
+      margin: 8px 0;
+      padding: 5px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>YAML验证器</h2>
+        <p>验证YAML格式的正确性</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 检查YAML语法是否正确</p>
+          <p>• 识别常见的YAML格式错误</p>
+          <p>• 提供格式修正建议</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputYaml" 
+            placeholder="在此输入YAML内容进行验证..."
+            rows="15"
+            @input="validateYaml"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="validateYaml">验证YAML</button>
+            <button @click="clearText">清空</button>
+            <button @click="loadSample">加载示例</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="validation-result" :class="validationClass" v-if="validationResult">
+            <h3>{{ validationStatus }}</h3>
+            <p>{{ validationResult }}</p>
+          </div>
+        </div>
+        
+        <div class="yaml-features">
+          <h3>YAML语法要点</h3>
+          <div class="feature-item">
+            <p><strong>缩进:</strong> 使用空格（非Tab）进行缩进，相同层级的元素左侧对齐</p>
+          </div>
+          <div class="feature-item">
+            <p><strong>键值对:</strong> 使用冒号和空格分隔键和值 (key: value)</p>
+          </div>
+          <div class="feature-item">
+            <p><strong>列表:</strong> 使用短横线和空格开头 (- item)</p>
+          </div>
+          <div class="feature-item">
+            <p><strong>多行字符串:</strong> 使用 | 保留换行符或 > 折叠换行符</p>
+          </div>
+          <div class="feature-item">
+            <p><strong>注释:</strong> 使用 # 开头</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputYaml = ref('');
+        const validationResult = ref('');
+        const isValid = ref(null);
+
+        // 验证结果的CSS类
+        const validationClass = computed(() => {
+          return isValid.value ? 'valid' : 'invalid';
+        });
+
+        // 验证状态文本
+        const validationStatus = computed(() => {
+          return isValid.value ? '✓ YAML格式有效' : '✗ YAML格式无效';
+        });
+
+        // 简单的YAML解析器
+        const parseYaml = (yamlStr) => {
+          try {
+            // 这是一个简化的YAML解析器，只处理基本的YAML结构
+            const lines = yamlStr.split('\n');
+            const stack = [{}];
+            const root = stack[0];
+
+            for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              
+              // 跳过空行和注释行
+              if (!line.trim() || line.trim().startsWith('#')) continue;
+
+              // 检查缩进一致性
+              const leadingSpaces = line.search(/\S/);
+              if (leadingSpaces % 2 !== 0) {
+                throw new Error(`第${i+1}行: 缩进必须是偶数个空格`);
+              }
+
+              const depth = leadingSpaces / 2;
+              if (depth >= stack.length) {
+                throw new Error(`第${i+1}行: 缩进层次不正确`);
+              }
+
+              // 调整堆栈到正确深度
+              stack.length = depth + 1;
+
+              // 检查是否为键值对
+              const keyValueMatch = line.match(/^(\s*)([a-zA-Z0-9_-][a-zA-Z0-9 _\.-]*?):\s*(.*?)\s*$/);
+              if (keyValueMatch) {
+                const [, spaces, key, value] = keyValueMatch;
+                const currentObj = stack[depth];
+                
+                if (!currentObj) continue;
+
+                // 解析值的类型
+                let parsedValue = value;
+                if (value === 'true') parsedValue = true;
+                else if (value === 'false') parsedValue = false;
+                else if (value === 'null' || value === 'Null' || value === 'NULL') parsedValue = null;
+                else if (!isNaN(value) && value.trim() !== '') {
+                  parsedValue = Number(value);
+                } else if (value.startsWith('"') && value.endsWith('"')) {
+                  parsedValue = value.substring(1, value.length - 1);
+                } else if (value.startsWith("'") && value.endsWith("'")) {
+                  parsedValue = value.substring(1, value.length - 1);
+                } else if (value) {
+                  // 简单的字符串值
+                  parsedValue = value;
+                } else {
+                  // 这是一个嵌套对象
+                  const newObj = {};
+                  currentObj[key] = newObj;
+                  stack[depth + 1] = newObj;
+                  continue;
+                }
+
+                currentObj[key] = parsedValue;
+              } 
+              // 检查是否为数组元素
+              else if (line.match(/^\s*-\s+/)) {
+                const match = line.match(/^(\s*)-\s+(.+)$/);
+                if (match) {
+                  const [, spaces, value] = match;
+                  const depth = spaces.length / 2;
+                  const currentContainer = stack[depth];
+                  
+                  if (!currentContainer) continue;
+
+                  // 检查当前容器是否已经是数组，如果不是则创建数组
+                  if (!Array.isArray(currentContainer)) {
+                    // 查找父对象并创建数组
+                    const parent = stack[depth - 1];
+                    if (parent) {
+                      const lastKey = Object.keys(parent).pop();
+                      if (lastKey) {
+                        const arr = [];
+                        parent[lastKey] = arr;
+                        stack[depth] = arr;
+                      }
+                    }
+                  }
+
+                  const currentArr = stack[depth];
+                  if (Array.isArray(currentArr)) {
+                    // 解析数组元素的值
+                    let parsedValue = value;
+                    if (value === 'true') parsedValue = true;
+                    else if (value === 'false') parsedValue = false;
+                    else if (value === 'null') parsedValue = null;
+                    else if (!isNaN(value)) parsedValue = Number(value);
+                    else parsedValue = value.replace(/['"]/g, '');
+                    
+                    currentArr.push(parsedValue);
+                  }
+                }
+              } 
+              else {
+                throw new Error(`第${i+1}行: 无法解析的YAML语法`);
+              }
+            }
+
+            return root;
+          } catch (e) {
+            throw new Error(e.message);
+          }
+        };
+
+        // 验证YAML
+        const validateYaml = () => {
+          if (!inputYaml.value) {
+            validationResult.value = '请输入YAML内容';
+            isValid.value = null;
+            return;
+          }
+
+          try {
+            parseYaml(inputYaml.value);
+            validationResult.value = 'YAML格式有效，可以成功解析。';
+            isValid.value = true;
+          } catch (error) {
+            validationResult.value = error.message;
+            isValid.value = false;
+          }
+        };
+
+        // 清空文本
+        const clearText = () => {
+          inputYaml.value = '';
+          validationResult.value = '';
+          isValid.value = null;
+        };
+
+        // 加载示例
+        const loadSample = () => {
+          inputYaml.value = `# 示例YAML文档
+name: "JustHTML项目"
+version: 1.0
+description: >
+  一个纯前端工具箱，
+  无需后端支持。
+  
+features:
+  - 高效
+  - 轻量
+  - 易用
+
+metadata:
+  license: "MIT"
+  author: "开发者"
+  year: 2023
+  
+tags:
+  - 工具
+  - 前端
+  - 实用`;
+          validateYaml();
+        };
+
+        // 复制结果
+        const copyResult = () => {
+          if (validationResult.value) {
+            const textToCopy = `${validationStatus.value}\n${validationResult.value}`;
+            navigator.clipboard.writeText(textToCopy)
+              .then(() => {
+                alert('验证结果已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputYaml,
+          validationResult,
+          isValid,
+          validationClass,
+          validationStatus,
+          validateYaml,
+          clearText,
+          loadSample,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

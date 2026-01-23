@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>单位换算器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section input, .converter-section select {
+      padding: 8px;
+      margin-top: 5px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .conversion-history {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .history-item {
+      padding: 5px 0;
+      border-bottom: 1px solid var(--bg-secondary);
+    }
+    
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>单位换算器</h2>
+        <p>常用单位之间的换算</p>
+        
+        <div class="info-box">
+          <p><strong>支持的换算类型：</strong></p>
+          <p>• 长度：米、千米、厘米、毫米、英寸、英尺、码、英里</p>
+          <p>• 重量：克、千克、吨、盎司、磅</p>
+          <p>• 温度：摄氏度、华氏度、开尔文</p>
+          <p>• 面积：平方米、平方千米、公顷、英亩、平方英尺、平方英里</p>
+          <p>• 体积：毫升、升、立方厘米、立方米、加仑、品脱、夸脱</p>
+          <p>• 时间：毫秒、秒、分钟、小时、天、周、月、年</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <label for="conversionType">换算类型</label>
+            <select id="conversionType" v-model="conversionType" @change="resetValues">
+              <option value="length">长度</option>
+              <option value="weight">重量</option>
+              <option value="temperature">温度</option>
+              <option value="area">面积</option>
+              <option value="volume">体积</option>
+              <option value="time">时间</option>
+            </select>
+            
+            <label for="fromUnit">从</label>
+            <select id="fromUnit" v-model="fromUnit">
+              <option v-for="unit in units[conversionType]" :value="unit.key">{{ unit.name }}</option>
+            </select>
+            
+            <label for="inputValue">数值</label>
+            <input 
+              type="number" 
+              id="inputValue" 
+              v-model.number="inputValue" 
+              @input="convertValue"
+              placeholder="输入数值"
+            >
+          </div>
+          
+          <div class="converter-section">
+            <label for="toUnit">转换为</label>
+            <select id="toUnit" v-model="toUnit" @change="convertValue">
+              <option v-for="unit in units[conversionType]" :value="unit.key">{{ unit.name }}</option>
+            </select>
+            
+            <label>结果</label>
+            <div class="result" style="padding: 10px; margin-top: 5px;">
+              <p>{{ result }}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertValue">立即换算</button>
+          <button @click="switchUnits">切换单位</button>
+          <button @click="clearValues">清空</button>
+        </div>
+        
+        <div class="conversion-history" v-if="history.length > 0">
+          <h3>换算历史</h3>
+          <div v-for="(item, index) in history" :key="index" class="history-item">
+            {{ item.fromValue }} {{ item.fromUnitName }} = {{ item.toValue }} {{ item.toUnitName }}
+          </div>
+          <button @click="clearHistory" style="margin-top: 10px;">清空历史</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, computed } = Vue;
+
+    createApp({
+      setup() {
+        const conversionType = ref('length');
+        const fromUnit = ref('meter');
+        const toUnit = ref('kilometer');
+        const inputValue = ref(1);
+        const result = ref('');
+        const history = ref([]);
+
+        // 定义单位换算关系
+        const units = {
+          length: [
+            { key: 'millimeter', name: '毫米 (mm)', factor: 0.001 },
+            { key: 'centimeter', name: '厘米 (cm)', factor: 0.01 },
+            { key: 'meter', name: '米 (m)', factor: 1 },
+            { key: 'kilometer', name: '千米 (km)', factor: 1000 },
+            { key: 'inch', name: '英寸 (in)', factor: 0.0254 },
+            { key: 'foot', name: '英尺 (ft)', factor: 0.3048 },
+            { key: 'yard', name: '码 (yd)', factor: 0.9144 },
+            { key: 'mile', name: '英里 (mi)', factor: 1609.344 }
+          ],
+          weight: [
+            { key: 'milligram', name: '毫克 (mg)', factor: 0.000001 },
+            { key: 'gram', name: '克 (g)', factor: 0.001 },
+            { key: 'kilogram', name: '千克 (kg)', factor: 1 },
+            { key: 'ton', name: '吨 (t)', factor: 1000 },
+            { key: 'ounce', name: '盎司 (oz)', factor: 0.0283495 },
+            { key: 'pound', name: '磅 (lb)', factor: 0.453592 }
+          ],
+          temperature: [
+            { key: 'celsius', name: '摄氏度 (°C)' },
+            { key: 'fahrenheit', name: '华氏度 (°F)' },
+            { key: 'kelvin', name: '开尔文 (K)' }
+          ],
+          area: [
+            { key: 'squareMillimeter', name: '平方毫米 (mm²)', factor: 0.000001 },
+            { key: 'squareCentimeter', name: '平方厘米 (cm²)', factor: 0.0001 },
+            { key: 'squareMeter', name: '平方米 (m²)', factor: 1 },
+            { key: 'hectare', name: '公顷 (ha)', factor: 10000 },
+            { key: 'squareKilometer', name: '平方千米 (km²)', factor: 1000000 },
+            { key: 'acre', name: '英亩 (ac)', factor: 4046.86 },
+            { key: 'squareFoot', name: '平方英尺 (ft²)', factor: 0.092903 },
+            { key: 'squareMile', name: '平方英里 (mi²)', factor: 2589988.11 }
+          ],
+          volume: [
+            { key: 'milliliter', name: '毫升 (mL)', factor: 0.001 },
+            { key: 'liter', name: '升 (L)', factor: 1 },
+            { key: 'cubicCentimeter', name: '立方厘米 (cm³)', factor: 0.001 },
+            { key: 'cubicMeter', name: '立方米 (m³)', factor: 1000 },
+            { key: 'gallonUS', name: '加仑(美) (gal)', factor: 3.78541 },
+            { key: 'gallonUK', name: '加仑(英) (gal)', factor: 4.54609 },
+            { key: 'pintUS', name: '品脱(美) (pt)', factor: 0.473176 },
+            { key: 'pintUK', name: '品脱(英) (pt)', factor: 0.568261 },
+            { key: 'quartUS', name: '夸脱(美) (qt)', factor: 0.946353 },
+            { key: 'quartUK', name: '夸脱(英) (qt)', factor: 1.13652 }
+          ],
+          time: [
+            { key: 'millisecond', name: '毫秒 (ms)', factor: 0.001 },
+            { key: 'second', name: '秒 (s)', factor: 1 },
+            { key: 'minute', name: '分钟 (min)', factor: 60 },
+            { key: 'hour', name: '小时 (hr)', factor: 3600 },
+            { key: 'day', name: '天 (d)', factor: 86400 },
+            { key: 'week', name: '周 (wk)', factor: 604800 },
+            { key: 'month', name: '月 (mo)', factor: 2628000 }, // 平均月份 (30.44天)
+            { key: 'year', name: '年 (yr)', factor: 31536000 } // 平年
+          ]
+        };
+
+        // 获取单位详情
+        const getUnitDetails = (type, unitKey) => {
+          return units[type].find(unit => unit.key === unitKey);
+        };
+
+        // 执行换算
+        const convertValue = () => {
+          if (inputValue.value === '' || isNaN(inputValue.value)) {
+            result.value = '请输入有效数值';
+            return;
+          }
+
+          if (conversionType.value === 'temperature') {
+            // 温度换算需要特殊处理
+            result.value = convertTemperature(inputValue.value, fromUnit.value, toUnit.value);
+          } else {
+            // 其他单位换算
+            const fromUnitInfo = getUnitDetails(conversionType.value, fromUnit.value);
+            const toUnitInfo = getUnitDetails(conversionType.value, toUnit.value);
+            
+            if (!fromUnitInfo || !toUnitInfo) {
+              result.value = '无效的单位';
+              return;
+            }
+            
+            // 转换为标准单位（以factor为基准），然后再转换为目标单位
+            const standardValue = inputValue.value * fromUnitInfo.factor;
+            const finalValue = standardValue / toUnitInfo.factor;
+            
+            result.value = finalValue.toFixed(6);
+          }
+
+          // 添加到历史记录
+          addToHistory();
+        };
+
+        // 温度换算
+        const convertTemperature = (value, from, to) => {
+          // 先转换为摄氏度
+          let celsius;
+          switch(from) {
+            case 'celsius':
+              celsius = value;
+              break;
+            case 'fahrenheit':
+              celsius = (value - 32) * 5/9;
+              break;
+            case 'kelvin':
+              celsius = value - 273.15;
+              break;
+            default:
+              return '无效的温度单位';
+          }
+
+          // 从摄氏度转换为目标单位
+          let result;
+          switch(to) {
+            case 'celsius':
+              result = celsius;
+              break;
+            case 'fahrenheit':
+              result = (celsius * 9/5) + 32;
+              break;
+            case 'kelvin':
+              result = celsius + 273.15;
+              break;
+            default:
+              return '无效的目标温度单位';
+          }
+
+          return result.toFixed(6);
+        };
+
+        // 添加到历史记录
+        const addToHistory = () => {
+          if (inputValue.value !== '' && !isNaN(inputValue.value) && result.value && !isNaN(result.value)) {
+            const fromUnitInfo = getUnitDetails(conversionType.value, fromUnit.value);
+            const toUnitInfo = getUnitDetails(conversionType.value, toUnit.value);
+            
+            history.value.unshift({
+              fromValue: parseFloat(inputValue.value).toFixed(6),
+              toValue: parseFloat(result.value).toFixed(6),
+              fromUnitName: fromUnitInfo.name,
+              toUnitName: toUnitInfo.name
+            });
+            
+            // 限制历史记录数量为10条
+            if (history.value.length > 10) {
+              history.value.pop();
+            }
+          }
+        };
+
+        // 切换单位
+        const switchUnits = () => {
+          const temp = fromUnit.value;
+          fromUnit.value = toUnit.value;
+          toUnit.value = temp;
+          convertValue();
+        };
+
+        // 清空数值
+        const clearValues = () => {
+          inputValue.value = '';
+          result.value = '';
+        };
+
+        // 重置数值
+        const resetValues = () => {
+          inputValue.value = 1;
+          fromUnit.value = units[conversionType.value][0].key;
+          toUnit.value = units[conversionType.value][1].key;
+          convertValue();
+        };
+
+        // 清空历史记录
+        const clearHistory = () => {
+          history.value = [];
+        };
+
+        // 初始化换算
+        resetValues();
+
+        return {
+          conversionType,
+          fromUnit,
+          toUnit,
+          inputValue,
+          result,
+          history,
+          units,
+          convertValue,
+          switchUnits,
+          clearValues,
+          resetValues,
+          clearHistory
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

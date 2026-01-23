@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>颜色转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .color-display {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+      gap: 20px;
+    }
+    
+    .color-preview {
+      width: 100px;
+      height: 100px;
+      border-radius: 10px;
+      border: 1px solid var(--bg-tertiary);
+    }
+    
+    .color-inputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .input-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .input-group label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .input-group input {
+      padding: 8px 12px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>颜色转换工具</h2>
+        <p>在不同颜色格式之间转换（HEX, RGB, HSL）</p>
+        
+        <div class="info-box">
+          <p><strong>颜色格式说明：</strong></p>
+          <p>• HEX: #FF5733 - 六位十六进制表示法</p>
+          <p>• RGB: rgb(255, 87, 51) - 红绿蓝值</p>
+          <p>• HSL: hsl(16, 100%, 60%) - 色相饱和度亮度</p>
+        </div>
+        
+        <div class="color-display">
+          <div 
+            class="color-preview" 
+            :style="{ backgroundColor: hexColor }"
+          ></div>
+          <div>
+            <h3>当前颜色</h3>
+            <p>HEX: {{ hexColor }}</p>
+            <p>RGB: {{ rgbColor }}</p>
+            <p>HSL: {{ hslColor }}</p>
+          </div>
+        </div>
+        
+        <div class="color-inputs">
+          <div class="input-group">
+            <label for="hexInput">HEX颜色</label>
+            <input 
+              type="text" 
+              id="hexInput" 
+              v-model="hexColor" 
+              @input="updateFromHex"
+              placeholder="#FFFFFF"
+            >
+          </div>
+          
+          <div class="input-group">
+            <label for="rgbInput">RGB颜色</label>
+            <input 
+              type="text" 
+              id="rgbInput" 
+              v-model="rgbInput" 
+              @input="updateFromRgb"
+              placeholder="rgb(255, 255, 255)"
+            >
+          </div>
+          
+          <div class="input-group">
+            <label for="hslInput">HSL颜色</label>
+            <input 
+              type="text" 
+              id="hslInput" 
+              v-model="hslInput" 
+              @input="updateFromHsl"
+              placeholder="hsl(0, 0%, 100%)"
+            >
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="randomColor">随机颜色</button>
+          <button @click="copyHex">复制HEX</button>
+          <button @click="copyRgb">复制RGB</button>
+          <button @click="copyHsl">复制HSL</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const hexColor = ref('#FFFFFF');
+        
+        // 计算属性来格式化RGB和HSL显示
+        const rgbColor = computed(() => {
+          const rgb = hexToRgb(hexColor.value);
+          return `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+        });
+        
+        const hslColor = computed(() => {
+          const hsl = hexToHsl(hexColor.value);
+          return `hsl(${Math.round(hsl.h)}, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%)`;
+        });
+        
+        // 用于输入框的值
+        const rgbInput = computed({
+          get: () => rgbColor.value,
+          set: (value) => {
+            try {
+              const match = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i);
+              if (match) {
+                const r = parseInt(match[1]);
+                const g = parseInt(match[2]);
+                const b = parseInt(match[3]);
+                hexColor.value = rgbToHex(r, g, b);
+              }
+            } catch (e) {
+              console.error("Invalid RGB format");
+            }
+          }
+        });
+        
+        const hslInput = computed({
+          get: () => hslColor.value,
+          set: (value) => {
+            try {
+              const match = value.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/i);
+              if (match) {
+                const h = parseInt(match[1]);
+                const s = parseInt(match[2]);
+                const l = parseInt(match[3]);
+                hexColor.value = hslToHex(h, s, l);
+              }
+            } catch (e) {
+              console.error("Invalid HSL format");
+            }
+          }
+        });
+
+        // HEX到RGB转换
+        const hexToRgb = (hex) => {
+          // 移除#符号
+          const cleanHex = hex.replace('#', '');
+          
+          // 处理3位简写格式
+          let r, g, b;
+          if (cleanHex.length === 3) {
+            r = parseInt(cleanHex[0] + cleanHex[0], 16);
+            g = parseInt(cleanHex[1] + cleanHex[1], 16);
+            b = parseInt(cleanHex[2] + cleanHex[2], 16);
+          } else {
+            r = parseInt(cleanHex.substring(0, 2), 16);
+            g = parseInt(cleanHex.substring(2, 4), 16);
+            b = parseInt(cleanHex.substring(4, 6), 16);
+          }
+          
+          return { r, g, b };
+        };
+
+        // RGB到HEX转换
+        const rgbToHex = (r, g, b) => {
+          const toHex = (c) => {
+            const hex = c.toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+          };
+          
+          return '#' + toHex(r) + toHex(g) + toHex(b);
+        };
+
+        // RGB到HSL转换
+        const rgbToHsl = (r, g, b) => {
+          r /= 255;
+          g /= 255;
+          b /= 255;
+
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          let h, s, l = (max + min) / 2;
+
+          if (max === min) {
+            h = s = 0; // achromatic
+          } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            
+            switch (max) {
+              case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+              case g: h = (b - r) / d + 2; break;
+              case b: h = (r - g) / d + 4; break;
+            }
+            
+            h /= 6;
+          }
+
+          return { h: h * 360, s: s * 100, l: l * 100 };
+        };
+
+        // HSL到RGB转换
+        const hslToRgb = (h, s, l) => {
+          h /= 360;
+          s /= 100;
+          l /= 100;
+
+          const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+          };
+
+          let r, g, b;
+
+          if (s === 0) {
+            r = g = b = l; // achromatic
+          } else {
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+          }
+
+          return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+        };
+
+        // HEX到HSL转换
+        const hexToHsl = (hex) => {
+          const rgb = hexToRgb(hex);
+          return rgbToHsl(rgb.r, rgb.g, rgb.b);
+        };
+
+        // HSL到HEX转换
+        const hslToHex = (h, s, l) => {
+          const rgb = hslToRgb(h, s, l);
+          return rgbToHex(rgb.r, rgb.g, rgb.b);
+        };
+
+        // 从HEX输入更新
+        const updateFromHex = () => {
+          // 验证HEX格式
+          const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+          if (!hexRegex.test(hexColor.value)) {
+            // 如果格式不正确，使用上次的有效值
+            return;
+          }
+        };
+
+        // 从RGB输入更新
+        const updateFromRgb = () => {
+          // 这里不需要做任何事，因为computed属性会自动处理
+        };
+
+        // 从HSL输入更新
+        const updateFromHsl = () => {
+          // 这里不需要做任何事，因为computed属性会自动处理
+        };
+
+        // 生成随机颜色
+        const randomColor = () => {
+          const letters = '0123456789ABCDEF';
+          let color = '#';
+          for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+          }
+          hexColor.value = color;
+        };
+
+        // 复制颜色值到剪贴板
+        const copyHex = () => {
+          navigator.clipboard.writeText(hexColor.value).then(() => {
+            alert('HEX颜色已复制到剪贴板');
+          });
+        };
+
+        const copyRgb = () => {
+          navigator.clipboard.writeText(rgbColor.value).then(() => {
+            alert('RGB颜色已复制到剪贴板');
+          });
+        };
+
+        const copyHsl = () => {
+          navigator.clipboard.writeText(hslColor.value).then(() => {
+            alert('HSL颜色已复制到剪贴板');
+          });
+        };
+
+        return {
+          hexColor,
+          rgbColor,
+          hslColor,
+          rgbInput,
+          hslInput,
+          updateFromHex,
+          updateFromRgb,
+          updateFromHsl,
+          randomColor,
+          copyHex,
+          copyRgb,
+          copyHsl
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

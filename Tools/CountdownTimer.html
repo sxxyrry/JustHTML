@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>倒计时器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .countdown-timer {
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    
+    .timer-display {
+      font-size: 3em;
+      font-weight: bold;
+      margin: 20px 0;
+      padding: 20px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      letter-spacing: 3px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    
+    .time-inputs {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    
+    .time-input {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .time-input input {
+      width: 80px;
+      padding: 8px;
+      text-align: center;
+    }
+    
+    .time-input label {
+      margin-top: 5px;
+      font-size: 0.9em;
+      color: var(--accent-color);
+    }
+    
+    .status {
+      margin: 15px 0;
+      font-weight: bold;
+    }
+    
+    .finished {
+      color: #2ecc71;
+    }
+    
+    .running {
+      color: #3498db;
+    }
+    
+    .paused {
+      color: #f39c12;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .preset-btn {
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border: none;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+    }
+    
+    .preset-btn:hover {
+      background-color: var(--bg-tertiary);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section countdown-timer">
+        <h2>倒计时器</h2>
+        <p>设置并启动倒计时</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>• 设置时间后点击"开始倒计时"</p>
+          <p>• 可以暂停、恢复或重置倒计时</p>
+          <p>• 使用预设快速设置常用时间</p>
+        </div>
+        
+        <div>
+          <div class="timer-display">{{ formattedTime }}</div>
+          
+          <div class="status" :class="statusClass">
+            {{ statusText }}
+          </div>
+          
+          <div class="time-inputs">
+            <div class="time-input">
+              <input 
+                type="number" 
+                v-model.number="hours" 
+                min="0" 
+                max="23" 
+                :disabled="isActive"
+              >
+              <label>小时</label>
+            </div>
+            
+            <div class="time-input">
+              <input 
+                type="number" 
+                v-model.number="minutes" 
+                min="0" 
+                max="59" 
+                :disabled="isActive"
+              >
+              <label>分钟</label>
+            </div>
+            
+            <div class="time-input">
+              <input 
+                type="number" 
+                v-model.number="seconds" 
+                min="0" 
+                max="59" 
+                :disabled="isActive"
+              >
+              <label>秒</label>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="startTimer" :disabled="isActive">开始</button>
+            <button @click="pauseTimer" :disabled="!isActive || isFinished">暂停</button>
+            <button @click="resumeTimer" :disabled="!isPaused">恢复</button>
+            <button @click="resetTimer">重置</button>
+          </div>
+          
+          <div class="presets">
+            <button class="preset-btn" @click="setPreset(5, 0, 0)">5分钟</button>
+            <button class="preset-btn" @click="setPreset(10, 0, 0)">10分钟</button>
+            <button class="preset-btn" @click="setPreset(15, 0, 0)">15分钟</button>
+            <button class="preset-btn" @click="setPreset(30, 0, 0)">30分钟</button>
+            <button class="preset-btn" @click="setPreset(0, 1, 0)">1分钟</button>
+            <button class="preset-btn" @click="setPreset(0, 30, 0)">30秒</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const hours = ref(0);
+        const minutes = ref(5);
+        const seconds = ref(0);
+        const totalSeconds = ref(0);
+        const isActive = ref(false);
+        const isPaused = ref(false);
+        const isFinished = ref(false);
+        const timerInterval = ref(null);
+
+        // 格式化时间显示
+        const formattedTime = computed(() => {
+          const hrs = Math.floor(totalSeconds.value / 3600);
+          const mins = Math.floor((totalSeconds.value % 3600) / 60);
+          const secs = totalSeconds.value % 60;
+          
+          return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        });
+
+        // 状态文本
+        const statusText = computed(() => {
+          if (isFinished.value) return '已完成!';
+          if (isActive.value && !isPaused.value) return '运行中...';
+          if (isPaused.value) return '已暂停';
+          return '待开始';
+        });
+
+        // 状态类
+        const statusClass = computed(() => {
+          if (isFinished.value) return 'finished';
+          if (isActive.value && !isPaused.value) return 'running';
+          if (isPaused.value) return 'paused';
+          return '';
+        });
+
+        // 开始倒计时
+        const startTimer = () => {
+          if (totalSeconds.value <= 0) {
+            totalSeconds.value = hours.value * 3600 + minutes.value * 60 + seconds.value;
+            if (totalSeconds.value <= 0) {
+              alert('请设置大于0的时间');
+              return;
+            }
+          }
+
+          isActive.value = true;
+          isPaused.value = false;
+          isFinished.value = false;
+
+          timerInterval.value = setInterval(() => {
+            totalSeconds.value--;
+            
+            if (totalSeconds.value <= 0) {
+              clearInterval(timerInterval.value);
+              totalSeconds.value = 0;
+              isActive.value = false;
+              isPaused.value = false;
+              isFinished.value = true;
+              
+              // 浏览器通知
+              if (Notification.permission === 'granted') {
+                new Notification('倒计时结束!', {
+                  body: '您设置的倒计时已经完成。',
+                  icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏰</text></svg>'
+                });
+              }
+            }
+          }, 1000);
+        };
+
+        // 暂停倒计时
+        const pauseTimer = () => {
+          if (isActive.value && !isPaused.value) {
+            clearInterval(timerInterval.value);
+            isPaused.value = true;
+            isActive.value = false;
+          }
+        };
+
+        // 恢复倒计时
+        const resumeTimer = () => {
+          if (isPaused.value && totalSeconds.value > 0) {
+            startTimer();
+          }
+        };
+
+        // 重置倒计时
+        const resetTimer = () => {
+          clearInterval(timerInterval.value);
+          isActive.value = false;
+          isPaused.value = false;
+          isFinished.value = false;
+          totalSeconds.value = hours.value * 3600 + minutes.value * 60 + seconds.value;
+        };
+
+        // 设置预设时间
+        const setPreset = (h, m, s) => {
+          if (!isActive.value) {
+            hours.value = h;
+            minutes.value = m;
+            seconds.value = s;
+            totalSeconds.value = h * 3600 + m * 60 + s;
+          }
+        };
+
+        // 请求通知权限
+        if (Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
+
+        return {
+          hours,
+          minutes,
+          seconds,
+          formattedTime,
+          statusText,
+          statusClass,
+          isActive,
+          isPaused,
+          isFinished,
+          startTimer,
+          pauseTimer,
+          resumeTimer,
+          resetTimer,
+          setPreset
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

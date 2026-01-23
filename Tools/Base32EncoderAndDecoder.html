@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base32编码/解码工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Base32编码/解码工具</h2>
+        <p>将文本转换为Base32编码或将Base32编码解码为原文本</p>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要编码或解码的文本..."
+            rows="8"
+          ></textarea>
+          
+          <button @click="encodeBase32">Base32编码</button>
+          <button @click="decodeBase32">Base32解码</button>
+          <button @click="clearText">清空</button>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        
+        // Base32字符表
+        const BASE32_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        
+        // Base32编码函数
+        const encodeBase32 = () => {
+          error.value = '';
+          try {
+            result.value = base32Encode(inputText.value);
+          } catch (e) {
+            error.value = `编码失败: ${e.message}`;
+          }
+        };
+        
+        // Base32解码函数
+        const decodeBase32 = () => {
+          error.value = '';
+          try {
+            result.value = base32Decode(inputText.value);
+          } catch (e) {
+            error.value = `解码失败: ${e.message}`;
+          }
+        };
+        
+        // Base32编码实现
+        function base32Encode(str) {
+          if (str === "") return "";
+          
+          // 将字符串转换为字节数组
+          const bytes = new TextEncoder().encode(str);
+          
+          let result = "";
+          let bits = 0;
+          let bitCount = 0;
+          
+          for (let i = 0; i < bytes.length; i++) {
+            bits = (bits << 8) | bytes[i];
+            bitCount += 8;
+            
+            // 每5个字节取一次数据
+            while (bitCount >= 5) {
+              const index = (bits >>> (bitCount - 5)) & 0x1F;
+              result += BASE32_CHARS[index];
+              bitCount -= 5;
+              bits &= (1 << bitCount) - 1;
+            }
+          }
+          
+          // 处理余下的位
+          if (bitCount > 0) {
+            const index = (bits << (5 - bitCount)) & 0x1F;
+            result += BASE32_CHARS[index];
+            
+            // 添加填充字符
+            const paddingCount = (8 - result.length % 8) % 8;
+            for (let i = 0; i < paddingCount; i++) {
+              result += '=';
+            }
+          }
+          
+          return result;
+        }
+        
+        // Base32解码实现
+        function base32Decode(str) {
+          if (str === "") return "";
+          
+          // 移除可能的空白字符
+          str = str.replace(/\s/g, '');
+          
+          // 验证Base32字符
+          if (/[^ABCDEFGHIJKLMNOPQRSTUVWXYZ234567=]/.test(str)) {
+            throw new Error("输入包含无效的Base32字符");
+          }
+          
+          // 移除填充字符
+          const paddedStr = str.replace(/=/g, '');
+          const paddingCount = str.length - paddedStr.length;
+          
+          if (paddingCount > 7) {
+            throw new Error("无效的填充字符数");
+          }
+          
+          const bytes = [];
+          let bits = 0;
+          let bitCount = 0;
+          
+          for (let i = 0; i < paddedStr.length; i++) {
+            const c = paddedStr[i];
+            const index = BASE32_CHARS.indexOf(c);
+            
+            if (index === -1) {
+              throw new Error(`未知的Base32字符: ${c}`);
+            }
+            
+            bits = (bits << 5) | index;
+            bitCount += 5;
+            
+            if (bitCount >= 8) {
+              bytes.push((bits >>> (bitCount - 8)) & 0xFF);
+              bitCount -= 8;
+              bits &= (1 << bitCount) - 1;
+            }
+          }
+          
+          // 解码后不应该有多余的位
+          if (bits & ((1 << bitCount) - 1)) {
+            throw new Error("无效的Base32编码");
+          }
+          
+          // 尝试将字节数组转换为字符串
+          try {
+            return new TextDecoder().decode(new Uint8Array(bytes));
+          } catch (e) {
+            throw new Error(`解码错误: ${e.message}`);
+          }
+        }
+        
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          encodeBase32,
+          decodeBase32,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

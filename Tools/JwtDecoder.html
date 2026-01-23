@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JWT解码器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .jwt-decoder {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .input-group {
+      margin: 15px 0;
+    }
+    
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .input-group textarea {
+      width: 100%;
+      padding: 8px;
+      min-height: 100px;
+    }
+    
+    .token-parts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .part-card {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+    }
+    
+    .part-card h4 {
+      margin-top: 0;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .decoded-content {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section jwt-decoder">
+        <h2>JWT解码器</h2>
+        <p>解码JSON Web Token (JWT) 以查看其内容</p>
+        
+        <div class="info-box">
+          <p><strong>JWT简介：</strong></p>
+          <p>JWT（JSON Web Token）是一个开放标准（RFC 7519），它定义了一种紧凑且自包含的方式，用于在各方之间安全地传输信息作为JSON对象。</p>
+          <p>JWT由三个部分组成：头部（Header）、载荷（Payload）和签名（Signature），格式为：xxxxx.yyyyy.zzzzz</p>
+        </div>
+        
+        <div>
+          <div class="input-group">
+            <label for="jwtToken">JWT令牌</label>
+            <textarea 
+              id="jwtToken" 
+              v-model="jwtToken" 
+              placeholder="粘贴您的JWT令牌，例如：eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+              @input="decodeToken"
+            ></textarea>
+          </div>
+          
+          <div class="controls">
+            <button @click="decodeToken">解码JWT</button>
+            <button @click="clearToken">清空</button>
+            <button @click="copyDecoded">复制解码内容</button>
+          </div>
+          
+          <div v-if="decodedHeader || decodedPayload" class="token-parts">
+            <div class="part-card">
+              <h4>头部 (Header)</h4>
+              <div class="decoded-content" v-if="decodedHeader">
+                <pre>{{ decodedHeader }}</pre>
+              </div>
+              <p v-else>无法解码头部</p>
+            </div>
+            
+            <div class="part-card">
+              <h4>载荷 (Payload)</h4>
+              <div class="decoded-content" v-if="decodedPayload">
+                <pre>{{ decodedPayload }}</pre>
+              </div>
+              <p v-else>无法解码载荷</p>
+            </div>
+          </div>
+          
+          <div class="info-box" v-if="decodedPayload">
+            <h3>载荷中的常用字段</h3>
+            <p><strong>iss</strong> (Issuer) - 令牌的发行者</p>
+            <p><strong>sub</strong> (Subject) - 令牌的主题或名称</p>
+            <p><strong>aud</strong> (Audience) - 令牌的受众</p>
+            <p><strong>exp</strong> (Expiration Time) - 令牌的过期时间</p>
+            <p><strong>nbf</strong> (Not Before) - 令牌生效时间</p>
+            <p><strong>iat</strong> (Issued At) - 令牌的发布时间</p>
+            <p><strong>jti</strong> (JWT ID) - 令牌的唯一标识符</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const jwtToken = ref('');
+        const decodedHeader = ref('');
+        const decodedPayload = ref('');
+
+        // Base64解码函数（处理JWT特有的URL安全Base64编码）
+        const base64Decode = (str) => {
+          // JWT使用URL安全的Base64编码，需要将'-'替换为'+'，'_'替换为'/'
+          str = str.replace(/-/g, '+').replace(/_/g, '/');
+          
+          // 补充缺少的'='填充
+          while (str.length % 4) {
+            str += '=';
+          }
+          
+          // 解码
+          return decodeURIComponent(atob(str).split('').map(c => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+        };
+
+        // 解码JWT
+        const decodeToken = () => {
+          if (!jwtToken.value) {
+            decodedHeader.value = '';
+            decodedPayload.value = '';
+            return;
+          }
+
+          try {
+            // 分割JWT令牌
+            const parts = jwtToken.value.split('.');
+            if (parts.length !== 3) {
+              throw new Error('JWT格式不正确。JWT应包含三个部分，用点(.)分隔。');
+            }
+
+            // 解码头部
+            decodedHeader.value = JSON.stringify(
+              JSON.parse(base64Decode(parts[0])), 
+              null, 
+              2
+            );
+
+            // 解码载荷
+            decodedPayload.value = JSON.stringify(
+              JSON.parse(base64Decode(parts[1])), 
+              null, 
+              2
+            );
+          } catch (error) {
+            console.error('JWT解码错误:', error);
+            decodedHeader.value = '';
+            decodedPayload.value = `解码错误: ${error.message}`;
+          }
+        };
+
+        // 清空令牌
+        const clearToken = () => {
+          jwtToken.value = '';
+          decodedHeader.value = '';
+          decodedPayload.value = '';
+        };
+
+        // 复制解码内容
+        const copyDecoded = () => {
+          if (decodedHeader.value || decodedPayload.value) {
+            const content = `Header:\n${decodedHeader.value}\n\nPayload:\n${decodedPayload.value}`;
+            navigator.clipboard.writeText(content)
+              .then(() => {
+                alert('解码内容已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          jwtToken,
+          decodedHeader,
+          decodedPayload,
+          decodeToken,
+          clearToken,
+          copyDecoded
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

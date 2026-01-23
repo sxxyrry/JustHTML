@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到YAML转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到YAML转换工具</h2>
+        <p>在JSON和YAML格式之间相互转换</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将JSON数据转换为YAML格式，或将YAML转换为JSON</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder='在此输入JSON或YAML数据...'
+            rows="15"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertJsonToYaml">JSON → YAML</button>
+            <button @click="convertYamlToJson">YAML → JSON</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertJsonToYaml = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(inputText.value);
+            result.value = jsonToYaml(jsonData, 0);
+          } catch (e) {
+            error.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const jsonToYaml = (obj, depth) => {
+          const indent = '  '.repeat(depth);
+          let yamlStr = '';
+
+          if (obj === null) {
+            return 'null';
+          }
+
+          if (Array.isArray(obj)) {
+            if (obj.length === 0) {
+              return '[]';
+            }
+            
+            for (let i = 0; i < obj.length; i++) {
+              const value = obj[i];
+              yamlStr += `${indent}- `;
+              
+              if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+                const itemStr = jsonToYaml(value, depth + 1);
+                yamlStr += `\n${itemStr}\n`;
+              } else {
+                const itemStr = formatYamlValue(value);
+                yamlStr += `${itemStr}\n`;
+              }
+            }
+            
+            // Remove trailing newline added for the last item
+            yamlStr = yamlStr.replace(/\n$/, '');
+          } else if (typeof obj === 'object' && obj !== null) {
+            const keys = Object.keys(obj);
+            
+            for (let i = 0; i < keys.length; i++) {
+              const key = keys[i];
+              const value = obj[key];
+              
+              yamlStr += `${indent}${key}: `;
+              
+              if (value !== null && typeof value === 'object') {
+                if (Array.isArray(value) || Object.keys(value).length > 0) {
+                  if (Array.isArray(value) && value.length === 0) {
+                    yamlStr += '[]\n';
+                  } else if (!Array.isArray(value) && Object.keys(value).length === 0) {
+                    yamlStr += '{}\n';
+                  } else {
+                    const valueStr = jsonToYaml(value, depth + 1);
+                    yamlStr += `\n${valueStr}`;
+                    if (i < keys.length - 1) {
+                      yamlStr += '\n';
+                    }
+                  }
+                } else {
+                  yamlStr += `${formatYamlValue(value)}\n`;
+                }
+              } else {
+                yamlStr += `${formatYamlValue(value)}\n`;
+              }
+            }
+            
+            // Remove trailing newline added for the last property
+            yamlStr = yamlStr.replace(/\n$/, '');
+          } else {
+            yamlStr = formatYamlValue(obj);
+          }
+
+          return yamlStr;
+        };
+
+        const formatYamlValue = (value) => {
+          if (value === null) {
+            return 'null';
+          }
+          
+          if (typeof value === 'string') {
+            // Check if string contains characters that require quotes
+            if (
+              value.includes(': ') || 
+              value.includes('\n') || 
+              value.includes('#') || 
+              value.includes('[') || 
+              value.includes(']') || 
+              value.includes('{') || 
+              value.includes('}') ||
+              ['true', 'false', 'null', 'yes', 'no', 'on', 'off'].includes(value.toLowerCase())
+            ) {
+              return `"${value.replace(/"/g, '\\"')}"`;
+            }
+            return value;
+          }
+          
+          return String(value);
+        };
+
+        const convertYamlToJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const jsonObj = yamlToJson(inputText.value);
+            result.value = JSON.stringify(jsonObj, null, 2);
+          } catch (e) {
+            error.value = `YAML解析错误: ${e.message}`;
+          }
+        };
+
+        const yamlToJson = (yamlStr) => {
+          const lines = yamlStr.split('\n');
+          const root = {};
+          const stack = [root]; // Stack to manage nested objects
+          const indentLevels = [-1]; // Track indentation levels
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            if (!line.trim() || line.startsWith('#')) continue;
+
+            // Calculate indentation level (using 2 spaces per level)
+            const leadingSpaces = line.search(/\S|$/);
+            const currentIndentLevel = leadingSpaces / 2;
+
+            // Adjust stack based on indentation
+            while (indentLevels.length > 0 && currentIndentLevel <= indentLevels[indentLevels.length - 1]) {
+              stack.pop();
+              indentLevels.pop();
+            }
+
+            // Check if it's a list item
+            if (line.trim().startsWith('- ')) {
+              const value = line.trim().substring(2).trim();
+              
+              // Find parent object/array
+              if (stack.length < 2) {
+                throw new Error(`Invalid YAML at line ${i + 1}: no parent for list item`);
+              }
+              
+              const parent = stack[stack.length - 1];
+              const grandParent = stack[stack.length - 2];
+              
+              // Find the property that contains this array/list
+              let parentKey = null;
+              for (const key in grandParent) {
+                if (Array.isArray(grandParent[key]) && grandParent[key] === parent) {
+                  parentKey = key;
+                  break;
+                }
+              }
+              
+              if (!parentKey) {
+                throw new Error(`Invalid YAML at line ${i + 1}: couldn't find parent key`);
+              }
+              
+              // Handle complex objects in lists
+              if (value === '' || value.endsWith(':')) {
+                // Complex object
+                const newObj = {};
+                parent.push(newObj);
+                
+                stack.push(newObj);
+                indentLevels.push(currentIndentLevel);
+              } else {
+                // Simple value
+                const parsedValue = parseYamlValue(value);
+                parent.push(parsedValue);
+              }
+            } else if (line.includes(':')) {
+              // Key-value pair
+              const colonIndex = line.indexOf(':');
+              const key = line.substring(leadingSpaces, colonIndex).trim();
+              const value = line.substring(colonIndex + 1).trim();
+
+              const currentObj = stack[stack.length - 1];
+
+              if (value === '' || value.endsWith(':')) {
+                // New object
+                currentObj[key] = {};
+                stack.push(currentObj[key]);
+                indentLevels.push(currentIndentLevel);
+              } else if (value.startsWith('- ')) {
+                // Array with complex objects
+                const arr = [];
+                currentObj[key] = arr;
+                
+                // Process the rest of the value as a list item
+                const itemValue = value.substring(2).trim();
+                if (itemValue) {
+                  // Single item in array
+                  const parsedValue = parseYamlValue(itemValue);
+                  arr.push(parsedValue);
+                }
+                
+                stack.push(arr);
+                indentLevels.push(currentIndentLevel);
+              } else {
+                // Simple value
+                currentObj[key] = parseYamlValue(value);
+              }
+            }
+          }
+
+          // Return the root object if it has content
+          const rootKeys = Object.keys(root);
+          if (rootKeys.length === 0) {
+            // Try parsing as a simple value
+            const trimmed = yamlStr.trim();
+            if (trimmed) {
+              return parseYamlValue(trimmed);
+            }
+          }
+          
+          return root;
+        };
+
+        const parseYamlValue = (value) => {
+          if (value === 'null' || value === 'Null' || value === 'NULL') return null;
+          if (value === 'true' || value === 'True' || value === 'TRUE') return true;
+          if (value === 'false' || value === 'False' || value === 'FALSE') return false;
+          
+          // Check for numbers
+          if (/^-?\d+$/.test(value)) {
+            return parseInt(value, 10);
+          }
+          
+          if (/^-?\d+\.\d+$/.test(value)) {
+            return parseFloat(value);
+          }
+          
+          // Remove quotes if present
+          if ((value.startsWith('"') && value.endsWith('"')) || 
+              (value.startsWith("'") && value.endsWith("'"))) {
+            if (value.length < 2) return value;
+            return value.substring(1, value.length - 1);
+          }
+          
+          // Return as string
+          return value;
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            JSON.parse(inputText.value);
+            result.value = '✓ JSON格式有效';
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          convertJsonToYaml,
+          convertYamlToJson,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

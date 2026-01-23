@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NanoID生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .generator-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item select, .option-item input {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .nanoid-list {
+      margin-top: 20px;
+    }
+    
+    .nanoid-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      margin-bottom: 10px;
+    }
+    
+    .nanoid-text {
+      flex: 1;
+      word-break: break-all;
+      margin-right: 10px;
+      font-family: monospace;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .custom-alphabet {
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>NanoID生成器</h2>
+        <p>生成安全的URL友好的唯一字符串ID</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 生成安全的URL友好的唯一ID</p>
+          <p>• 支持自定义长度和字符集</p>
+          <p>• 提供便捷的复制功能</p>
+        </div>
+        
+        <div class="generator-options">
+          <div class="option-item">
+            <label for="nanoidLength">ID长度</label>
+            <input type="number" id="nanoidLength" v-model.number="length" min="1" max="100" value="21">
+          </div>
+          
+          <div class="option-item">
+            <label for="nanoidCount">生成数量</label>
+            <input type="number" id="nanoidCount" v-model.number="count" min="1" max="100" value="5">
+          </div>
+          
+          <div class="option-item">
+            <label for="alphabetType">字符集类型</label>
+            <select id="alphabetType" v-model="alphabetType">
+              <option value="default">默认 (A-Za-z0-9_-)</option>
+              <option value="numbers">仅数字 (0-9)</option>
+              <option value="letters">仅字母 (A-Za-z)</option>
+              <option value="hex">十六进制 (0-9a-f)</option>
+              <option value="custom">自定义</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="custom-alphabet" v-if="alphabetType === 'custom'">
+          <div class="option-item">
+            <label for="customAlphabet">自定义字符集</label>
+            <input 
+              type="text" 
+              id="customAlphabet" 
+              v-model="customAlphabet" 
+              placeholder="输入自定义字符集"
+            >
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="generateNanoIds">生成NanoID</button>
+          <button @click="copyAllNanoIds">复制全部</button>
+          <button @click="clearNanoIds">清空</button>
+        </div>
+        
+        <div class="nanoid-list" v-if="generatedNanoIds.length > 0">
+          <h3>生成的NanoIDs ({{ generatedNanoIds.length }})</h3>
+          <div v-for="(nanoid, index) in generatedNanoIds" :key="index" class="nanoid-item">
+            <span class="nanoid-text">{{ nanoid }}</span>
+            <button @click="copySingleNanoId(nanoid)" style="margin-left: 10px;">复制</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const length = ref(21);
+        const count = ref(5);
+        const alphabetType = ref('default');
+        const customAlphabet = ref('');
+        const generatedNanoIds = ref([]);
+        
+        const alphabet = computed(() => {
+          switch(alphabetType.value) {
+            case 'numbers':
+              return '0123456789';
+            case 'letters':
+              return 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+            case 'hex':
+              return '0123456789abcdef';
+            case 'custom':
+              return customAlphabet.value || 'A-Za-z0-9_-';
+            default:
+              return 'A-Za-z0-9_-';
+          }
+        });
+        
+        // 生成NanoID
+        const generateNanoId = (size, alphabetStr) => {
+          const mask = (2 << Math.log(alphabetStr.length - 1) / Math.LN2) - 1;
+          const step = Math.ceil(1.6 * mask * size / alphabetStr.length);
+          let id = '';
+          
+          while (true) {
+            const bytes = new Uint8Array(step);
+            crypto.getRandomValues(bytes);
+            
+            for (let i = 0; i < step; i++) {
+              const byte = bytes[i] & mask;
+              if (alphabetStr[byte]) {
+                id += alphabetStr[byte];
+                if (id.length === size) {
+                  return id;
+                }
+              }
+            }
+          }
+        };
+        
+        const generateNanoIds = () => {
+          generatedNanoIds.value = [];
+          
+          for (let i = 0; i < count.value; i++) {
+            generatedNanoIds.value.push(generateNanoId(length.value, alphabet.value));
+          }
+        };
+        
+        const copySingleNanoId = async (nanoid) => {
+          try {
+            await navigator.clipboard.writeText(nanoid);
+            alert('NanoID已复制到剪贴板！');
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败');
+          }
+        };
+        
+        const copyAllNanoIds = async () => {
+          if (generatedNanoIds.value.length === 0) {
+            alert('没有可复制的NanoID');
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(generatedNanoIds.value.join('\n'));
+            alert(`${generatedNanoIds.value.length}个NanoID已复制到剪贴板！`);
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败');
+          }
+        };
+        
+        const clearNanoIds = () => {
+          generatedNanoIds.value = [];
+        };
+        
+        return {
+          length,
+          count,
+          alphabetType,
+          customAlphabet,
+          generatedNanoIds,
+          generateNanoIds,
+          copySingleNanoId,
+          copyAllNanoIds,
+          clearNanoIds
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

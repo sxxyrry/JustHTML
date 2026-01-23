@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本换行器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .breaker-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .preview {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin-top: 15px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>文本换行器</h2>
+        <p>按指定规则为文本添加换行</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 按字符数换行：达到指定字符数后强制换行</p>
+          <p>• 按单词数换行：按单词数换行，避免在单词中间断行</p>
+          <p>• 按句子换行：在句号、问号或感叹号后换行</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要处理的文本..."
+            rows="12"
+          ></textarea>
+          
+          <div class="breaker-options">
+            <div class="option-item">
+              <label for="breakMethod">换行方法</label>
+              <select id="breakMethod" v-model="breakMethod">
+                <option value="byCharacters">按字符数换行</option>
+                <option value="byWords">按单词数换行</option>
+                <option value="bySentences">按句子换行</option>
+                <option value="byLength">按长度换行（保持单词完整性）</option>
+              </select>
+            </div>
+            
+            <div class="option-item" v-if="breakMethod === 'byCharacters' || breakMethod === 'byLength'">
+              <label for="charLimit">每行最大字符数</label>
+              <input 
+                type="number" 
+                id="charLimit" 
+                v-model.number="charLimit" 
+                min="1" 
+                placeholder="输入字符数限制"
+              >
+            </div>
+            
+            <div class="option-item" v-if="breakMethod === 'byWords'">
+              <label for="wordLimit">每行最大单词数</label>
+              <input 
+                type="number" 
+                id="wordLimit" 
+                v-model.number="wordLimit" 
+                min="1" 
+                placeholder="输入单词数限制"
+              >
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="applyBreaks">应用换行</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>换行后的文本：</h3>
+            <div class="preview">{{ result }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, watch } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const breakMethod = ref('byCharacters');
+        const charLimit = ref(80);
+        const wordLimit = ref(10);
+
+        const applyBreaks = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          let lines = [];
+          const text = inputText.value;
+
+          switch(breakMethod.value) {
+            case 'byCharacters':
+              lines = breakByCharacters(text);
+              break;
+            case 'byWords':
+              lines = breakByWords(text);
+              break;
+            case 'bySentences':
+              lines = breakBySentences(text);
+              break;
+            case 'byLength':
+              lines = breakByLength(text);
+              break;
+            default:
+              result.value = text;
+              return;
+          }
+
+          result.value = lines.join('\n');
+        };
+
+        // 按字符数换行
+        const breakByCharacters = (text) => {
+          const lines = [];
+          for (let i = 0; i < text.length; i += charLimit.value) {
+            lines.push(text.substring(i, i + charLimit.value));
+          }
+          return lines;
+        };
+
+        // 按单词数换行
+        const breakByWords = (text) => {
+          const words = text.split(/\s+/);
+          const lines = [];
+          let currentLine = [];
+
+          for (const word of words) {
+            currentLine.push(word);
+            if (currentLine.length >= wordLimit.value) {
+              lines.push(currentLine.join(' '));
+              currentLine = [];
+            }
+          }
+
+          if (currentLine.length > 0) {
+            lines.push(currentLine.join(' '));
+          }
+
+          return lines;
+        };
+
+        // 按句子换行
+        const breakBySentences = (text) => {
+          // 使用正则表达式匹配句子结尾
+          const sentences = text.split(/(?<=[\.!?])\s+/);
+          return sentences;
+        };
+
+        // 按长度换行（保持单词完整性）
+        const breakByLength = (text) => {
+          const lines = [];
+          const words = text.split(/\s+/);
+          let currentLine = '';
+
+          for (const word of words) {
+            // 检查添加下一个单词是否会超过限制
+            if ((currentLine + ' ' + word).length <= charLimit.value) {
+              currentLine = currentLine ? currentLine + ' ' + word : word;
+            } else {
+              if (currentLine) {
+                lines.push(currentLine);
+              }
+              // 如果单个单词超过长度限制，按字符拆分
+              if (word.length > charLimit.value) {
+                for (let i = 0; i < word.length; i += charLimit.value) {
+                  const part = word.substring(i, i + charLimit.value);
+                  lines.push(part);
+                }
+                currentLine = '';
+              } else {
+                currentLine = word;
+              }
+            }
+          }
+
+          if (currentLine) {
+            lines.push(currentLine);
+          }
+
+          return lines;
+        };
+
+        // 当参数变化时自动重新应用换行
+        watch([breakMethod, charLimit, wordLimit], () => {
+          if (inputText.value) {
+            applyBreaks();
+          }
+        });
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          breakMethod,
+          charLimit,
+          wordLimit,
+          applyBreaks,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

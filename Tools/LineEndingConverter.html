@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>行尾符转换器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item select {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .preview {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin-top: 15px;
+      white-space: pre-wrap;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>行尾符转换器</h2>
+        <p>转换文本的行尾符格式（LF、CRLF、CR）</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• LF (\\n)：Unix/Linux/MacOS X 系统标准</p>
+          <p>• CRLF (\\r\\n)：Windows 系统标准</p>
+          <p>• CR (\\r)：旧版 MacOS 系统标准</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入包含不同行尾符的文本..."
+            rows="12"
+          ></textarea>
+          
+          <div class="converter-options">
+            <div class="option-item">
+              <label for="targetFormat">目标格式</label>
+              <select id="targetFormat" v-model="targetFormat">
+                <option value="lf">LF (\\n) - Unix/Linux/MacOS X</option>
+                <option value="crlf">CRLF (\\r\\n) - Windows</option>
+                <option value="cr">CR (\\r) - Classic Mac</option>
+              </select>
+            </div>
+            
+            <div class="option-item">
+              <label for="detectFormat">检测当前格式</label>
+              <select id="detectFormat" disabled :value="detectedFormat">
+                <option>{{ detectedFormat || '分析中...' }}</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="convertLineEndings">转换行尾符</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>转换后的文本：</h3>
+            <div class="preview">{{ result }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, watchEffect } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const targetFormat = ref('lf');
+        const detectedFormat = ref('');
+
+        // 检测当前文本的行尾符格式
+        const detectLineEnding = (text) => {
+          if (!text) return '未知';
+          
+          // 检查最常用的行尾符
+          if (text.includes('\r\n')) return 'CRLF (Windows)';
+          if (text.includes('\r') && !text.includes('\n')) return 'CR (Classic Mac)';
+          if (text.includes('\n')) return 'LF (Unix/Linux/MacOS X)';
+          return '无换行符';
+        };
+
+        // 执行行尾符转换
+        const convertLineEndings = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          let convertedText = inputText.value;
+
+          // 先统一转换为 \n
+          convertedText = convertedText.replace(/\r\n/g, '\n'); // Windows -> Unix
+          convertedText = convertedText.replace(/\r/g, '\n');   // Classic Mac -> Unix
+
+          // 再转换为目标格式
+          switch(targetFormat.value) {
+            case 'lf': // LF (\n)
+              // 已经是 \n 格式
+              break;
+            case 'crlf': // CRLF (\r\n)
+              convertedText = convertedText.replace(/\n/g, '\r\n');
+              break;
+            case 'cr': // CR (\r)
+              convertedText = convertedText.replace(/\n/g, '\r');
+              break;
+          }
+
+          result.value = convertedText;
+        };
+
+        // 监听输入变化，检测行尾符格式
+        watchEffect(() => {
+          if (inputText.value) {
+            detectedFormat.value = detectLineEnding(inputText.value);
+          } else {
+            detectedFormat.value = '';
+          }
+        });
+
+        // 监听输入和目标格式变化，自动转换
+        watchEffect(() => {
+          if (inputText.value && targetFormat.value) {
+            convertLineEndings();
+          }
+        });
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          targetFormat,
+          detectedFormat,
+          convertLineEndings,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

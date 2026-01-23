@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到CSV转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到CSV转换工具</h2>
+        <p>将JSON数据转换为CSV格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>输入JSON数组格式的数据，每项包含相同或相似的字段，将被转换为CSV格式</p>
+          <p>示例: [{"name": "张三", "age": 25}, {"name": "李四", "age": 30}]</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder='在此输入JSON数组，例如: [{"name": "张三", "age": 25}, {"name": "李四", "age": 30}]'
+            rows="12"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertJsonToCsv">转换为CSV</button>
+            <button @click="convertCsvToJson">CSV转JSON</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertJsonToCsv = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(inputText.value);
+            
+            if (!Array.isArray(jsonData)) {
+              throw new Error('JSON数据必须是数组格式');
+            }
+
+            if (jsonData.length === 0) {
+              result.value = '';
+              return;
+            }
+
+            // 获取所有唯一的键
+            const allKeys = new Set();
+            jsonData.forEach(item => {
+              if (typeof item === 'object' && item !== null) {
+                Object.keys(item).forEach(key => allKeys.add(key));
+              }
+            });
+
+            const keys = Array.from(allKeys);
+
+            // 创建CSV头部
+            const csvHeader = keys.map(key => `"${escapeCsvValue(key)}"`).join(',');
+
+            // 创建CSV数据行
+            const csvRows = jsonData.map(obj => {
+              return keys.map(key => {
+                const value = obj[key] !== undefined ? obj[key] : '';
+                return `"${escapeCsvValue(String(value))}"`;
+              }).join(',');
+            });
+
+            result.value = [csvHeader, ...csvRows].join('\n');
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        // 转换CSV到JSON
+        const convertCsvToJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const lines = inputText.value.split('\n');
+            if (lines.length < 2) {
+              throw new Error('CSV数据至少需要包含表头和一行数据');
+            }
+
+            // 解析表头
+            const headers = parseCsvLine(lines[0]);
+
+            // 解析数据行
+            const jsonArray = [];
+            for (let i = 1; i < lines.length; i++) {
+              if (lines[i].trim() === '') continue; // 跳过空行
+
+              const values = parseCsvLine(lines[i]);
+              const obj = {};
+
+              for (let j = 0; j < headers.length; j++) {
+                // 尝试转换数值和布尔值
+                let value = values[j] || '';
+                
+                // 检查是否为数值
+                if (/^-?\d+$/.test(value)) {
+                  value = parseInt(value, 10);
+                } else if (/^-?\d*\.\d+$/.test(value)) {
+                  value = parseFloat(value);
+                } else if (value.toLowerCase() === 'true') {
+                  value = true;
+                } else if (value.toLowerCase() === 'false') {
+                  value = false;
+                } else if (value.toLowerCase() === 'null') {
+                  value = null;
+                }
+
+                obj[headers[j]] = value;
+              }
+
+              jsonArray.push(obj);
+            }
+
+            result.value = JSON.stringify(jsonArray, null, 2);
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        // 转义CSV值
+        const escapeCsvValue = (value) => {
+          if (value === null || value === undefined) {
+            return '';
+          }
+
+          value = String(value);
+
+          // 如果值包含逗号、双引号或换行符，则需要用双引号包围
+          if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+            // 转义双引号
+            value = value.replace(/"/g, '""');
+            // 用双引号包围
+            value = `"${value}"`;
+          }
+
+          return value;
+        };
+
+        // 解析CSV行
+        const parseCsvLine = (line) => {
+          const values = [];
+          let currentValue = '';
+          let inQuotes = false;
+          let quoteChar = '"';
+          let i = 0;
+
+          while (i < line.length) {
+            const char = line[i];
+            const nextChar = i < line.length - 1 ? line[i + 1] : '';
+
+            if (char === quoteChar && !inQuotes) {
+              inQuotes = true;
+            } else if (char === quoteChar && nextChar === quoteChar && inQuotes) {
+              // 处理转义的引号
+              currentValue += quoteChar;
+              i++; // 跳过下一个引号
+            } else if (char === quoteChar && inQuotes) {
+              inQuotes = false;
+            } else if (char === ',' && !inQuotes) {
+              values.push(currentValue);
+              currentValue = '';
+            } else {
+              currentValue += char;
+            }
+
+            i++;
+          }
+
+          values.push(currentValue);
+          return values;
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(inputText.value);
+            if (Array.isArray(parsed)) {
+              result.value = `✓ JSON格式有效，数组包含 ${parsed.length} 个项目`;
+            } else {
+              result.value = '✓ JSON格式有效，但数据不是数组';
+            }
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          convertJsonToCsv,
+          convertCsvToJson,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

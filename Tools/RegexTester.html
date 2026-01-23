@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>正则表达式测试器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .regex-tester {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    .input-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .input-section label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .input-section input, .input-section textarea, .input-section select {
+      padding: 8px;
+      margin-bottom: 15px;
+    }
+    
+    .result-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .match-result {
+      margin-top: 15px;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .match-item {
+      padding: 5px;
+      margin: 5px 0;
+      background-color: var(--bg-secondary);
+      border-left: 3px solid var(--accent-color);
+      border-radius: 0 4px 4px 0;
+    }
+    
+    .match-index {
+      font-size: 0.8em;
+      color: var(--text-secondary);
+    }
+    
+    .flags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    
+    .flag-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .regex-pattern {
+      font-family: monospace;
+      color: #e74c3c;
+      background-color: var(--bg-secondary);
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    
+    .test-text {
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    
+    @media (max-width: 768px) {
+      .regex-tester {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>正则表达式测试器</h2>
+        <p>在线测试正则表达式的匹配效果</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 实时测试正则表达式的匹配效果</p>
+          <p>• 支持多种正则标志（g, i, m, s, u, y）</p>
+          <p>• 高亮显示匹配结果</p>
+          <p>• 显示匹配位置和捕获组信息</p>
+        </div>
+        
+        <div class="regex-tester">
+          <div class="input-section">
+            <label for="regexPattern">正则表达式</label>
+            <input 
+              type="text" 
+              id="regexPattern" 
+              v-model="regexPattern" 
+              placeholder="输入正则表达式"
+              @input="testRegex"
+            >
+            
+            <label>正则标志</label>
+            <div class="flags-container">
+              <div class="flag-checkbox">
+                <input 
+                  type="checkbox" 
+                  id="flag-g" 
+                  v-model="flags.g" 
+                  @change="testRegex"
+                >
+                <label for="flag-g">g (全局匹配)</label>
+              </div>
+              
+              <div class="flag-checkbox">
+                <input 
+                  type="checkbox" 
+                  id="flag-i" 
+                  v-model="flags.i" 
+                  @change="testRegex"
+                >
+                <label for="flag-i">i (忽略大小写)</label>
+              </div>
+              
+              <div class="flag-checkbox">
+                <input 
+                  type="checkbox" 
+                  id="flag-m" 
+                  v-model="flags.m" 
+                  @change="testRegex"
+                >
+                <label for="flag-m">m (多行匹配)</label>
+              </div>
+              
+              <div class="flag-checkbox">
+                <input 
+                  type="checkbox" 
+                  id="flag-s" 
+                  v-model="flags.s" 
+                  @change="testRegex"
+                >
+                <label for="flag-s">s (.匹配换行)</label>
+              </div>
+            </div>
+            
+            <label for="testText">测试文本</label>
+            <textarea 
+              id="testText" 
+              v-model="testText" 
+              placeholder="输入要测试的文本..."
+              rows="8"
+              @input="testRegex"
+            ></textarea>
+          </div>
+          
+          <div class="result-section">
+            <label>匹配结果</label>
+            <div class="test-text" v-html="highlightedText"></div>
+            
+            <div class="match-result" v-if="matches.length > 0">
+              <h4>匹配详情</h4>
+              <div v-for="(match, index) in matches" :key="index" class="match-item">
+                <div><strong>匹配 {{ index + 1 }}:</strong> "{{ match.value }}"</div>
+                <div class="match-index">位置: {{ match.index }}-{{ match.index + match.value.length }}</div>
+                <div v-if="match.groups.length > 0">
+                  <div v-for="(group, groupIndex) in match.groups" :key="groupIndex">
+                    &nbsp;&nbsp;捕获组 {{ groupIndex + 1 }}: "{{ group }}"
+                  </div>
+                </div>
+              </div>
+              <p><strong>总计:</strong> {{ matches.length }} 个匹配项</p>
+            </div>
+            
+            <div class="match-result" v-else-if="testText && regexPattern">
+              <p>没有找到匹配项</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="testRegex">测试正则表达式</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadSample">加载示例</button>
+          <button @click="copyMatches">复制匹配结果</button>
+        </div>
+        
+        <div class="info-box">
+          <h4>常用正则表达式示例</h4>
+          <p><span class="regex-pattern">\\d+</span> - 匹配一个或多个数字</p>
+          <p><span class="regex-pattern">[a-zA-Z]+</span> - 匹配一个或多个字母</p>
+          <p><span class="regex-pattern">\\w+@\\w+\\.\\w+</span> - 匹配邮箱地址</p>
+          <p><span class="regex-pattern">https?://[\\w.-]+</span> - 匹配URL</p>
+          <p><span class="regex-pattern">[\\u4e00-\\u9fa5]</span> - 匹配中文字符</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const regexPattern = ref('');
+        const testText = ref('');
+        const flags = ref({
+          g: true,  // 全局匹配
+          i: false, // 忽略大小写
+          m: false, // 多行匹配
+          s: false  // .匹配换行
+        });
+        const matches = ref([]);
+        
+        // 高亮显示匹配的文本
+        const highlightedText = computed(() => {
+          if (!regexPattern.value || !testText.value) {
+            return escapeHtml(testText.value);
+          }
+          
+          try {
+            // 构建正则表达式
+            const flagStr = Object.entries(flags.value)
+              .filter(([key, value]) => value)
+              .map(([key]) => key)
+              .join('');
+            
+            // 使用动态构建的标志创建正则表达式
+            const regex = new RegExp(regexPattern.value, flagStr);
+            
+            // 如果不是全局匹配，只处理第一个匹配项
+            if (!flags.value.g) {
+              const singleMatch = testText.value.match(regex);
+              if (singleMatch) {
+                const before = testText.value.substring(0, singleMatch.index);
+                const matched = singleMatch[0];
+                const after = testText.value.substring(singleMatch.index + matched.length);
+                
+                return `${before}<mark style="background-color: #f1c40f; color: #000;">${escapeHtml(matched)}</mark>${after}`;
+              }
+              return escapeHtml(testText.value);
+            }
+            
+            // 全局匹配处理
+            return testText.value.replace(regex, (match, ...args) => {
+              return `<mark style="background-color: #f1c40f; color: #000;">${escapeHtml(match)}</mark>`;
+            });
+          } catch (e) {
+            return escapeHtml(testText.value);
+          }
+        });
+
+        // 转义HTML字符
+        function escapeHtml(text) {
+          return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\n/g, "<br>")
+            .replace(/\s/g, "&nbsp;");
+        }
+
+        // 测试正则表达式
+        const testRegex = () => {
+          if (!regexPattern.value || !testText.value) {
+            matches.value = [];
+            return;
+          }
+          
+          try {
+            // 构建正则表达式
+            const flagStr = Object.entries(flags.value)
+              .filter(([key, value]) => value)
+              .map(([key]) => key)
+              .join('');
+            
+            const regex = new RegExp(regexPattern.value, flagStr);
+            const text = testText.value;
+            
+            // 执行匹配
+            const allMatches = [...text.matchAll(regex)];
+            
+            // 格式化匹配结果
+            matches.value = allMatches.map(match => {
+              // 提取捕获组（排除完整匹配的第一个元素）
+              const groups = match.slice(1).filter(item => item !== undefined);
+              
+              return {
+                value: match[0],
+                index: match.index,
+                groups: groups
+              };
+            });
+          } catch (e) {
+            console.error('正则表达式错误:', e.message);
+            matches.value = [];
+          }
+        };
+
+        // 清空所有内容
+        const clearAll = () => {
+          regexPattern.value = '';
+          testText.value = '';
+          flags.value = {
+            g: true,
+            i: false,
+            m: false,
+            s: false
+          };
+          matches.value = [];
+        };
+
+        // 加载示例
+        const loadSample = () => {
+          regexPattern.value = '\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b';
+          testText.value = `联系邮箱：
+john.doe@example.com
+admin@test.org
+invalid.email
+user.name+tag@domain.co.uk
+
+其他文本内容...`;
+          flags.value = {
+            g: true,
+            i: false,
+            m: false,
+            s: false
+          };
+          testRegex();
+        };
+
+        // 复制匹配结果
+        const copyMatches = () => {
+          if (matches.value.length === 0) {
+            alert('没有匹配结果可复制');
+            return;
+          }
+          
+          const resultText = matches.value
+            .map((match, index) => `[${index + 1}] "${match.value}" (位置: ${match.index})`)
+            .join('\n');
+          
+          navigator.clipboard.writeText(resultText)
+            .then(() => {
+              alert('匹配结果已复制到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+              alert('复制失败');
+            });
+        };
+
+        return {
+          regexPattern,
+          testText,
+          flags,
+          matches,
+          highlightedText,
+          testRegex,
+          clearAll,
+          loadSample,
+          copyMatches
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

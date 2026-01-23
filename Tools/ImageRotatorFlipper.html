@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片旋转翻转工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .rotator-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .control-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .control-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .control-item input, .control-item select {
+      padding: 8px;
+    }
+    
+    .image-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    .image-preview {
+      flex: 1;
+      min-width: 300px;
+      text-align: center;
+    }
+    
+    .image-preview img {
+      max-width: 100%;
+      max-height: 400px;
+      display: block;
+      margin: 0 auto;
+      transform-origin: center;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .rotation-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .flip-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>图片旋转翻转工具</h2>
+        <p>旋转或翻转图片</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>• 上传图片后，使用按钮旋转或翻转图片</p>
+          <p>• 也可以直接输入旋转角度或选择翻转方向</p>
+          <p>• 处理完成后点击"保存图片"按钮下载</p>
+        </div>
+        
+        <div>
+          <input type="file" @change="handleFileUpload" accept="image/*" />
+          
+          <div class="rotator-controls">
+            <div class="control-item">
+              <label for="rotationAngle">旋转角度 (度)</label>
+              <input 
+                type="range" 
+                id="rotationAngle" 
+                v-model.number="rotation" 
+                min="0" 
+                max="360" 
+                step="1"
+              />
+              <span>{{ rotation }}°</span>
+            </div>
+            
+            <div class="control-item">
+              <label for="scaleX">水平翻转</label>
+              <select id="scaleX" v-model="scaleX">
+                <option value="1">正常</option>
+                <option value="-1">翻转</option>
+              </select>
+            </div>
+            
+            <div class="control-item">
+              <label for="scaleY">垂直翻转</label>
+              <select id="scaleY" v-model="scaleY">
+                <option value="1">正常</option>
+                <option value="-1">翻转</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="rotation-buttons">
+            <button @click="rotate(-90)">逆时针90°</button>
+            <button @click="rotate(90)">顺时针90°</button>
+            <button @click="rotate(180)">旋转180°</button>
+            <button @click="setRotation(0)">重置旋转</button>
+          </div>
+          
+          <div class="flip-buttons">
+            <button @click="flipHorizontal">{{ scaleX === 1 ? '水平翻转' : '取消水平翻转' }}</button>
+            <button @click="flipVertical">{{ scaleY === 1 ? '垂直翻转' : '取消垂直翻转' }}</button>
+          </div>
+          
+          <div class="controls">
+            <button @click="applyTransformations">应用变换</button>
+            <button @click="downloadImage" :disabled="!processedImage">下载图片</button>
+            <button @click="resetForm">重置</button>
+          </div>
+          
+          <div class="image-container" v-if="originalImage">
+            <div class="image-preview">
+              <h3>原始图片</h3>
+              <img :src="originalImage" alt="Original Image" />
+              <p>尺寸: {{ originalWidth }} x {{ originalHeight }}</p>
+            </div>
+            
+            <div class="image-preview" v-if="processedImage">
+              <h3>处理后图片</h3>
+              <img 
+                :src="processedImage" 
+                alt="Processed Image" 
+                :style="{
+                  transform: `rotate(${rotation}deg) scaleX(${scaleX}) scaleY(${scaleY})`
+                }"
+              />
+              <p>尺寸: {{ processedWidth }} x {{ processedHeight }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const originalImage = ref('');
+        const originalWidth = ref(0);
+        const originalHeight = ref(0);
+        const rotation = ref(0);
+        const scaleX = ref(1);
+        const scaleY = ref(1);
+        const processedImage = ref('');
+        const processedWidth = ref(0);
+        const processedHeight = ref(0);
+
+        const handleFileUpload = (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+          
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            originalImage.value = e.target.result;
+            
+            // 获取原始图片尺寸
+            const img = new Image();
+            img.onload = () => {
+              originalWidth.value = img.width;
+              originalHeight.value = img.height;
+              processedWidth.value = img.width;
+              processedHeight.value = img.height;
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        };
+
+        const rotate = (angle) => {
+          rotation.value = (rotation.value + angle) % 360;
+          if (rotation.value < 0) rotation.value += 360;
+        };
+
+        const setRotation = (angle) => {
+          rotation.value = angle;
+        };
+
+        const flipHorizontal = () => {
+          scaleX.value = scaleX.value === 1 ? -1 : 1;
+        };
+
+        const flipVertical = () => {
+          scaleY.value = scaleY.value === 1 ? -1 : 1;
+        };
+
+        const applyTransformations = () => {
+          if (!originalImage.value) return;
+          
+          const img = new Image();
+          img.onload = () => {
+            // 计算变换后的新尺寸
+            const radians = rotation.value * Math.PI / 180;
+            const sin = Math.sin(radians);
+            const cos = Math.cos(radians);
+            
+            let newWidth, newHeight;
+            if (rotation.value % 180 === 0) {
+              newWidth = img.width;
+              newHeight = img.height;
+            } else {
+              newWidth = Math.abs(img.width * cos) + Math.abs(img.height * sin);
+              newHeight = Math.abs(img.width * sin) + Math.abs(img.height * cos);
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // 移动到中心点
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            // 应用翻转
+            ctx.scale(scaleX.value, scaleY.value);
+            // 应用旋转
+            ctx.rotate(radians);
+            // 绘制图像（相对于中心点）
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+            
+            processedImage.value = canvas.toDataURL('image/jpeg', 0.9);
+            processedWidth.value = newWidth;
+            processedHeight.value = newHeight;
+          };
+          img.src = originalImage.value;
+        };
+
+        const downloadImage = () => {
+          if (!processedImage.value) return;
+          
+          const link = document.createElement('a');
+          link.href = processedImage.value;
+          link.download = 'rotated_flipped_image.jpg';
+          link.click();
+        };
+
+        const resetForm = () => {
+          rotation.value = 0;
+          scaleX.value = 1;
+          scaleY.value = 1;
+          processedImage.value = '';
+          processedWidth.value = 0;
+          processedHeight.value = 0;
+        };
+
+        return {
+          originalImage,
+          originalWidth,
+          originalHeight,
+          rotation,
+          scaleX,
+          scaleY,
+          processedImage,
+          processedWidth,
+          processedHeight,
+          handleFileUpload,
+          rotate,
+          setRotation,
+          flipHorizontal,
+          flipVertical,
+          applyTransformations,
+          downloadImage,
+          resetForm
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

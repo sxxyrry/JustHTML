@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到Protobuf转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到Protobuf转换工具</h2>
+        <p>模拟JSON到Protobuf结构的转换（仅展示，无法实际编译）</p>
+        
+        <div class="info-box">
+          <p><strong>说明：</strong></p>
+          <p>此工具仅能分析JSON结构并生成对应的Protobuf定义，实际的序列化/反序列化需要在服务端完成</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>JSON数据</h3>
+            <textarea 
+              v-model="jsonData" 
+              placeholder='输入JSON数据，例如: {"name": "张三", "age": 30, "email": "zhangsan@example.com"}'
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>生成的Protobuf定义</h3>
+            <textarea 
+              v-model="protobufDefinition" 
+              placeholder="Protobuf定义将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertJsonToProto">生成Protobuf定义</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>分析结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, watch } = Vue;
+
+    createApp({
+      setup() {
+        const jsonData = ref('');
+        const protobufDefinition = ref('');
+        const result = ref('');
+
+        // 监听JSON数据变化，自动转换
+        watch(jsonData, () => {
+          if (jsonData.value) {
+            try {
+              const parsed = JSON.parse(jsonData.value);
+              protobufDefinition.value = generateProtobufDefinition(parsed, 'Data');
+            } catch (e) {
+              // 如果JSON无效，不进行转换
+            }
+          }
+        });
+
+        const generateProtobufDefinition = (data, messageName) => {
+          if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+            return `// 无法从基本类型或数组直接生成顶层消息定义\n// 请提供对象类型的根节点`;
+          }
+
+          let protoDef = `syntax = "proto3";\n\nmessage ${messageName} {\n`;
+          let fieldNumber = 1;
+
+          const processValue = (value, fieldName, num) => {
+            let type = determineType(value);
+            if (type === 'object') {
+              // 对于嵌套对象，我们需要生成一个新的消息定义
+              const subMessageName = capitalizeFirstLetter(fieldName);
+              protoDef += `  ${subMessageName} ${fieldName} = ${num};\n`;
+              // 递归处理嵌套对象
+              generateNestedMessage(value, subMessageName);
+            } else if (Array.isArray(value)) {
+              // 对于数组，确定数组元素的类型
+              if (value.length > 0) {
+                const elementType = determineType(value[0]);
+                if (elementType === 'object') {
+                  const subMessageName = capitalizeFirstLetter(fieldName) + 'Item';
+                  protoDef += `  repeated ${subMessageName} ${fieldName} = ${num};\n`;
+                  generateNestedMessage(value[0], subMessageName);
+                } else {
+                  protoDef += `  repeated ${elementType} ${fieldName} = ${num};\n`;
+                }
+              } else {
+                protoDef += `  repeated string ${fieldName} = ${num}; // 无法确定数组类型\n`;
+              }
+            } else {
+              protoDef += `  ${type} ${fieldName} = ${num};\n`;
+            }
+          };
+
+          for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+              processValue(data[key], camelToSnakeCase(key), fieldNumber++);
+            }
+          }
+
+          protoDef += `}\n`;
+          return protoDef;
+        };
+
+        const generateNestedMessage = (obj, messageName) => {
+          if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+            return;
+          }
+
+          let nestedProto = `\nmessage ${messageName} {\n`;
+          let fieldNumber = 1;
+
+          for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+              const value = obj[key];
+              let type = determineType(value);
+              
+              if (type === 'object') {
+                const subMessageName = capitalizeFirstLetter(key);
+                nestedProto += `  ${subMessageName} ${camelToSnakeCase(key)} = ${fieldNumber++};\n`;
+                generateNestedMessage(value, subMessageName);
+              } else if (Array.isArray(value)) {
+                if (value.length > 0) {
+                  const elementType = determineType(value[0]);
+                  if (elementType === 'object') {
+                    const subMessageName = capitalizeFirstLetter(key) + 'Item';
+                    nestedProto += `  repeated ${subMessageName} ${camelToSnakeCase(key)} = ${fieldNumber++};\n`;
+                    generateNestedMessage(value[0], subMessageName);
+                  } else {
+                    nestedProto += `  repeated ${elementType} ${camelToSnakeCase(key)} = ${fieldNumber++};\n`;
+                  }
+                } else {
+                  nestedProto += `  repeated string ${camelToSnakeCase(key)} = ${fieldNumber++}; // 无法确定数组类型\n`;
+                }
+              } else {
+                nestedProto += `  ${type} ${camelToSnakeCase(key)} = ${fieldNumber++};\n`;
+              }
+            }
+          }
+
+          nestedProto += `}`;
+          
+          // 在主protobuf定义末尾添加嵌套消息定义
+          protobufDefinition.value = protobufDefinition.value.replace(/\n}$/, '') + nestedProto + '\n}';
+        };
+
+        const determineType = (value) => {
+          if (value === null) return 'string';
+          if (Array.isArray(value)) return 'array';
+          if (typeof value === 'object') return 'object';
+          if (typeof value === 'string') {
+            // 尝试判断是否为特殊格式的字符串
+            if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) return 'string'; // datetime
+            if (/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(value)) return 'string'; // email
+            if (/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(value)) return 'string'; // url
+            return 'string';
+          }
+          if (typeof value === 'number') {
+            return Number.isInteger(value) ? 'int32' : 'double';
+          }
+          if (typeof value === 'boolean') return 'bool';
+          return 'string';
+        };
+
+        const camelToSnakeCase = (str) => {
+          return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        };
+
+        const capitalizeFirstLetter = (str) => {
+          return str.charAt(0).toUpperCase() + str.slice(1);
+        };
+
+        const convertJsonToProto = () => {
+          if (!jsonData.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonData.value);
+            protobufDefinition.value = generateProtobufDefinition(parsed, 'Data');
+            result.value = 'Protobuf定义生成成功！';
+          } catch (e) {
+            result.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const loadExample = () => {
+          jsonData.value = JSON.stringify({
+            name: "张三",
+            age: 30,
+            email: "zhangsan@example.com",
+            address: {
+              street: "中山路123号",
+              city: "北京",
+              zipCode: "100000"
+            },
+            hobbies: ["读书", "游泳", "编程"]
+          }, null, 2);
+        };
+
+        const clearAll = () => {
+          jsonData.value = '';
+          protobufDefinition.value = '';
+          result.value = '';
+        };
+
+        return {
+          jsonData,
+          protobufDefinition,
+          result,
+          convertJsonToProto,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

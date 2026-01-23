@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到GraphQL Schema转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .usage-example {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到GraphQL Schema转换工具</h2>
+        <p>将JSON数据结构转换为GraphQL Schema定义</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>输入JSON数据，系统将分析其结构并生成相应的GraphQL Schema定义</p>
+        </div>
+        
+        <div class="usage-example">
+          <h3>GraphQL Schema 示例:</h3>
+          <pre>type User {
+  id: ID!
+  name: String!
+  email: String
+  posts: [Post!]!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  content: String
+  author: User!
+}</pre>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>JSON数据</h3>
+            <textarea 
+              v-model="inputJson" 
+              placeholder='输入JSON数据，例如: {"id": 1, "name": "张三", "email": "zhangsan@example.com"}'
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>GraphQL Schema</h3>
+            <textarea 
+              v-model="graphqlSchema" 
+              placeholder="生成的GraphQL Schema将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertJsonToGraphql">JSON → GraphQL Schema</button>
+          <button @click="validateJson">验证JSON</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputJson = ref('');
+        const graphqlSchema = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertJsonToGraphql = () => {
+          error.value = '';
+          if (!inputJson.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(inputJson.value);
+            graphqlSchema.value = generateGraphqlSchema(parsed, 'Root');
+            result.value = 'GraphQL Schema生成成功！';
+          } catch (e) {
+            error.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const generateGraphqlSchema = (data, typeName) => {
+          if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+            return '# 输入必须是对象类型的JSON数据';
+          }
+
+          let schema = `type ${typeName} {\n`;
+          const fields = [];
+          
+          for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+              const value = data[key];
+              const fieldType = determineGraphqlType(value, capitalizeFirstLetter(key));
+              fields.push(`  ${key}: ${fieldType}`);
+            }
+          }
+          
+          schema += fields.join('\n');
+          schema += '\n}';
+          
+          return schema;
+        };
+
+        const determineGraphqlType = (value, nestedTypeName) => {
+          if (value === null) {
+            return 'String'; // 默认使用String类型
+          }
+          
+          if (Array.isArray(value)) {
+            if (value.length === 0) {
+              return '[String]';
+            }
+            
+            // 确定数组元素类型
+            const elementType = determineGraphqlType(value[0], nestedTypeName);
+            return `[${elementType}!]`;
+          }
+          
+          if (typeof value === 'object' && value !== null) {
+            // 生成嵌套类型定义
+            return nestedTypeName;
+          }
+          
+          if (typeof value === 'string') {
+            // 检查是否为特殊格式的字符串
+            if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+              return 'String'; // GraphQL中时间通常也是String
+            }
+            if (/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(value)) {
+              return 'String';
+            }
+            if (/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(value)) {
+              return 'String';
+            }
+            return 'String';
+          }
+          
+          if (typeof value === 'number') {
+            return Number.isInteger(value) ? 'Int' : 'Float';
+          }
+          
+          if (typeof value === 'boolean') {
+            return 'Boolean';
+          }
+          
+          return 'String';
+        };
+
+        const capitalizeFirstLetter = (str) => {
+          return str.charAt(0).toUpperCase() + str.slice(1);
+        };
+
+        const validateJson = () => {
+          if (!inputJson.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            JSON.parse(inputJson.value);
+            result.value = '✓ JSON格式有效';
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const loadExample = () => {
+          inputJson.value = JSON.stringify({
+            id: 1,
+            name: "张三",
+            email: "zhangsan@example.com",
+            age: 30,
+            isActive: true,
+            profile: {
+              bio: "这是一个个人简介",
+              avatar: "https://example.com/avatar.jpg"
+            },
+            posts: [
+              {
+                id: 1,
+                title: "我的第一篇文章",
+                content: "文章内容...",
+                publishedAt: "2023-01-01T00:00:00Z"
+              }
+            ]
+          }, null, 2);
+        };
+
+        const clearAll = () => {
+          inputJson.value = '';
+          graphqlSchema.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputJson,
+          graphqlSchema,
+          result,
+          error,
+          convertJsonToGraphql,
+          validateJson,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

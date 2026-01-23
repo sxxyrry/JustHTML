@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON键名排序 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .sort-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON键名排序</h2>
+        <p>对JSON对象中的键名进行排序</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 按字母顺序排序键名</p>
+          <p>• 支持递归排序嵌套对象</p>
+          <p>• 保持数据完整性</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入JSON数据..."
+            rows="12"
+          ></textarea>
+          
+          <div class="sort-options">
+            <div class="option-item">
+              <input type="checkbox" id="recursive" v-model="options.recursive" checked>
+              <label for="recursive">递归排序嵌套对象</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="reverse" v-model="options.reverse">
+              <label for="reverse">逆序排列</label>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="sortJsonKeys">排序键名</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const options = ref({
+          recursive: true,
+          reverse: false
+        });
+
+        const sortJsonKeys = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(inputText.value);
+            const sorted = sortObjectKeys(parsed, options.value.recursive, options.value.reverse);
+            result.value = JSON.stringify(sorted, null, 2);
+          } catch (e) {
+            error.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const sortObjectKeys = (obj, recursive, reverse) => {
+          if (obj === null || typeof obj !== 'object') {
+            return obj;
+          }
+
+          if (Array.isArray(obj)) {
+            if (recursive) {
+              return obj.map(item => sortObjectKeys(item, recursive, reverse));
+            }
+            return [...obj];
+          }
+
+          const sortedKeys = Object.keys(obj).sort();
+          if (reverse) {
+            sortedKeys.reverse();
+          }
+
+          const sortedObj = {};
+          for (const key of sortedKeys) {
+            if (recursive && typeof obj[key] === 'object' && obj[key] !== null) {
+              sortedObj[key] = sortObjectKeys(obj[key], recursive, reverse);
+            } else {
+              sortedObj[key] = obj[key];
+            }
+          }
+
+          return sortedObj;
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            JSON.parse(inputText.value);
+            result.value = '✓ JSON格式有效';
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          options,
+          sortJsonKeys,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

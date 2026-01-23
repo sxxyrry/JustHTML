@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本清理器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .cleaner-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>文本清理器</h2>
+        <p>清理文本中的多余内容，如空白字符、换行符、标签等</p>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要清理的文本..."
+            rows="10"
+          ></textarea>
+          
+          <div class="cleaner-options">
+            <div class="option-item">
+              <input type="checkbox" id="removeExtraSpaces" v-model="options.removeExtraSpaces">
+              <label for="removeExtraSpaces">移除多余空格</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="removeExtraLines" v-model="options.removeExtraLines">
+              <label for="removeExtraLines">移除多余空行</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="trimText" v-model="options.trimText">
+              <label for="trimText">去除首尾空白</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="removeTabs" v-model="options.removeTabs">
+              <label for="removeTabs">移除制表符</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="removeSpecialChars" v-model="options.removeSpecialChars">
+              <label for="removeSpecialChars">移除特殊字符</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="removeHtmlTags" v-model="options.removeHtmlTags">
+              <label for="removeHtmlTags">移除HTML标签</label>
+            </div>
+          </div>
+          
+          <button @click="cleanText">清理文本</button>
+          <button @click="resetOptions">重置选项</button>
+          <button @click="copyResult">复制结果</button>
+          
+          <div class="result" v-if="result">
+            <p><strong>清理后的文本:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        
+        const options = reactive({
+          removeExtraSpaces: false,
+          removeExtraLines: false,
+          trimText: false,
+          removeTabs: false,
+          removeSpecialChars: false,
+          removeHtmlTags: false
+        });
+
+        const cleanText = () => {
+          error.value = '';
+          let cleanedText = inputText.value;
+          
+          try {
+            if (options.removeHtmlTags) {
+              // 移除HTML标签
+              cleanedText = cleanedText.replace(/<[^>]*>/g, '');
+            }
+            
+            if (options.removeExtraSpaces) {
+              // 替换多个连续空格为单个空格
+              cleanedText = cleanedText.replace(/\s+/g, ' ');
+            }
+            
+            if (options.removeExtraLines) {
+              // 移除多余的空行
+              cleanedText = cleanedText.replace(/\n\s*\n/g, '\n\n');
+              cleanedText = cleanedText.replace(/^\s*\n|\n\s*$/g, '');
+            }
+            
+            if (options.trimText) {
+              // 去除首尾空白
+              cleanedText = cleanedText.trim();
+            }
+            
+            if (options.removeTabs) {
+              // 移除制表符
+              cleanedText = cleanedText.replace(/\t/g, '');
+            }
+            
+            if (options.removeSpecialChars) {
+              // 移除特殊字符（保留中文、英文字母、数字、基本标点符号）
+              cleanedText = cleanedText.replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s\.,!?;:'"()-]/g, '');
+            }
+            
+            result.value = cleanedText;
+          } catch (e) {
+            error.value = `清理文本时发生错误: ${e.message}`;
+          }
+        };
+
+        const resetOptions = () => {
+          options.removeExtraSpaces = false;
+          options.removeExtraLines = false;
+          options.trimText = false;
+          options.removeTabs = false;
+          options.removeSpecialChars = false;
+          options.removeHtmlTags = false;
+        };
+
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('清理后的文本已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                error.value = '复制失败';
+              });
+          } else {
+            error.value = '没有可复制的结果';
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          options,
+          cleanText,
+          resetOptions,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XML转换器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .tab-container {
+      margin: 15px 0;
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+      margin-right: 5px;
+    }
+    
+    .tab.active {
+      background-color: var(--bg-primary);
+      border-bottom: 1px solid var(--bg-primary);
+      margin-bottom: -1px;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>XML转换器</h2>
+        <p>XML格式化、压缩及与其他格式转换</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• XML格式化：美化XML代码，使其更易读</p>
+          <p>• XML压缩：移除多余空格和换行，减小文件大小</p>
+          <p>• XML转JSON：将XML数据转换为JSON格式</p>
+          <p>• XML转CSV：将XML数据转换为CSV格式</p>
+          <p>• XML转YAML：将XML数据转换为YAML格式</p>
+        </div>
+        
+        <div class="converter-options">
+          <div class="option-item">
+            <label for="convertTo">转换为</label>
+            <select id="convertTo" v-model="convertTo">
+              <option value="format">XML格式化</option>
+              <option value="minify">XML压缩</option>
+              <option value="xml2json">XML转JSON</option>
+              <option value="xml2csv">XML转CSV</option>
+              <option value="xml2yaml">XML转YAML</option>
+            </select>
+          </div>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputXml" 
+            placeholder="在此输入XML数据..."
+            rows="12"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertXml">转换XML</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="tab-container" v-if="result">
+            <div class="tabs">
+              <div class="tab" :class="{ active: activeTab === 'result' }" @click="activeTab = 'result'">
+                转换结果
+              </div>
+              <div class="tab" :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'" v-if="convertTo === 'xml2json' || convertTo === 'xml2yaml'">
+                预览
+              </div>
+            </div>
+            
+            <div class="tab-content" :class="{ active: activeTab === 'result' }">
+              <h3>转换结果：</h3>
+              <pre>{{ result }}</pre>
+            </div>
+            
+            <div class="tab-content" :class="{ active: activeTab === 'preview' }" v-if="convertTo === 'xml2json' || convertTo === 'xml2yaml'">
+              <h3>格式化预览：</h3>
+              <pre>{{ previewResult }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputXml = ref('');
+        const result = ref('');
+        const convertTo = ref('format');
+        const activeTab = ref('result');
+        
+        // XML格式化
+        const formatXml = (xml) => {
+          try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xml, "text/xml");
+            
+            // 检查是否有解析错误
+            const parserError = xmlDoc.querySelector("parsererror");
+            if (parserError) {
+              throw new Error(parserError.textContent);
+            }
+            
+            // 格式化XML
+            const serializer = new XMLSerializer();
+            let formatted = serializer.serializeToString(xmlDoc);
+            
+            // 添加缩进
+            const tab = '  ';
+            let formattedXml = '';
+            let indentLevel = 0;
+            const arr = formatted.split(/>\s*</);
+            
+            for (let i = 0; i < arr.length; i++) {
+              const node = arr[i];
+              
+              // Determine if we should indent
+                  let indent = '';
+                  if (i > 0 && i < arr.length - 1) {
+                    if (/<\/\w/.test(node)) {
+                      indentLevel--;
+                    }
+                    for (let j = 0; j < indentLevel; j++) {
+                      indent += tab;
+                    }
+                    if (/<\w/.test(node) && !/<\/\w/.test(node)) {
+                      indentLevel++;
+                    }
+                    
+                    formattedXml += '\n' + indent;
+                  }
+                  
+                  formattedXml += node;
+                  
+                  // Close tags that don't have content
+                  if (i < arr.length - 1) {
+                    if (/<\w/.test(node) && !/<\/\w/.test(node) && !/>$/.test(node)) {
+                      formattedXml += '>';
+                    } else if (i < arr.length - 1) {
+                      formattedXml += '</';
+                    }
+                  }
+            }
+            
+            return formattedXml;
+          } catch (error) {
+            return `格式化错误: ${error.message}`;
+          }
+        };
+
+        // XML压缩
+        const minifyXml = (xml) => {
+          try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xml, "text/xml");
+            
+            // 检查是否有解析错误
+            const parserError = xmlDoc.querySelector("parsererror");
+            if (parserError) {
+              throw new Error(parserError.textContent);
+            }
+            
+            const serializer = new XMLSerializer();
+            return serializer.serializeToString(xmlDoc);
+          } catch (error) {
+            return `压缩错误: ${error.message}`;
+          }
+        };
+
+        // XML转JSON
+        const xmlToJson = (xml) => {
+          try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xml, "text/xml");
+            
+            // 检查是否有解析错误
+            const parserError = xmlDoc.querySelector("parsererror");
+            if (parserError) {
+              throw new Error(parserError.textContent);
+            }
+            
+            const xmlToObj = (node) => {
+              let obj = {};
+              
+              // 处理属性
+              if (node.nodeType === 1 && node.attributes.length > 0) {
+                obj['@attributes'] = {};
+                for (let j = 0; j < node.attributes.length; j++) {
+                  const attribute = node.attributes.item(j);
+                  obj['@attributes'][attribute.nodeName] = attribute.nodeValue;
+                }
+              }
+              
+              // 处理子节点
+              if (node.hasChildNodes()) {
+                for (let i = 0; i < node.childNodes.length; i++) {
+                  const item = node.childNodes.item(i);
+                  const nodeName = item.nodeName;
+                  
+                  if (item.nodeType === 1) { // element
+                    const childObj = xmlToObj(item);
+                    
+                    if (!obj[nodeName]) {
+                      obj[nodeName] = childObj;
+                    } else {
+                      if (!Array.isArray(obj[nodeName])) {
+                        obj[nodeName] = [obj[nodeName]];
+                      }
+                      obj[nodeName].push(childObj);
+                    }
+                  } else if (item.nodeType === 3 && item.nodeValue.trim() !== '') { // text
+                    obj = item.nodeValue.trim();
+                  }
+                }
+              }
+              
+              return obj;
+            };
+            
+            const jsonObj = xmlToObj(xmlDoc.documentElement);
+            return JSON.stringify(jsonObj, null, 2);
+          } catch (error) {
+            return `转换错误: ${error.message}`;
+          }
+        };
+
+        // XML转CSV
+        const xmlToCsv = (xml) => {
+          try {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xml, "text/xml");
+            
+            // 检查是否有解析错误
+            const parserError = xmlDoc.querySelector("parsererror");
+            if (parserError) {
+              throw new Error(parserError.textContent);
+            }
+            
+            // 获取所有顶层元素
+            const rootElement = xmlDoc.documentElement;
+            const items = rootElement.children.length > 0 ? rootElement.children : [rootElement];
+            
+            if (items.length === 0) {
+              return 'XML中没有找到数据';
+            }
+            
+            // 获取所有可能的键（标签名）
+            const keys = new Set();
+            for (const item of items) {
+              for (const child of item.children) {
+                keys.add(child.tagName);
+              }
+            }
+            
+            const headers = Array.from(keys);
+            const csvRows = [headers.join(',')];
+            
+            // 为每一项生成一行数据
+            for (const item of items) {
+              const row = [];
+              for (const header of headers) {
+                const element = item.getElementsByTagName(header)[0];
+                let value = '';
+                
+                if (element) {
+                  value = element.textContent || '';
+                  // 如果值包含逗号或引号，需要用引号包围并转义内部引号
+                  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+                    value = `"${value.replace(/"/g, '""')}"`;
+                  }
+                }
+                
+                row.push(value);
+              }
+              csvRows.push(row.join(','));
+            }
+            
+            return csvRows.join('\n');
+          } catch (error) {
+            return `转换错误: ${error.message}`;
+          }
+        };
+
+        // XML转YAML
+        const xmlToYaml = (xml) => {
+          try {
+            const jsonObj = JSON.parse(xmlToJson(xml));
+            
+            const convertToYaml = (obj, indent = 0) => {
+              let yaml = '';
+              const spaces = '  '.repeat(indent);
+              
+              if (typeof obj === 'object' && obj !== null) {
+                if (Array.isArray(obj)) {
+                  obj.forEach(item => {
+                    yaml += `${spaces}- ${convertToYaml(item, indent + 1)}`;
+                  });
+                } else {
+                  for (const key in obj) {
+                    if (typeof obj[key] === 'object' && obj[key] !== null) {
+                      yaml += `${spaces}${key}:\n${convertToYaml(obj[key], indent + 1)}`;
+                    } else {
+                      yaml += `${spaces}${key}: ${obj[key]}\n`;
+                    }
+                  }
+                }
+              } else {
+                return `${obj}\n`;
+              }
+              
+              return yaml;
+            };
+            
+            return `---\n${convertToYaml(jsonObj)}`;
+          } catch (error) {
+            return `转换错误: ${error.message}`;
+          }
+        };
+
+        // 执行转换
+        const convertXml = () => {
+          if (!inputXml.value) {
+            result.value = '';
+            return;
+          }
+
+          switch(convertTo.value) {
+            case 'format':
+              result.value = formatXml(inputXml.value);
+              break;
+            case 'minify':
+              result.value = minifyXml(inputXml.value);
+              break;
+            case 'xml2json':
+              result.value = xmlToJson(inputXml.value);
+              break;
+            case 'xml2csv':
+              result.value = xmlToCsv(inputXml.value);
+              break;
+            case 'xml2yaml':
+              result.value = xmlToYaml(inputXml.value);
+              break;
+            default:
+              result.value = '请选择正确的转换类型';
+          }
+        };
+
+        // 清空文本
+        const clearText = () => {
+          inputXml.value = '';
+          result.value = '';
+          activeTab.value = 'result';
+        };
+
+        // 复制结果
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        // 预览结果（格式化JSON或YAML）
+        const previewResult = () => {
+          if (convertTo.value === 'xml2json' || convertTo.value === 'xml2yaml') {
+            try {
+              return JSON.stringify(JSON.parse(result.value), null, 2);
+            } catch (e) {
+              return result.value;
+            }
+          }
+          return '';
+        };
+
+        return {
+          inputXml,
+          result,
+          convertTo,
+          activeTab,
+          convertXml,
+          clearText,
+          copyResult,
+          previewResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

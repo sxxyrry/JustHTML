@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到CSS Container Queries转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .container-query-preview {
+      margin: 20px 0;
+      padding: 20px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      min-height: 200px;
+    }
+    
+    .preview-container {
+      container-type: inline-size;
+      container-name: card-container;
+      width: 100%;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .preview-content {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .preview-card {
+      background: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: 4px;
+      min-width: 150px;
+    }
+    
+    .compatibility-info {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到CSS Container Queries转换工具</h2>
+        <p>将Media Queries转换为Container Queries</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将传统的Media Queries转换为现代的Container Queries，实现基于容器大小的响应式设计</p>
+        </div>
+        
+        <div class="compatibility-info">
+          <h3>兼容性说明:</h3>
+          <p>CSS Container Queries是一项较新的CSS特性，需要现代浏览器支持（Chrome 105+, Firefox 110+）。在使用前请检查目标浏览器的支持情况。</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入包含Media Queries的CSS代码..."
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>CSS Container Queries</h3>
+            <textarea 
+              v-model="containerQueryOutput" 
+              placeholder="转换后的CSS Container Queries代码将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToContainerQueries">CSS → Container Queries</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="container-query-preview">
+          <h3>Container Queries 预览:</h3>
+          <div class="preview-container" :style="{ width: containerWidth + '%' }">
+            <div class="preview-content">
+              <div class="preview-card">
+                <h4>示例卡片</h4>
+                <p>调整容器宽度以查看响应式效果</p>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label>调整容器宽度: </label>
+            <input 
+              type="range" 
+              min="20" 
+              max="100" 
+              v-model.number="containerWidth"
+              style="width: 100%; margin-top: 10px;"
+            >
+            <p>当前容器宽度: {{ containerWidth }}%</p>
+          </div>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const containerQueryOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+        const containerWidth = ref(60);
+
+        const convertToContainerQueries = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            containerQueryOutput.value = convertCssToContainerQueries(inputCss.value);
+            result.value = 'CSS已成功转换为Container Queries格式！';
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertCssToContainerQueries = (cssCode) => {
+          // 将Media Queries转换为Container Queries
+          let convertedCode = cssCode;
+          
+          // 替换@media查询为@container查询
+          convertedCode = convertedCode.replace(/@media\s+screen\s+and\s+\(\s*(min-width|max-width):\s*([^\)]+)\)/g, 
+            '@container (inline-size: $2)');
+          
+          // 替换具体的媒体查询条件
+          convertedCode = convertedCode.replace(/@media\s+\(\s*(min-width|max-width):\s*([^\)]+)\)/g, 
+            '@container (inline-size: $2)');
+          
+          // 添加容器声明示例
+          let output = '/* 定义容器 */\n.container {\n  container-type: inline-size;\n  container-name: my-container;\n}\n\n';
+          output += '/* Container Queries */\n';
+          output += convertedCode;
+          
+          // 如果没有媒体查询，则提供一个转换示例
+          if (convertedCode === cssCode) {
+            output = `/* 原始CSS中未发现Media Queries，以下是转换示例 */\n\n`;
+            output += `/* 原来的Media Query: */\n`;
+            output += `/* @media (min-width: 600px) { ... } */\n\n`;
+            output += `/* 转换为Container Query: */\n`;
+            output += `.container {\n  container-type: inline-size;\n}\n\n`;
+            output += `@container (min-width: 600px) {\n  /* 样式规则 */\n  .card {\n    display: flex;\n  }\n}\n\n`;
+            output += `/* 原始CSS代码: */\n${cssCode}`;
+          }
+          
+          return output;
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.card {
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+@media (min-width: 600px) {
+  .card {
+    display: flex;
+    padding: 20px;
+  }
+  
+  .card img {
+    width: 100px;
+    margin-right: 15px;
+  }
+}
+
+@media (min-width: 900px) {
+  .card {
+    padding: 30px;
+  }
+  
+  .card img {
+    width: 150px;
+  }
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          containerQueryOutput.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          containerQueryOutput,
+          result,
+          error,
+          containerWidth,
+          convertToContainerQueries,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEX编码/解码工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .stat-item {
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>HEX编码/解码工具</h2>
+        <p>将文本转换为十六进制编码或将十六进制编码解码为原文本</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• HEX编码：将文本转换为十六进制表示形式</p>
+          <p>• HEX解码：将十六进制编码还原为原始文本</p>
+          <p>• 十六进制编码常用于数据传输和存储</p>
+        </div>
+        
+        <div class="stats-container">
+          <div class="stat-item">
+            <div class="stat-value">{{ inputLength }}</div>
+            <div class="stat-label">输入长度</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ outputLength }}</div>
+            <div class="stat-label">输出长度</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ encodingType }}</div>
+            <div class="stat-label">当前操作</div>
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>输入文本</h3>
+            <textarea 
+              v-model="inputText" 
+              placeholder="在此输入要编码或解码的文本..."
+              rows="10"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>输出结果</h3>
+            <textarea 
+              v-model="outputText" 
+              placeholder="编码或解码结果将在这里显示"
+              rows="10"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="encodeToHex">文本 → HEX</button>
+          <button @click="decodeFromHex">HEX → 文本</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="swap">交换</button>
+          <button @click="clearAll">清空</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          {{ result }}
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          {{ error }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const outputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const encodingType = ref('待操作');
+
+        // 计算属性：统计信息
+        const inputLength = computed(() => inputText.value.length);
+        const outputLength = computed(() => outputText.value.length);
+
+        // 将文本编码为十六进制
+        const encodeToHex = () => {
+          error.value = '';
+          result.value = '';
+          encodingType.value = '编码中';
+          
+          try {
+            if (!inputText.value) {
+              outputText.value = '';
+              result.value = '输入为空，输出也为空';
+              return;
+            }
+            
+            // 将字符串转换为UTF-8字节数组，然后转为十六进制
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(inputText.value);
+            const hexArray = Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0'));
+            outputText.value = hexArray.join('');
+            result.value = `成功将 ${inputText.value.length} 个字符编码为 ${outputText.value.length} 个十六进制字符`;
+          } catch (e) {
+            error.value = `编码错误: ${e.message}`;
+          }
+        };
+
+        // 将十六进制解码为文本
+        const decodeFromHex = () => {
+          error.value = '';
+          result.value = '';
+          encodingType.value = '解码中';
+          
+          try {
+            if (!outputText.value) {
+              inputText.value = '';
+              result.value = '输入为空，输出也为空';
+              return;
+            }
+            
+            // 验证十六进制字符串
+            if (!/^[0-9a-fA-F]*$/.test(outputText.value)) {
+              throw new Error('输入包含非十六进制字符');
+            }
+            
+            // 如果十六进制字符串长度为奇数，补0
+            let hexString = outputText.value;
+            if (hexString.length % 2 !== 0) {
+              hexString = '0' + hexString;
+            }
+            
+            // 将十六进制字符串转换为字节数组
+            const bytes = new Uint8Array(hexString.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+            
+            // 尝试解码为文本
+            const decoder = new TextDecoder();
+            inputText.value = decoder.decode(bytes);
+            result.value = `成功将 ${outputText.value.length} 个十六进制字符解码为 ${inputText.value.length} 个字符`;
+          } catch (e) {
+            error.value = `解码错误: ${e.message}`;
+          }
+        };
+
+        // 复制结果到剪贴板
+        const copyResult = () => {
+          if (outputText.value) {
+            navigator.clipboard.writeText(outputText.value)
+              .then(() => {
+                result.value = '结果已复制到剪贴板！';
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                error.value = '复制失败';
+              });
+          } else {
+            error.value = '没有可复制的内容';
+          }
+        };
+
+        // 交换输入和输出
+        const swap = () => {
+          const temp = inputText.value;
+          inputText.value = outputText.value;
+          outputText.value = temp;
+          result.value = '输入和输出已交换';
+        };
+
+        // 清空所有内容
+        const clearAll = () => {
+          inputText.value = '';
+          outputText.value = '';
+          result.value = '已清空所有内容';
+          error.value = '';
+          encodingType.value = '已清空';
+        };
+
+        return {
+          inputText,
+          outputText,
+          result,
+          error,
+          encodingType,
+          inputLength,
+          outputLength,
+          encodeToHex,
+          decodeFromHex,
+          copyResult,
+          swap,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL参数生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .params-container {
+      margin: 15px 0;
+    }
+    
+    .param-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    
+    .param-input {
+      flex: 1;
+      padding: 8px;
+    }
+    
+    .add-param-btn {
+      background-color: #2d804a;
+    }
+    
+    .remove-param-btn {
+      background-color: #a83232;
+      padding: 8px 12px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>URL参数生成器</h2>
+        <p>生成带参数的URL</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 添加多个URL参数</p>
+          <p>• 自动URL编码参数值</p>
+          <p>• 实时生成完整的URL</p>
+        </div>
+        
+        <div>
+          <div>
+            <label for="baseUrl">基础URL</label>
+            <input 
+              type="text" 
+              id="baseUrl" 
+              v-model="baseUrl" 
+              class="param-input"
+              placeholder="输入基础URL，例如: https://example.com/search"
+            >
+          </div>
+          
+          <div class="params-container">
+            <h3>URL参数</h3>
+            <div v-for="(param, index) in params" :key="index" class="param-row">
+              <input 
+                type="text" 
+                v-model="param.key" 
+                class="param-input"
+                placeholder="参数名"
+              >
+              <input 
+                type="text" 
+                v-model="param.value" 
+                class="param-input"
+                placeholder="参数值"
+              >
+              <button @click="removeParam(index)" class="remove-param-btn">删除</button>
+            </div>
+            
+            <button @click="addParam" class="add-param-btn">添加参数</button>
+          </div>
+          
+          <div class="controls">
+            <button @click="generateUrl">生成URL</button>
+            <button @click="clearAll">清空所有</button>
+            <button @click="copyResult">复制URL</button>
+          </div>
+          
+          <div class="result" v-if="generatedUrl">
+            <h3>生成的URL：</h3>
+            <p>{{ generatedUrl }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive } = Vue;
+
+    createApp({
+      setup() {
+        const baseUrl = ref('');
+        const params = reactive([{ key: '', value: '' }]);
+        const generatedUrl = ref('');
+
+        // 添加新参数
+        const addParam = () => {
+          params.push({ key: '', value: '' });
+        };
+
+        // 删除参数
+        const removeParam = (index) => {
+          if (params.length > 1) {
+            params.splice(index, 1);
+          } else {
+            // 如果只有一个参数，清空它的值而不是删除
+            params[0].key = '';
+            params[0].value = '';
+          }
+        };
+
+        // 生成URL
+        const generateUrl = () => {
+          if (!baseUrl.value) {
+            generatedUrl.value = '请输入基础URL';
+            return;
+          }
+
+          // 验证URL格式
+          try {
+            new URL(baseUrl.value);
+          } catch (e) {
+            generatedUrl.value = '基础URL格式不正确';
+            return;
+          }
+
+          // 过滤掉空的参数
+          const validParams = params.filter(param => param.key.trim() !== '');
+
+          if (validParams.length === 0) {
+            generatedUrl.value = baseUrl.value;
+            return;
+          }
+
+          // 构建查询字符串
+          const queryParams = validParams
+            .map(param => 
+              `${encodeURIComponent(param.key.trim())}=${encodeURIComponent(param.value.trim())}`
+            )
+            .join('&');
+
+          // 构建最终URL
+          const separator = baseUrl.value.includes('?') ? '&' : '?';
+          generatedUrl.value = `${baseUrl.value}${separator}${queryParams}`;
+        };
+
+        // 清空所有
+        const clearAll = () => {
+          baseUrl.value = '';
+          params.splice(0, params.length); // 清空数组
+          params.push({ key: '', value: '' }); // 添加一个空参数
+          generatedUrl.value = '';
+        };
+
+        // 复制结果
+        const copyResult = () => {
+          if (generatedUrl.value) {
+            navigator.clipboard.writeText(generatedUrl.value)
+              .then(() => {
+                alert('URL已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          baseUrl,
+          params,
+          generatedUrl,
+          addParam,
+          removeParam,
+          generateUrl,
+          clearAll,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

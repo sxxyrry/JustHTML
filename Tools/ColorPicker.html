@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>颜色选择器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .color-display {
+      width: 100%;
+      height: 150px;
+      border: 1px solid var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+      transition: background-color 0.3s;
+    }
+    
+    .color-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .color-value {
+      padding: 10px;
+      border-radius: var(--border-radius);
+      background-color: var(--bg-secondary);
+      font-family: monospace;
+      text-align: center;
+    }
+    
+    .color-inputs {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .input-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .input-group label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .input-group input {
+      padding: 8px;
+    }
+    
+    .recent-colors {
+      margin-top: 20px;
+    }
+    
+    .recent-colors h3 {
+      color: var(--accent-color);
+      margin-bottom: 10px;
+    }
+    
+    .recent-color-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .recent-color-item {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid var(--bg-tertiary);
+      transition: transform 0.2s;
+    }
+    
+    .recent-color-item:hover {
+      transform: scale(1.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>颜色选择器</h2>
+        <p>选择颜色并查看各种格式的表示</p>
+        
+        <div>
+          <input 
+            type="color" 
+            v-model="selectedColor" 
+            @input="updateColorInfo"
+            style="width: 100%; height: 50px; border: none; border-radius: var(--border-radius);"
+          >
+          
+          <div class="color-display" :style="{ backgroundColor: selectedColor }"></div>
+          
+          <div class="color-info">
+            <div class="color-value">
+              <div>HEX</div>
+              <div>{{ hexValue }}</div>
+            </div>
+            
+            <div class="color-value">
+              <div>RGB</div>
+              <div>{{ rgbValue }}</div>
+            </div>
+            
+            <div class="color-value">
+              <div>HSL</div>
+              <div>{{ hslValue }}</div>
+            </div>
+            
+            <div class="color-value">
+              <div>RGBA</div>
+              <div>{{ rgbaValue }}</div>
+            </div>
+          </div>
+          
+          <div class="color-inputs">
+            <div class="input-group">
+              <label for="hexInput">HEX</label>
+              <input type="text" id="hexInput" v-model="hexValue" @input="updateFromHex">
+            </div>
+            
+            <div class="input-group">
+              <label for="rgbInput">RGB</label>
+              <input type="text" id="rgbInput" v-model="rgbValue" @input="updateFromRgb">
+            </div>
+            
+            <div class="input-group">
+              <label for="hslInput">HSL</label>
+              <input type="text" id="hslInput" v-model="hslValue" @input="updateFromHsl">
+            </div>
+          </div>
+          
+          <button @click="randomColor">随机颜色</button>
+          <button @click="copyHex">复制HEX</button>
+          <button @click="copyRgb">复制RGB</button>
+          
+          <div class="recent-colors" v-if="recentColors.length > 0">
+            <h3>最近使用的颜色</h3>
+            <div class="recent-color-list">
+              <div 
+                v-for="color in recentColors" 
+                :key="color" 
+                :style="{ backgroundColor: color }"
+                class="recent-color-item"
+                @click="selectRecentColor(color)"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const selectedColor = ref('#4a9eff'); // 默认蓝色
+        const hexValue = ref('#4a9eff');
+        const rgbValue = ref('rgb(74, 158, 255)');
+        const hslValue = ref('hsl(210, 100%, 65%)');
+        const rgbaValue = ref('rgba(74, 158, 255, 1)');
+        const recentColors = ref([]);
+
+        // 更新颜色信息
+        const updateColorInfo = () => {
+          // 更新HEX
+          hexValue.value = selectedColor.value;
+          
+          // 从RGB获取HSL
+          const rgb = hexToRgb(selectedColor.value);
+          if (rgb) {
+            rgbValue.value = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            rgbaValue.value = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+            
+            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+            hslValue.value = `hsl(${Math.round(hsl.h)}, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%)`;
+            
+            // 添加到最近使用的颜色
+            addToRecentColors(selectedColor.value);
+          }
+        };
+
+        // 从HEX更新颜色
+        const updateFromHex = () => {
+          if (isValidHex(hexValue.value)) {
+            selectedColor.value = hexValue.value;
+            const rgb = hexToRgb(hexValue.value);
+            if (rgb) {
+              rgbValue.value = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+              rgbaValue.value = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+              
+              const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+              hslValue.value = `hsl(${Math.round(hsl.h)}, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%)`;
+            }
+          }
+        };
+
+        // 从RGB更新颜色
+        const updateFromRgb = () => {
+          const match = rgbValue.value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (match) {
+            const r = parseInt(match[1]);
+            const g = parseInt(match[2]);
+            const b = parseInt(match[3]);
+            
+            if (r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255) {
+              const hex = rgbToHex(r, g, b);
+              selectedColor.value = hex;
+              hexValue.value = hex;
+              
+              const hsl = rgbToHsl(r, g, b);
+              hslValue.value = `hsl(${Math.round(hsl.h)}, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%)`;
+              rgbaValue.value = `rgba(${r}, ${g}, ${b}, 1)`;
+            }
+          }
+        };
+
+        // 从HSL更新颜色
+        const updateFromHsl = () => {
+          const match = hslValue.value.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+          if (match) {
+            const h = parseInt(match[1]);
+            const s = parseInt(match[2]);
+            const l = parseInt(match[3]);
+            
+            if (h >= 0 && h <= 360 && s >= 0 && s <= 100 && l >= 0 && l <= 100) {
+              const rgb = hslToRgb(h, s, l);
+              const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+              
+              selectedColor.value = hex;
+              hexValue.value = hex;
+              rgbValue.value = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+              rgbaValue.value = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+            }
+          }
+        };
+
+        // 验证HEX颜色值
+        const isValidHex = (hex) => {
+          return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(hex);
+        };
+
+        // HEX转RGB
+        const hexToRgb = (hex) => {
+          const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+          return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+          } : null;
+        };
+
+        // RGB转HEX
+        const rgbToHex = (r, g, b) => {
+          return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        };
+
+        // RGB转HSL
+        const rgbToHsl = (r, g, b) => {
+          r /= 255;
+          g /= 255;
+          b /= 255;
+
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          let h, s, l = (max + min) / 2;
+
+          if (max === min) {
+            h = s = 0; // achromatic
+          } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            
+            switch (max) {
+              case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+              case g: h = (b - r) / d + 2; break;
+              case b: h = (r - g) / d + 4; break;
+            }
+            
+            h /= 6;
+          }
+
+          return {
+            h: h * 360,
+            s: s * 100,
+            l: l * 100
+          };
+        };
+
+        // HSL转RGB
+        const hslToRgb = (h, s, l) => {
+          h /= 360;
+          s /= 100;
+          l /= 100;
+
+          const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+          };
+
+          let r, g, b;
+
+          if (s === 0) {
+            r = g = b = l; // achromatic
+          } else {
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+          }
+
+          return {
+            r: Math.round(r * 255),
+            g: Math.round(g * 255),
+            b: Math.round(b * 255)
+          };
+        };
+
+        // 随机颜色
+        const randomColor = () => {
+          const letters = '0123456789ABCDEF';
+          let color = '#';
+          for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+          }
+          selectedColor.value = color;
+          updateColorInfo();
+        };
+
+        // 复制HEX值
+        const copyHex = () => {
+          navigator.clipboard.writeText(hexValue.value)
+            .then(() => {
+              alert('HEX值已复制到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+            });
+        };
+
+        // 复制RGB值
+        const copyRgb = () => {
+          navigator.clipboard.writeText(rgbValue.value)
+            .then(() => {
+              alert('RGB值已复制到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+            });
+        };
+
+        // 添加到最近使用的颜色
+        const addToRecentColors = (color) => {
+          if (!recentColors.value.includes(color)) {
+            recentColors.value.unshift(color);
+            // 限制最近颜色数量为10个
+            if (recentColors.value.length > 10) {
+              recentColors.value.pop();
+            }
+            // 保存到localStorage
+            localStorage.setItem('recentColors', JSON.stringify(recentColors.value));
+          }
+        };
+
+        // 选择最近的颜色
+        const selectRecentColor = (color) => {
+          selectedColor.value = color;
+          updateColorInfo();
+        };
+
+        // 初始化
+        onMounted(() => {
+          // 从localStorage加载最近的颜色
+          const savedColors = localStorage.getItem('recentColors');
+          if (savedColors) {
+            recentColors.value = JSON.parse(savedColors);
+          }
+          
+          updateColorInfo();
+        });
+
+        return {
+          selectedColor,
+          hexValue,
+          rgbValue,
+          hslValue,
+          rgbaValue,
+          recentColors,
+          updateColorInfo,
+          updateFromHex,
+          updateFromRgb,
+          updateFromHsl,
+          randomColor,
+          copyHex,
+          copyRgb,
+          selectRecentColor
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

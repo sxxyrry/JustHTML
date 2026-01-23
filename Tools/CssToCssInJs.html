@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到CSS-in-JS转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .framework-selector {
+      margin: 15px 0;
+    }
+    
+    .framework-selector select {
+      padding: 8px 12px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      width: 100%;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到CSS-in-JS转换工具</h2>
+        <p>将CSS代码转换为CSS-in-JS格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将传统的CSS代码转换为CSS-in-JS格式，支持多种流行的CSS-in-JS库</p>
+        </div>
+        
+        <div class="framework-selector">
+          <label for="cssInJsFramework">选择CSS-in-JS库:</label>
+          <select id="cssInJsFramework" v-model="selectedFramework">
+            <option value="styledComponents">Styled Components</option>
+            <option value="emotion">Emotion</option>
+            <option value="jss">JSS</option>
+            <option value="aphrodite">Aphrodite</option>
+            <option value="glamor">Glamor</option>
+          </select>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>CSS-in-JS代码</h3>
+            <textarea 
+              v-model="cssInJsOutput" 
+              placeholder="转换后的CSS-in-JS代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToCssInJs">CSS → CSS-in-JS</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, watch } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const cssInJsOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+        const selectedFramework = ref('styledComponents');
+
+        // 监听输入CSS的变化，自动转换
+        watch([inputCss, selectedFramework], () => {
+          if (inputCss.value) {
+            convertToCssInJs();
+          }
+        });
+
+        const convertToCssInJs = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            // 根据选择的框架转换CSS
+            cssInJsOutput.value = convertCssToFramework(inputCss.value, selectedFramework.value);
+            result.value = `CSS已成功转换为${getFrameworkName(selectedFramework.value)}格式！`;
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertCssToFramework = (cssCode, framework) => {
+          // 解析CSS代码
+          const rules = parseCss(cssCode);
+          
+          // 根据不同框架生成代码
+          switch (framework) {
+            case 'styledComponents':
+              return generateStyledComponents(rules);
+            case 'emotion':
+              return generateEmotion(rules);
+            case 'jss':
+              return generateJss(rules);
+            case 'aphrodite':
+              return generateAphrodite(rules);
+            case 'glamor':
+              return generateGlamor(rules);
+            default:
+              return generateStyledComponents(rules);
+          }
+        };
+
+        const parseCss = (cssCode) => {
+          const rules = [];
+          
+          // 简单的CSS解析器
+          const ruleRegex = /([^{]+)\s*{\s*([^}]+)\s*}/g;
+          let match;
+          
+          while ((match = ruleRegex.exec(cssCode)) !== null) {
+            const selector = match[1].trim();
+            const propertiesStr = match[2].trim();
+            
+            // 解析属性
+            const properties = {};
+            const propRegex = /([a-zA-Z-]+)\s*:\s*([^;]+);?/g;
+            let propMatch;
+            
+            while ((propMatch = propRegex.exec(propertiesStr)) !== null) {
+              const prop = propMatch[1].trim();
+              const value = propMatch[2].trim();
+              properties[prop] = value;
+            }
+            
+            rules.push({
+              selector: selector,
+              properties: properties
+            });
+          }
+          
+          return rules;
+        };
+
+        const generateStyledComponents = (rules) => {
+          let output = `import styled from 'styled-components';\n\n`;
+          
+          rules.forEach((rule, index) => {
+            // 将CSS选择器转换为组件名
+            const componentName = generateComponentName(rule.selector, index);
+            
+            output += `export const ${componentName} = styled.div\`\n`;
+            
+            // 转换CSS属性为模板字符串
+            for (const [property, value] of Object.entries(rule.properties)) {
+              output += `  ${camelCaseToKebabCase(property)}: ${value};\n`;
+            }
+            
+            output += `\`;\n\n`;
+          });
+          
+          return output;
+        };
+
+        const generateEmotion = (rules) => {
+          let output = `import { css } from '@emotion/react';\n\n`;
+          
+          rules.forEach((rule, index) => {
+            // 将CSS选择器转换为样式对象名
+            const styleObjectName = generateStyleObjectName(rule.selector, index);
+            
+            output += `export const ${styleObjectName} = css\`\n`;
+            
+            // 转换CSS属性为模板字符串
+            for (const [property, value] of Object.entries(rule.properties)) {
+              output += `  ${camelCaseToKebabCase(property)}: ${value};\n`;
+            }
+            
+            output += `\`;\n\n`;
+          });
+          
+          return output;
+        };
+
+        const generateJss = (rules) => {
+          let output = `import jss from 'jss';\n\n`;
+          output += `const styles = {\n`;
+          
+          rules.forEach((rule, index) => {
+            // 将CSS选择器转换为样式对象键
+            const styleKeyName = generateStyleKeyName(rule.selector, index);
+            
+            output += `  ${styleKeyName}: {\n`;
+            
+            // 转换CSS属性为JSS对象格式
+            for (const [property, value] of Object.entries(rule.properties)) {
+              output += `    ${camelCaseToJssFormat(property)}: '${value}',\n`;
+            }
+            
+            output += `  },\n`;
+          });
+          
+          output += `};\n\n`;
+          output += `const sheet = jss.createStyleSheet(styles);\nsheet.attach();\n\n`;
+          output += `// Use sheet.classes.${rules.length > 0 ? generateStyleKeyName(rules[0].selector, 0) : 'className'} for the class name\n`;
+          
+          return output;
+        };
+
+        const generateAphrodite = (rules) => {
+          let output = `import { StyleSheet } from 'aphrodite';\n\n`;
+          output += `export const styles = StyleSheet.create({\n`;
+          
+          rules.forEach((rule, index) => {
+            // 将CSS选择器转换为样式对象键
+            const styleKeyName = generateStyleKeyName(rule.selector, index);
+            
+            output += `  ${styleKeyName}: {\n`;
+            
+            // 转换CSS属性为Aphrodite对象格式
+            for (const [property, value] of Object.entries(rule.properties)) {
+              output += `    ${camelCaseToJssFormat(property)}: '${value}',\n`;
+            }
+            
+            output += `  },\n`;
+          });
+          
+          output += `});\n\n`;
+          output += `// Use styles.${rules.length > 0 ? generateStyleKeyName(rules[0].selector, 0) : 'className'} for the class name\n`;
+          
+          return output;
+        };
+
+        const generateGlamor = (rules) => {
+          let output = `import { style } from 'glamor';\n\n`;
+          
+          rules.forEach((rule, index) => {
+            // 将CSS选择器转换为样式对象名
+            const styleObjectName = generateStyleObjectName(rule.selector, index);
+            
+            output += `export const ${styleObjectName} = style({\n`;
+            
+            // 转换CSS属性为Glamor对象格式
+            for (const [property, value] of Object.entries(rule.properties)) {
+              output += `  ${camelCaseToJssFormat(property)}: '${value}',\n`;
+            }
+            
+            output += `});\n\n`;
+          });
+          
+          return output;
+        };
+
+        const generateComponentName = (selector, index) => {
+          // 将CSS选择器转换为有效的组件名称
+          return 'Styled' + selector
+            .replace(/[.#]/g, '')
+            .replace(/[^a-zA-Z0-9]/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join('') + index;
+        };
+
+        const generateStyleObjectName = (selector, index) => {
+          // 将CSS选择器转换为有效的样式对象名称
+          return 'style' + selector
+            .replace(/[.#]/g, '')
+            .replace(/[^a-zA-Z0-9]/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join('') + index;
+        };
+
+        const generateStyleKeyName = (selector, index) => {
+          // 将CSS选择器转换为有效的样式键名称
+          return selector
+            .replace(/[.#]/g, '')
+            .replace(/[^a-zA-Z0-9]/g, '') + index;
+        };
+
+        const camelCaseToKebabCase = (str) => {
+          return str.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+        };
+
+        const camelCaseToJssFormat = (str) => {
+          // CSS属性名转为驼峰格式（JSS使用）
+          return str.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
+        };
+
+        const getFrameworkName = (framework) => {
+          switch (framework) {
+            case 'styledComponents': return 'Styled Components';
+            case 'emotion': return 'Emotion';
+            case 'jss': return 'JSS';
+            case 'aphrodite': return 'Aphrodite';
+            case 'glamor': return 'Glamor';
+            default: return 'Styled Components';
+          }
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.header {
+  background-color: #333;
+  padding: 20px;
+  text-align: center;
+}
+
+.header h1 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.header a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.header a:hover {
+  color: #0056b3;
+}
+
+.button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-block;
+  margin: 5px;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          cssInJsOutput.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          cssInJsOutput,
+          result,
+          error,
+          selectedFramework,
+          convertToCssInJs,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

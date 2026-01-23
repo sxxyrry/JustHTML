@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Robots.txt生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .setting-group {
+      margin: 15px 0;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .setting-item {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+    }
+    
+    .setting-item input, .setting-item select, .setting-item textarea {
+      margin-left: 10px;
+      padding: 5px;
+    }
+    
+    .setting-item label {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Robots.txt生成器</h2>
+        <p>生成robots.txt文件内容</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• robots.txt是位于网站根目录下的一个文本文件，用于告诉网络爬虫哪些页面可以被抓取，哪些不可以</p>
+          <p>• 正确配置robots.txt有助于搜索引擎优化和隐私保护</p>
+        </div>
+        
+        <div>
+          <div class="setting-group">
+            <h3>基本设置</h3>
+            
+            <div class="setting-item">
+              <label for="userAgent">User-Agent:</label>
+              <input 
+                type="text" 
+                id="userAgent" 
+                v-model="settings.userAgent" 
+                placeholder="* (所有爬虫)"
+              >
+            </div>
+            
+            <div class="setting-item">
+              <label for="sitemapUrl">Sitemap URL:</label>
+              <input 
+                type="text" 
+                id="sitemapUrl" 
+                v-model="settings.sitemapUrl" 
+                placeholder="https://example.com/sitemap.xml"
+              >
+            </div>
+          </div>
+          
+          <div class="setting-group">
+            <h3>访问权限</h3>
+            
+            <div class="setting-item">
+              <input 
+                type="checkbox" 
+                id="allowAll" 
+                v-model="settings.allowAll"
+              >
+              <label for="allowAll">允许所有页面被抓取</label>
+            </div>
+            
+            <div class="setting-item" v-if="!settings.allowAll">
+              <input 
+                type="checkbox" 
+                id="disallowAll" 
+                v-model="settings.disallowAll"
+              >
+              <label for="disallowAll">禁止所有页面被抓取</label>
+            </div>
+          </div>
+          
+          <div class="setting-group" v-if="!settings.allowAll && !settings.disallowAll">
+            <h3>允许/禁止路径</h3>
+            
+            <div v-for="(path, index) in settings.paths" :key="index">
+              <div class="setting-item">
+                <select v-model="path.type">
+                  <option value="allow">Allow</option>
+                  <option value="disallow">Disallow</option>
+                </select>
+                <input 
+                  type="text" 
+                  v-model="path.value" 
+                  placeholder="/private/"
+                  style="flex: 1; margin: 0 10px;"
+                >
+                <button @click="removePath(index)">删除</button>
+              </div>
+            </div>
+            
+            <button @click="addPath" style="margin-top: 10px;">添加路径</button>
+          </div>
+          
+          <div class="setting-group">
+            <h3>Crawl-delay</h3>
+            
+            <div class="setting-item">
+              <label for="crawlDelay">爬取延时 (秒):</label>
+              <input 
+                type="number" 
+                id="crawlDelay" 
+                v-model.number="settings.crawlDelay" 
+                min="0"
+                placeholder="例如: 10 (秒)"
+              >
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="generateRobots">生成Robots.txt</button>
+            <button @click="resetSettings">重置设置</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>生成的Robots.txt内容：</h3>
+            <pre>{{ result }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, watch } = Vue;
+
+    createApp({
+      setup() {
+        // 设置状态
+        const settings = reactive({
+          userAgent: '*',
+          sitemapUrl: '',
+          allowAll: true,
+          disallowAll: false,
+          crawlDelay: null,
+          paths: []
+        });
+        
+        const result = ref('');
+
+        // 添加路径
+        const addPath = () => {
+          settings.paths.push({
+            type: 'disallow',
+            value: ''
+          });
+        };
+
+        // 删除路径
+        const removePath = (index) => {
+          settings.paths.splice(index, 1);
+        };
+
+        // 生成robots.txt
+        const generateRobots = () => {
+          let robotsContent = '';
+          
+          // User-Agent
+          robotsContent += `User-agent: ${settings.userAgent}\n`;
+          
+          // Crawl-delay
+          if (settings.crawlDelay !== null && settings.crawlDelay >= 0) {
+            robotsContent += `Crawl-delay: ${settings.crawlDelay}\n`;
+          }
+          
+          // Allow/Disallow rules
+          if (settings.allowAll) {
+            robotsContent += 'Allow: /\n';
+          } else if (settings.disallowAll) {
+            robotsContent += 'Disallow: /\n';
+          } else {
+            // 添加用户指定的路径
+            settings.paths.forEach(path => {
+              if (path.value) {
+                robotsContent += `${path.type === 'allow' ? 'Allow' : 'Disallow'}: ${path.value}\n`;
+              }
+            });
+          }
+          
+          // Sitemap
+          if (settings.sitemapUrl) {
+            robotsContent += `\nSitemap: ${settings.sitemapUrl}\n`;
+          }
+          
+          result.value = robotsContent.trim();
+        };
+
+        // 重置设置
+        const resetSettings = () => {
+          settings.userAgent = '*';
+          settings.sitemapUrl = '';
+          settings.allowAll = true;
+          settings.disallowAll = false;
+          settings.crawlDelay = null;
+          settings.paths = [];
+          result.value = '';
+        };
+
+        // 监听设置变化，自动生成结果
+        watch(() => ({...settings, paths: [...settings.paths]}), () => {
+          generateRobots();
+        }, { deep: true });
+
+        // 复制结果
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('Robots.txt内容已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        // 初始化时添加一个路径
+        addPath();
+
+        return {
+          settings,
+          result,
+          addPath,
+          removePath,
+          generateRobots,
+          resetSettings,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日期差值计算器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .date-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    .date-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .date-section input {
+      padding: 8px;
+      margin-top: 5px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .result-container {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .result-item {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+    }
+    
+    .result-label {
+      color: var(--accent-color);
+      font-weight: bold;
+    }
+    
+    .examples {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .example-item {
+      margin: 8px 0;
+      padding: 5px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .date-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>日期差值计算器</h2>
+        <p>计算两个日期之间的差值</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 计算两个日期之间的天数、小时数、分钟数等</p>
+          <p>• 支持选择日期和时间</p>
+          <p>• 结果包含多种时间单位的表示</p>
+        </div>
+        
+        <div>
+          <div class="date-container">
+            <div class="date-section">
+              <label for="startDate">开始日期</label>
+              <input 
+                type="datetime-local" 
+                id="startDate" 
+                v-model="startDate" 
+              >
+              
+              <label for="endDate">结束日期</label>
+              <input 
+                type="datetime-local" 
+                id="endDate" 
+                v-model="endDate" 
+              >
+            </div>
+            
+            <div class="date-section">
+              <label>参考信息</label>
+              <div class="result" style="padding: 10px; margin-top: 5px;">
+                <p>开始: {{ startDate ? new Date(startDate).toLocaleString() : '未选择' }}</p>
+                <p>结束: {{ endDate ? new Date(endDate).toLocaleString() : '未选择' }}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="calculateDiff">计算差值</button>
+            <button @click="setTodayAsStart">设为今天(开始)</button>
+            <button @click="setTodayAsEnd">设为今天(结束)</button>
+            <button @click="clearDates">清空日期</button>
+          </div>
+          
+          <div class="result-container" v-if="results">
+            <h3>计算结果</h3>
+            
+            <div class="result-item">
+              <span class="result-label">总差值:</span> {{ results.totalDays }} 天 {{ results.totalHours % 24 }} 小时 {{ results.totalMinutes % 60 }} 分钟
+            </div>
+            
+            <div class="result-item">
+              <span class="result-label">相差年数:</span> {{ results.years }} 年
+            </div>
+            
+            <div class="result-item">
+              <span class="result-label">相差月数:</span> {{ results.months }} 个月
+            </div>
+            
+            <div class="result-item">
+              <span class="result-label">相差周数:</span> {{ results.weeks }} 周
+            </div>
+            
+            <div class="result-item">
+              <span class="result-label">相差天数:</span> {{ results.days }} 天
+            </div>
+            
+            <div class="result-item">
+              <span class="result-label">相差小时:</span> {{ results.hours }} 小时
+            </div>
+            
+            <div class="result-item">
+              <span class="result-label">相差分钟:</span> {{ results.minutes }} 分钟
+            </div>
+            
+            <div class="result-item">
+              <span class="result-label">相差秒数:</span> {{ results.seconds }} 秒
+            </div>
+            
+            <div class="result-item">
+              <span class="result-label">工作日数:</span> {{ results.workdays }} 天
+            </div>
+          </div>
+          
+          <div class="examples">
+            <h3>使用示例</h3>
+            <div class="example-item">计算项目持续时间</div>
+            <div class="example-item">计算生日距离今天的天数</div>
+            <div class="example-item">计算合同到期剩余时间</div>
+            <div class="example-item">计算年龄（年月日）</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive } = Vue;
+
+    createApp({
+      setup() {
+        const startDate = ref('');
+        const endDate = ref('');
+        const results = ref(null);
+
+        // 计算日期差值
+        const calculateDiff = () => {
+          if (!startDate.value || !endDate.value) {
+            alert('请先选择开始日期和结束日期');
+            return;
+          }
+
+          const start = new Date(startDate.value);
+          const end = new Date(endDate.value);
+
+          if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            alert('日期格式无效');
+            return;
+          }
+
+          // 确保结束日期不早于开始日期
+          if (end < start) {
+            const temp = start;
+            start = end;
+            end = temp;
+            
+            // 更新UI中的日期
+            const tempDate = startDate.value;
+            startDate.value = endDate.value;
+            endDate.value = tempDate;
+          }
+
+          // 计算总差值（毫秒）
+          const diffMs = end - start;
+          
+          // 计算各时间单位
+          const diffSecs = Math.floor(diffMs / 1000);
+          const diffMins = Math.floor(diffSecs / 60);
+          const diffHours = Math.floor(diffMins / 60);
+          const diffDays = Math.floor(diffHours / 24);
+          
+          // 计算年月日
+          let years = end.getFullYear() - start.getFullYear();
+          let months = end.getMonth() - start.getMonth();
+          let days = end.getDate() - start.getDate();
+          
+          if (days < 0) {
+            months--;
+            const prevMonth = new Date(end.getFullYear(), end.getMonth(), 0);
+            days += prevMonth.getDate();
+          }
+          
+          if (months < 0) {
+            years--;
+            months += 12;
+          }
+          
+          // 计算工作日（周一到周五）
+          let workdays = 0;
+          const tempDate = new Date(start);
+          tempDate.setHours(0, 0, 0, 0);
+          const endTemp = new Date(end);
+          endTemp.setHours(0, 0, 0, 0);
+          
+          while (tempDate <= endTemp) {
+            const dayOfWeek = tempDate.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 不是周末
+              workdays++;
+            }
+            tempDate.setDate(tempDate.getDate() + 1);
+          }
+
+          // 计算周数
+          const weeks = Math.floor(diffDays / 7);
+          
+          results.value = {
+            years: years,
+            months: months,
+            weeks: weeks,
+            days: diffDays,
+            hours: diffHours,
+            minutes: diffMins,
+            seconds: diffSecs,
+            totalDays: diffDays,
+            totalHours: diffHours,
+            totalMinutes: diffMins,
+            workdays: workdays
+          };
+        };
+
+        // 设为今天（开始）
+        const setTodayAsStart = () => {
+          const now = new Date();
+          startDate.value = now.toISOString().slice(0, 16);
+        };
+
+        // 设为今天（结束）
+        const setTodayAsEnd = () => {
+          const now = new Date();
+          endDate.value = now.toISOString().slice(0, 16);
+        };
+
+        // 清空日期
+        const clearDates = () => {
+          startDate.value = '';
+          endDate.value = '';
+          results.value = null;
+        };
+
+        return {
+          startDate,
+          endDate,
+          results,
+          calculateDiff,
+          setTodayAsStart,
+          setTodayAsEnd,
+          clearDates
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

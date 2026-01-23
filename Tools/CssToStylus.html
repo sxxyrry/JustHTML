@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到Stylus转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到Stylus转换工具</h2>
+        <p>将CSS代码转换为Stylus格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将普通的CSS代码转换为Stylus格式，利用Stylus的缩进语法</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputCss" 
+            placeholder="在此输入CSS代码..."
+            rows="15"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertCssToStylus">CSS → Stylus</button>
+            <button @click="validateCss">验证CSS</button>
+            <button @click="clearAll">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertCssToStylus = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 将CSS转换为Stylus格式
+            result.value = convertToStylusFormat(inputCss.value);
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertToStylusFormat = (cssCode) => {
+          // 首先标准化换行符
+          cssCode = cssCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+          
+          // 分割成行
+          const lines = cssCode.split('\n');
+          
+          // 结果数组
+          const resultLines = [];
+          
+          // 当前嵌套级别
+          let indentLevel = 0;
+          const indent = '  '; // 两个空格作为缩进
+          
+          // 逐行处理
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (!line) {
+              resultLines.push('');
+              continue;
+            }
+            
+            // 处理注释
+            if (line.startsWith('/*') || line.startsWith('//')) {
+              resultLines.push(indent.repeat(indentLevel) + line);
+              continue;
+            }
+            
+            // 如果行以 } 开始，减少缩进
+            if (line.startsWith('}')) {
+              indentLevel = Math.max(0, indentLevel - 1);
+              continue; // Stylus不使用大括号
+            }
+            
+            // 检查是否是规则声明（如 .class 或 #id）
+            if (line.includes('{') && !line.includes('}') && 
+                (line.includes('.') || line.includes('#') || 
+                 line.includes('[') || line.includes(':') || 
+                 /^[a-zA-Z]/.test(line))) {
+              // 这是一个CSS规则开始 - 移除大括号
+              let rule = line.replace(/\s*{\s*$/, '').trim();
+              resultLines.push(indent.repeat(indentLevel) + rule);
+              indentLevel++;
+            } else if (line.endsWith('{')) {
+              // 检查是否是简单的嵌套规则 - 移除大括号
+              let rule = line.replace(/\s*{\s*$/, '').trim();
+              resultLines.push(indent.repeat(indentLevel) + rule);
+              indentLevel++;
+            } else if (line.endsWith('}')) {
+              // 减少缩进，不添加行（Stylus不使用大括号）
+              indentLevel = Math.max(0, indentLevel - 1);
+            } else if (line.includes(':') && !line.includes('{') && !line.includes('}')) {
+              // 这是一个CSS属性 - 移除分号，如果有的话
+              let prop = line.replace(/;$/, '').trim();
+              resultLines.push(indent.repeat(indentLevel) + prop);
+            } else if (line === '{') {
+              // Stylus不使用大括号
+              continue;
+            } else {
+              // 其他情况，保持原有缩进但移除大括号
+              if (line !== '{' && line !== '}') {
+                resultLines.push(indent.repeat(indentLevel) + line);
+              }
+            }
+          }
+          
+          // 处理可能的嵌套选择器
+          let stylusOutput = resultLines.join('\n');
+          
+          // 尝试转换伪类和伪元素为嵌套格式
+          stylusOutput = convertPseudoSelectors(stylusOutput);
+          
+          return stylusOutput;
+        };
+
+        // 转换伪类和伪元素为嵌套格式
+        const convertPseudoSelectors = (stylusCode) => {
+          // 正则表达式匹配伪类和伪元素
+          const pseudoRegex = /([^{]+)(:[^:{]+)\s*{([^}]*)}/g;
+          
+          return stylusCode.replace(pseudoRegex, (match, selector, pseudo, content) => {
+            // 去除选择器和伪类的前后空格
+            selector = selector.trim();
+            pseudo = pseudo.trim();
+            
+            // 将CSS格式转换为Stylus格式（移除大括号，使用缩进）
+            const pseudoContent = content.trim().split('\n').map(line => '  ' + line.trim()).join('\n');
+            return `${selector}\n  ${pseudo}\n${pseudoContent.split('\n').map(line => '    ' + line).join('\n')}`;
+          });
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          result,
+          error,
+          convertCssToStylus,
+          validateCss,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

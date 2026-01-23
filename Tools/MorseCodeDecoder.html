@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>摩斯电码解码 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .morse-chart {
+      margin: 15px 0;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .chart-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+    }
+    
+    .chart-item {
+      display: flex;
+      align-items: center;
+      margin: 3px;
+    }
+    
+    .chart-letter {
+      width: 30px;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .chart-code {
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>摩斯电码解码</h2>
+        <p>将摩斯电码转换为文本</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 将摩斯电码转换为普通文本</p>
+          <p>• 摩尔斯电码使用点(.)和划(-)的组合来表示字母和数字</p>
+          <p>• 字母间用空格分隔，单词间用 "/" 或更长的空格分隔</p>
+        </div>
+        
+        <div class="morse-chart">
+          <h3>摩尔斯电码对照表</h3>
+          <div class="chart-row">
+            <div class="chart-item"><span class="chart-letter">A</span> <span class="chart-code">.-</span></div>
+            <div class="chart-item"><span class="chart-letter">B</span> <span class="chart-code">-...</span></div>
+            <div class="chart-item"><span class="chart-letter">C</span> <span class="chart-code">-.-.</span></div>
+            <div class="chart-item"><span class="chart-letter">D</span> <span class="chart-code">-..</span></div>
+            <div class="chart-item"><span class="chart-letter">E</span> <span class="chart-code">.</span></div>
+          </div>
+          <div class="chart-row">
+            <div class="chart-item"><span class="chart-letter">F</span> <span class="chart-code">..-.</span></div>
+            <div class="chart-item"><span class="chart-letter">G</span> <span class="chart-code">--.</span></div>
+            <div class="chart-item"><span class="chart-letter">H</span> <span class="chart-code">....</span></div>
+            <div class="chart-item"><span class="chart-letter">I</span> <span class="chart-code">..</span></div>
+            <div class="chart-item"><span class="chart-letter">J</span> <span class="chart-code">.---</span></div>
+          </div>
+          <div class="chart-row">
+            <div class="chart-item"><span class="chart-letter">K</span> <span class="chart-code">-.-</span></div>
+            <div class="chart-item"><span class="chart-letter">L</span> <span class="chart-code">.-..</span></div>
+            <div class="chart-item"><span class="chart-letter">M</span> <span class="chart-code">--</span></div>
+            <div class="chart-item"><span class="chart-letter">N</span> <span class="chart-code">-.</span></div>
+            <div class="chart-item"><span class="chart-letter">O</span> <span class="chart-code">---</span></div>
+          </div>
+          <div class="chart-row">
+            <div class="chart-item"><span class="chart-letter">P</span> <span class="chart-code">.--.</span></div>
+            <div class="chart-item"><span class="chart-letter">Q</span> <span class="chart-code">--.-</span></div>
+            <div class="chart-item"><span class="chart-letter">R</span> <span class="chart-code">.-.</span></div>
+            <div class="chart-item"><span class="chart-letter">S</span> <span class="chart-code">...</span></div>
+            <div class="chart-item"><span class="chart-letter">T</span> <span class="chart-code">-</span></div>
+          </div>
+          <div class="chart-row">
+            <div class="chart-item"><span class="chart-letter">U</span> <span class="chart-code">..-</span></div>
+            <div class="chart-item"><span class="chart-letter">V</span> <span class="chart-code">...-</span></div>
+            <div class="chart-item"><span class="chart-letter">W</span> <span class="chart-code">.--</span></div>
+            <div class="chart-item"><span class="chart-letter">X</span> <span class="chart-code">-..-</span></div>
+            <div class="chart-item"><span class="chart-letter">Y</span> <span class="chart-code">-.--</span></div>
+          </div>
+          <div class="chart-row">
+            <div class="chart-item"><span class="chart-letter">Z</span> <span class="chart-code">--..</span></div>
+            <div class="chart-item"><span class="chart-letter">0</span> <span class="chart-code">-----</span></div>
+            <div class="chart-item"><span class="chart-letter">1</span> <span class="chart-code">.----</span></div>
+            <div class="chart-item"><span class="chart-letter">2</span> <span class="chart-code">..---</span></div>
+            <div class="chart-item"><span class="chart-letter">3</span> <span class="chart-code">...--</span></div>
+          </div>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入摩尔斯电码（用空格分隔每个字母，用'/'分隔单词）..."
+            rows="8"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="decodeMorse">摩尔斯电码解码</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>解码结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        
+        // 摩尔斯电码映射表
+        const morseToChar = {
+          '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
+          '..-.': 'F', '--.': 'G', '....': 'H', '..': 'I', '.---': 'J',
+          '-.-': 'K', '.-..': 'L', '--': 'M', '-.': 'N', '---': 'O',
+          '.--.': 'P', '--.-': 'Q', '.-.': 'R', '...': 'S', '-': 'T',
+          '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
+          '--..': 'Z',
+          '.----': '1', '..---': '2', '...--': '3', '....-': '4', '.....': '5',
+          '-....': '6', '--...': '7', '---..': '8', '----.': '9', '-----': '0',
+          '--..--': ',', '.-.-.-': '.', '..--..': '?', '.----.': "'", '-.-.--': '!',
+          '-..-.': '/', '-.--.': '(', '-.--.-': ')', '.-...': '&', '---...': ':',
+          '-.-.-.': ';', '-...-': '=', '.-.-.': '+', '-....-': '-', '..--.-': '_',
+          '.-..-.': '"', '...-..-': '$', '.--.-.': '@'
+        };
+
+        const decodeMorse = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          
+          try {
+            // 将输入按空格分割成摩尔斯电码单元
+            const morseUnits = inputText.value.trim().split(' ');
+            let decodedText = '';
+            
+            for (let i = 0; i < morseUnits.length; i++) {
+              const unit = morseUnits[i].trim();
+              
+              if (unit === '') {
+                // 双空格表示单词分隔符，添加空格
+                if (i > 0 && morseUnits[i-1] === '') {
+                  decodedText += ' ';
+                }
+              } else if (unit === '/') {
+                // 单独的 '/' 表示单词分隔符
+                decodedText += ' ';
+              } else {
+                // 查找摩尔斯电码对应的字符
+                const char = morseToChar[unit.toUpperCase()];
+                decodedText += char || '?'; // 如果找不到对应的字符，使用 ?
+              }
+            }
+            
+            result.value = decodedText;
+          } catch (error) {
+            result.value = '解码失败：' + error.message;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = async () => {
+          if (result.value) {
+            try {
+              await navigator.clipboard.writeText(result.value);
+              alert('已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              // 降级方案
+              const textArea = document.createElement('textarea');
+              textArea.value = result.value;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              alert('已复制到剪贴板！');
+            }
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          decodeMorse,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

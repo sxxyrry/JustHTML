@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UUID生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .generator-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item select, .option-item input {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .uuid-list {
+      margin-top: 20px;
+    }
+    
+    .uuid-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      margin-bottom: 10px;
+    }
+    
+    .uuid-text {
+      flex: 1;
+      word-break: break-all;
+      margin-right: 10px;
+      font-family: monospace;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>UUID生成器</h2>
+        <p>生成标准UUID（通用唯一标识符）</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 生成符合RFC 4122标准的UUID</p>
+          <p>• 支持批量生成多个UUID</p>
+          <p>• 提供便捷的复制功能</p>
+        </div>
+        
+        <div class="generator-options">
+          <div class="option-item">
+            <label for="uuidVersion">UUID版本</label>
+            <select id="uuidVersion" v-model="version">
+              <option value="1">版本 1 (基于时间)</option>
+              <option value="4" selected>版本 4 (随机)</option>
+            </select>
+          </div>
+          
+          <div class="option-item">
+            <label for="uuidCount">生成数量</label>
+            <input type="number" id="uuidCount" v-model.number="count" min="1" max="100">
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="generateUuids">生成UUID</button>
+          <button @click="copyAllUuids">复制全部</button>
+          <button @click="clearUuids">清空</button>
+        </div>
+        
+        <div class="uuid-list" v-if="generatedUuids.length > 0">
+          <h3>生成的UUIDs ({{ generatedUuids.length }})</h3>
+          <div v-for="(uuid, index) in generatedUuids" :key="index" class="uuid-item">
+            <span class="uuid-text">{{ uuid }}</span>
+            <button @click="copySingleUuid(uuid)" style="margin-left: 10px;">复制</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const version = ref('4');
+        const count = ref(5);
+        const generatedUuids = ref([]);
+        
+        // 生成UUID v4 (随机)
+        const generateUuidV4 = () => {
+          const randomBytes = Array.from({length: 16}, () => Math.floor(Math.random() * 256));
+          
+          // 设置版本位 (4)
+          randomBytes[6] = (randomBytes[6] & 0x0f) | 0x40;
+          // 设置变体位 (10xxxxxx -> 1000xxxx or 1010xxxx)
+          randomBytes[8] = (randomBytes[8] & 0x3f) | 0x80;
+          
+          // 转换为十六进制字符串
+          const hex = randomBytes.map(b => b.toString(16).padStart(2, '0')).join('');
+          
+          // 格式化为UUID字符串
+          return [
+            hex.slice(0, 8),
+            hex.slice(8, 12),
+            hex.slice(12, 16),
+            hex.slice(16, 20),
+            hex.slice(20, 32)
+          ].join('-');
+        };
+        
+        // 生成UUID v1 (基于时间)
+        const generateUuidV1 = () => {
+          // 获取当前时间戳
+          const time = Date.now();
+          
+          // 生成随机节点ID (48位)
+          const node = Array.from({length: 6}, () => Math.floor(Math.random() * 256));
+          
+          // 生成时钟序列 (14位)
+          const clockSeq = Math.floor(Math.random() * 0x4000);
+          
+          // 转换时间戳为100ns间隔的时间
+          const timeLow = (time & 0xffffffff) * 10000;
+          const timeMid = ((time >> 32) & 0xffff) * 10000;
+          const timeHigh = ((time >> 48) & 0x0fff) * 10000;
+          
+          // 设置版本位 (1)
+          timeHigh |= 0x1000;
+          
+          // 设置变体位
+          node[0] = (node[0] & 0x3f) | 0x80;
+          
+          // 转换为十六进制字符串
+          const timeLowHex = timeLow.toString(16).padStart(8, '0');
+          const timeMidHex = timeMid.toString(16).padStart(4, '0');
+          const timeHighHex = timeHigh.toString(16).padStart(4, '0');
+          const clockSeqHex = clockSeq.toString(16).padStart(4, '0');
+          const nodeHex = node.map(b => b.toString(16).padStart(2, '0')).join('');
+          
+          return [
+            timeLowHex,
+            timeMidHex,
+            timeHighHex,
+            clockSeqHex,
+            nodeHex
+          ].join('-');
+        };
+        
+        const generateUuids = () => {
+          generatedUuids.value = [];
+          
+          for (let i = 0; i < count.value; i++) {
+            if (version.value === '1') {
+              generatedUuids.value.push(generateUuidV1());
+            } else {
+              generatedUuids.value.push(generateUuidV4());
+            }
+          }
+        };
+        
+        const copySingleUuid = async (uuid) => {
+          try {
+            await navigator.clipboard.writeText(uuid);
+            alert('UUID已复制到剪贴板！');
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败');
+          }
+        };
+        
+        const copyAllUuids = async () => {
+          if (generatedUuids.value.length === 0) {
+            alert('没有可复制的UUID');
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(generatedUuids.value.join('\n'));
+            alert(`${generatedUuids.value.length}个UUID已复制到剪贴板！`);
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败');
+          }
+        };
+        
+        const clearUuids = () => {
+          generatedUuids.value = [];
+        };
+        
+        return {
+          version,
+          count,
+          generatedUuids,
+          generateUuids,
+          copySingleUuid,
+          copyAllUuids,
+          clearUuids
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

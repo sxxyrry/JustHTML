@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到Pug转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到Pug转换工具</h2>
+        <p>将CSS代码转换为Pug模板格式（包含样式）</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将CSS代码转换为Pug模板格式，生成包含样式的Pug代码</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>CSS代码</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>Pug代码</h3>
+            <textarea 
+              v-model="pugOutput" 
+              placeholder="转换后的Pug代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertCssToPug">CSS → Pug</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const pugOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertCssToPug = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            // 将CSS转换为Pug格式
+            pugOutput.value = convertToPugFormat(inputCss.value);
+            result.value = 'CSS已成功转换为Pug格式！';
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertToPugFormat = (cssCode) => {
+          // 这里我们创建一个示例性的转换器
+          // 实际的CSS到Pug转换需要更复杂的逻辑来分析选择器并生成HTML结构
+          
+          // 首先标准化换行符
+          cssCode = cssCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+          
+          // 分割成行
+          const lines = cssCode.split('\n');
+          
+          // 结果数组
+          const resultLines = [];
+          
+          // 添加基本的Pug结构模板
+          resultLines.push('// Generated Pug template from CSS');
+          resultLines.push('// Note: This is a simplified conversion showing CSS styles in a Pug template');
+          resultLines.push('');
+          
+          // 将CSS代码包装在style标签中
+          resultLines.push('style(type=\'text/css\')');
+          lines.forEach(line => {
+            if (line.trim() !== '') {
+              resultLines.push(`  | ${line}`);
+            } else {
+              resultLines.push('  |');
+            }
+          });
+          
+          resultLines.push('');
+          resultLines.push('// Example HTML structure based on CSS selectors:');
+          resultLines.push('// (This would require advanced parsing to generate accurately)');
+          
+          // 尝试从CSS选择器生成基本的Pug结构
+          const selectors = extractSelectors(cssCode);
+          if (selectors.length > 0) {
+            resultLines.push('');
+            resultLines.push('// Potential Pug structure:');
+            selectors.forEach(selector => {
+              resultLines.push(`// ${generatePugFromSelector(selector)}`);
+            });
+          }
+          
+          return resultLines.join('\n');
+        };
+
+        // 提取CSS选择器
+        const extractSelectors = (cssCode) => {
+          // 简单的正则表达式来提取CSS选择器
+          const selectorRegex = /([^{]+)\s*{([^}]*)}/g;
+          const selectors = [];
+          let match;
+          
+          while ((match = selectorRegex.exec(cssCode)) !== null) {
+            const selector = match[1].trim();
+            selectors.push(selector);
+          }
+          
+          return selectors;
+        };
+
+        // 从CSS选择器生成基础Pug结构
+        const generatePugFromSelector = (selector) => {
+          // 简化的转换逻辑
+          let pugLine = '';
+          
+          // 处理ID选择器
+          if (selector.includes('#')) {
+            const id = selector.replace(/.*#([\\w-]+)/, '$1');
+            pugLine = `#${id}`;
+          } 
+          // 处理类选择器
+          else if (selector.includes('.')) {
+            const classes = selector.replace(/\./g, '.').replace(/[^\\s.]+/g, (match) => {
+              return match.startsWith('.') ? match.substring(1) : match;
+            });
+            pugLine = `.${classes.replace(/\./g, '.')}`;
+          } 
+          // 处理元素选择器
+          else {
+            pugLine = selector;
+          }
+          
+          // 更复杂的转换逻辑可以在这里实现
+          // 这里只做简单的演示
+          return pugLine;
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.header {
+  background-color: #333;
+  padding: 20px;
+}
+
+.header h1 {
+  color: #fff;
+  margin: 0;
+}
+
+.header a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.header a:hover {
+  color: #0056b3;
+}
+
+.button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          pugOutput.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          pugOutput,
+          result,
+          error,
+          convertCssToPug,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

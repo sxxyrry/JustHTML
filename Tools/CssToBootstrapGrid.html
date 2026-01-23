@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到Bootstrap Grid转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .preview-container {
+      margin: 20px 0;
+      padding: 20px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+    }
+    
+    .bootstrap-grid {
+      display: flex;
+      flex-wrap: wrap;
+      margin: -5px;
+    }
+    
+    .grid-item {
+      padding: 5px;
+      background-color: var(--accent-color);
+      color: white;
+      text-align: center;
+      border-radius: 4px;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到Bootstrap Grid转换工具</h2>
+        <p>将传统布局CSS转换为Bootstrap Grid系统</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将传统布局的CSS代码转换为Bootstrap Grid系统的类名，实现响应式布局</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>Bootstrap Grid代码</h3>
+            <textarea 
+              v-model="bootstrapOutput" 
+              placeholder="转换后的Bootstrap Grid代码将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToBootstrapGrid">CSS → Bootstrap Grid</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="preview-container">
+          <h3>Bootstrap Grid 预览</h3>
+          <div class="bootstrap-grid">
+            <div class="grid-item col-12">Header (col-12)</div>
+            <div class="grid-item col-3">Sidebar (col-3)</div>
+            <div class="grid-item col-9">Main Content (col-9)</div>
+            <div class="grid-item col-12">Footer (col-12)</div>
+          </div>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const bootstrapOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertToBootstrapGrid = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            // 将CSS转换为Bootstrap Grid
+            bootstrapOutput.value = convertToBootstrapGridSystem(inputCss.value);
+            result.value = 'CSS已成功转换为Bootstrap Grid系统！';
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertToBootstrapGridSystem = (cssCode) => {
+          // 解析CSS代码
+          const rules = parseCss(cssCode);
+          
+          // 生成Bootstrap Grid代码
+          let bootstrapCode = '<!-- Bootstrap Grid Layout -->\n';
+          bootstrapCode += '<div class="container-fluid">\n';
+          bootstrapCode += '  <div class="row">\n';
+          
+          let hasContainer = false;
+          let hasRow = false;
+          
+          for (const rule of rules) {
+            const selector = rule.selector;
+            const properties = rule.properties;
+            
+            // 检查是否是容器或行
+            if (selector.includes('.container') || selector.includes('wrapper') || selector.includes('layout')) {
+              hasContainer = true;
+            }
+            
+            // 检查是否是列或内容区域
+            if (properties['width'] || properties['float'] || properties['display'] === 'inline-block') {
+              // 根据宽度推断Bootstrap列类
+              let colClass = 'col';
+              
+              if (properties['width']) {
+                const widthValue = properties['width'];
+                if (widthValue.includes('100%')) {
+                  colClass = 'col-12';
+                } else if (widthValue.includes('8.33%')) {
+                  colClass = 'col-1';
+                } else if (widthValue.includes('16.66%')) {
+                  colClass = 'col-2';
+                } else if (widthValue.includes('25%')) {
+                  colClass = 'col-3';
+                } else if (widthValue.includes('33.33%')) {
+                  colClass = 'col-4';
+                } else if (widthValue.includes('50%')) {
+                  colClass = 'col-6';
+                } else if (widthValue.includes('66.66%')) {
+                  colClass = 'col-8';
+                } else if (widthValue.includes('75%')) {
+                  colClass = 'col-9';
+                } else if (widthValue.includes('91.66%')) {
+                  colClass = 'col-11';
+                }
+              } else if (properties['float'] === 'left' || properties['float'] === 'right') {
+                colClass = 'col';
+              }
+              
+              bootstrapCode += `    <div class="${colClass}">\n`;
+              bootstrapCode += `      <!-- ${selector} converted to Bootstrap Grid -->\n`;
+              bootstrapCode += `    </div>\n`;
+              hasRow = true;
+            }
+          }
+          
+          // 如果没有找到特定的列定义，添加默认的示例
+          if (!hasRow) {
+            bootstrapCode += '    <div class="col-12">\n';
+            bootstrapCode += '      <!-- Full width section -->\n';
+            bootstrapCode += '    </div>\n';
+            
+            bootstrapCode += '    <div class="col-3">\n';
+            bootstrapCode += '      <!-- Sidebar (25%) -->\n';
+            bootstrapCode += '    </div>\n';
+            bootstrapCode += '    <div class="col-9">\n';
+            bootstrapCode += '      <!-- Main content (75%) -->\n';
+            bootstrapCode += '    </div>\n';
+            
+            bootstrapCode += '    <div class="col-12">\n';
+            bootstrapCode += '      <!-- Footer section -->\n';
+            bootstrapCode += '    </div>\n';
+          }
+          
+          bootstrapCode += '  </div>\n';
+          bootstrapCode += '</div>\n\n';
+          
+          // 添加响应式类
+          bootstrapCode += '<!-- Responsive classes: -->\n';
+          bootstrapCode += '<!-- For small devices: col-sm-* -->\n';
+          bootstrapCode += '<!-- For medium devices: col-md-* -->\n';
+          bootstrapCode += '<!-- For large devices: col-lg-* -->\n';
+          bootstrapCode += '<!-- For extra-large devices: col-xl-* -->\n';
+          
+          return bootstrapCode;
+        };
+
+        const parseCss = (cssCode) => {
+          const rules = [];
+          
+          // 简单的CSS解析器
+          const ruleRegex = /([^{]+)\s*{\s*([^}]+)\s*}/g;
+          let match;
+          
+          while ((match = ruleRegex.exec(cssCode)) !== null) {
+            const selector = match[1].trim();
+            const propertiesStr = match[2].trim();
+            
+            // 解析属性
+            const properties = {};
+            const propRegex = /([a-zA-Z-]+)\s*:\s*([^;]+);?/g;
+            let propMatch;
+            
+            while ((propMatch = propRegex.exec(propertiesStr)) !== null) {
+              const prop = propMatch[1].trim();
+              const value = propMatch[2].trim();
+              properties[prop] = value;
+            }
+            
+            rules.push({
+              selector: selector,
+              properties: properties
+            });
+          }
+          
+          return rules;
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.container {
+  width: 100%;
+  overflow: hidden;
+}
+
+.header {
+  float: left;
+  width: 100%;
+  background-color: #333;
+  padding: 20px;
+  color: white;
+}
+
+.sidebar {
+  float: left;
+  width: 25%;
+  background-color: #f4f4f4;
+  padding: 15px;
+}
+
+.main-content {
+  float: left;
+  width: 75%;
+  padding: 15px;
+  background-color: #fff;
+}
+
+.footer {
+  float: left;
+  width: 100%;
+  background-color: #ddd;
+  padding: 10px;
+  text-align: center;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          bootstrapOutput.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          bootstrapOutput,
+          result,
+          error,
+          convertToBootstrapGrid,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

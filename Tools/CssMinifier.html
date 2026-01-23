@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS压缩工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .stat-item {
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS压缩工具</h2>
+        <p>压缩CSS代码，移除不必要的空格和换行，减少文件大小</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 压缩：移除CSS中的空格、换行和注释，减少文件大小</p>
+          <p>• 验证：检查CSS代码的基本语法</p>
+          <p>• 统计：显示压缩前后的大小对比</p>
+        </div>
+        
+        <div class="stats-container">
+          <div class="stat-item">
+            <div class="stat-value">{{ inputSize }}</div>
+            <div class="stat-label">原始大小 (字符)</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ outputSize }}</div>
+            <div class="stat-label">压缩后大小 (字符)</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ savedSize }}</div>
+            <div class="stat-label">节省大小 (字符)</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ savedPercent }}%</div>
+            <div class="stat-label">压缩率</div>
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>压缩后的CSS</h3>
+            <textarea 
+              v-model="minifiedCss" 
+              placeholder="压缩后的CSS代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="minifyCss">压缩CSS</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="validationResult">
+          {{ validationResult }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const minifiedCss = ref('');
+        const validationResult = ref('');
+        
+        const inputSize = computed(() => inputCss.value.length);
+        const outputSize = computed(() => minifiedCss.value.length);
+        const savedSize = computed(() => inputSize.value - outputSize.value);
+        const savedPercent = computed(() => {
+          if (inputSize.value === 0) return 0;
+          return Math.round((savedSize.value / inputSize.value) * 100);
+        });
+        
+        // 压缩CSS的函数
+        const minifyCss = () => {
+          if (!inputCss.value.trim()) {
+            minifiedCss.value = '';
+            validationResult.value = '请输入CSS代码';
+            return;
+          }
+          
+          try {
+            let css = inputCss.value;
+            
+            // 移除注释
+            css = css.replace(/\/\*[\s\S]*?\*\//g, '');
+            
+            // 移除多余的空格和换行
+            css = css.replace(/\s+/g, ' ');
+            
+            // 移除选择器和属性之间的空格
+            css = css.replace(/\s*{\s*/g, '{');
+            css = css.replace(/\s*;\s*/g, ';');
+            css = css.replace(/\s*:\s*/g, ':');
+            css = css.replace(/;\}/g, '}');
+            
+            // 移除每行开头和结尾的空格
+            css = css.trim();
+            
+            // 确保每个声明之间只有一个分号
+            css = css.replace(/;;/g, ';');
+            
+            // 格式化输出，确保每个规则之间有空格
+            css = css.replace(/}\s*/g, '} ');
+            
+            minifiedCss.value = css;
+            validationResult.value = 'CSS压缩成功';
+          } catch (error) {
+            validationResult.value = `压缩失败: ${error.message}`;
+          }
+        };
+        
+        // 验证CSS的函数
+        const validateCss = () => {
+          if (!inputCss.value.trim()) {
+            validationResult.value = '请先输入CSS代码';
+            return;
+          }
+          
+          try {
+            // 简单的语法验证 - 检查括号匹配
+            const openBraces = (inputCss.value.match(/\{/g) || []).length;
+            const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+            
+            if (openBraces !== closeBraces) {
+              validationResult.value = `CSS语法警告: 括号不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+              return;
+            }
+            
+            // 检查是否有明显的语法错误
+            if (inputCss.value.includes('{;') || inputCss.value.includes(';;')) {
+              validationResult.value = 'CSS可能存在问题，请检查语法';
+              return;
+            }
+            
+            validationResult.value = 'CSS语法检查完成，未发现明显错误';
+          } catch (error) {
+            validationResult.value = `验证失败: ${error.message}`;
+          }
+        };
+        
+        // 清空所有内容
+        const clearAll = () => {
+          inputCss.value = '';
+          minifiedCss.value = '';
+          validationResult.value = '';
+        };
+        
+        // 复制结果到剪贴板
+        const copyResult = async () => {
+          if (!minifiedCss.value) {
+            validationResult.value = '没有可复制的内容';
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(minifiedCss.value);
+            validationResult.value = '已复制到剪贴板';
+          } catch (error) {
+            validationResult.value = '复制失败，请手动复制';
+          }
+        };
+        
+        // 加载示例
+        const loadExample = () => {
+          inputCss.value = `/* 这是一个示例CSS */
+.container {
+  margin: 0;
+  padding: 20px;
+  background-color: #fff;
+}
+
+.header {
+  position: relative;
+  width: 100%;
+  height: 60px;
+  background: linear-gradient(to bottom, #ffffff, #f5f5f5);
+  border-bottom: 1px solid #ddd;
+}
+
+.nav-item {
+  display: inline-block;
+  margin-right: 20px;
+  padding: 5px 10px;
+  text-decoration: none;
+  color: #333;
+  border-radius: 4px;
+}`;
+          minifyCss(); // 自动压缩示例
+        };
+        
+        return {
+          inputCss,
+          minifiedCss,
+          validationResult,
+          inputSize,
+          outputSize,
+          savedSize,
+          savedPercent,
+          minifyCss,
+          validateCss,
+          clearAll,
+          copyResult,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

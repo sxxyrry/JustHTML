@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTTP状态码检查器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .status-input {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+      align-items: center;
+    }
+    
+    .status-input input {
+      flex: 1;
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .status-result {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .status-code {
+      font-size: 2em;
+      font-weight: bold;
+      color: var(--accent-color);
+      text-align: center;
+    }
+    
+    .status-message {
+      font-size: 1.5em;
+      text-align: center;
+      margin: 10px 0;
+    }
+    
+    .status-description {
+      margin: 15px 0;
+      line-height: 1.6;
+    }
+    
+    .status-category {
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    
+    .category-1xx { background-color: #3498db; color: white; } /* Informational */
+    .category-2xx { background-color: #2ecc71; color: white; } /* Success */
+    .category-3xx { background-color: #3498db; color: white; } /* Redirection */
+    .category-4xx { background-color: #f39c12; color: white; } /* Client Error */
+    .category-5xx { background-color: #e74c3c; color: white; } /* Server Error */
+    
+    .status-reference {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+    }
+    
+    .common-status {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .status-chip {
+      padding: 8px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      text-align: center;
+    }
+    
+    .status-chip:hover {
+      background-color: var(--bg-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>HTTP状态码检查器</h2>
+        <p>查询HTTP状态码的含义和用途</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 查询任意HTTP状态码的详细信息</p>
+          <p>• 了解状态码的分类和含义</p>
+          <p>• 提供常见状态码参考</p>
+        </div>
+        
+        <div class="status-input">
+          <input 
+            type="number" 
+            v-model.number="statusCodeInput" 
+            placeholder="输入HTTP状态码，如：200、404、500"
+            @keyup.enter="checkStatus"
+          >
+          <button @click="checkStatus">查询状态码</button>
+        </div>
+        
+        <div class="controls">
+          <button @click="randomStatus">随机状态码</button>
+          <button @click="clearResult">清空</button>
+        </div>
+        
+        <div class="status-result" v-if="statusInfo">
+          <div class="status-code">{{ statusInfo.code }}</div>
+          <div class="status-message">{{ statusInfo.message }}</div>
+          <div class="status-category" :class="'category-' + statusInfo.categoryCode">
+            {{ statusInfo.category }}
+          </div>
+          <div class="status-description">
+            <p>{{ statusInfo.description }}</p>
+            <p v-if="statusInfo.reason"><strong>常见原因:</strong> {{ statusInfo.reason }}</p>
+            <p v-if="statusInfo.solution"><strong>解决方案:</strong> {{ statusInfo.solution }}</p>
+          </div>
+        </div>
+        
+        <div class="status-reference">
+          <h3>常见HTTP状态码</h3>
+          <div class="common-status">
+            <div class="status-chip" v-for="status in commonStatusCodes" :key="status.code" @click="selectStatusCode(status.code)">
+              <div>{{ status.code }}</div>
+              <small>{{ status.message }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const statusCodeInput = ref('');
+        const statusInfo = ref(null);
+        
+        // 常见状态码列表
+        const commonStatusCodes = [
+          { code: 200, message: "OK", category: "Success" },
+          { code: 201, message: "Created", category: "Success" },
+          { code: 204, message: "No Content", category: "Success" },
+          { code: 301, message: "Moved Permanently", category: "Redirection" },
+          { code: 302, message: "Found", category: "Redirection" },
+          { code: 304, message: "Not Modified", category: "Redirection" },
+          { code: 400, message: "Bad Request", category: "Client Error" },
+          { code: 401, message: "Unauthorized", category: "Client Error" },
+          { code: 403, message: "Forbidden", category: "Client Error" },
+          { code: 404, message: "Not Found", category: "Client Error" },
+          { code: 405, message: "Method Not Allowed", category: "Client Error" },
+          { code: 500, message: "Internal Server Error", category: "Server Error" },
+          { code: 502, message: "Bad Gateway", category: "Server Error" },
+          { code: 503, message: "Service Unavailable", category: "Server Error" },
+          { code: 504, message: "Gateway Timeout", category: "Server Error" }
+        ];
+
+        // HTTP状态码详细信息
+        const statusDetails = {
+          // 1xx Informational
+          100: { code: 100, message: "Continue", category: "Informational", categoryCode: "1xx",
+            description: "客户端应继续其请求。",
+            reason: "服务器已收到请求的一部分，正在等待其余部分。" },
+          101: { code: 101, message: "Switching Protocols", category: "Informational", categoryCode: "1xx",
+            description: "服务器同意切换协议。",
+            reason: "服务器已理解客户端的请求，并将通过Upgrade消息头通知客户端采用不同的协议来完成这个请求。" },
+          
+          // 2xx Success
+          200: { code: 200, message: "OK", category: "Success", categoryCode: "2xx",
+            description: "请求成功。一般用于GET和POST请求。",
+            solution: "这是最常见的成功状态码，表示服务器已成功处理请求。" },
+          201: { code: 201, message: "Created", category: "Success", categoryCode: "2xx",
+            description: "已创建。成功请求并创建了新的资源。",
+            reason: "通常在POST请求后返回，表示成功创建了一个新资源。" },
+          204: { code: 204, message: "No Content", category: "Success", categoryCode: "2xx",
+            description: "无内容。服务器成功处理请求，但未返回任何内容。",
+            reason: "请求成功，但响应头可能包含一些信息，响应正文则无任何内容。" },
+          
+          // 3xx Redirection
+          301: { code: 301, message: "Moved Permanently", category: "Redirection", categoryCode: "3xx",
+            description: "永久移动。请求的资源已被永久移动到新URI。",
+            solution: "客户端应改用返回的HTTP临时重定向地址。" },
+          304: { code: 304, message: "Not Modified", category: "Redirection", categoryCode: "3xx",
+            description: "未修改。所请求的资源未修改，服务器返回此状态码时不会返回任何资源。",
+            reason: "客户端通常会缓存资源，在下次请求时会附带If-Modified-Since或If-None-Match请求头，询问资源是否已更改。" },
+          
+          // 4xx Client Error
+          400: { code: 400, message: "Bad Request", category: "Client Error", categoryCode: "4xx",
+            description: "客户端请求的语法错误，服务器无法理解。",
+            reason: "请求参数错误、格式错误或缺少必要参数。" },
+          401: { code: 401, message: "Unauthorized", category: "Client Error", categoryCode: "4xx",
+            description: "请求要求用户的身份认证。",
+            solution: "检查认证凭据是否正确，或获取访问资源所需的认证信息。" },
+          403: { code: 403, message: "Forbidden", category: "Client Error", categoryCode: "4xx",
+            description: "服务器理解请求客户端的请求，但是拒绝执行此请求。",
+            reason: "通常是因为访问权限不足或服务器配置不允许访问。" },
+          404: { code: 404, message: "Not Found", category: "Client Error", categoryCode: "4xx",
+            description: "服务器无法根据客户端的请求找到资源。",
+            reason: "请求的URL不存在，或服务器上没有这个资源。" },
+          405: { code: 405, message: "Method Not Allowed", category: "Client Error", categoryCode: "4xx",
+            description: "客户端请求中的方法被禁止。",
+            reason: "请求中指定的方法对于请求的资源不被允许。" },
+          
+          // 5xx Server Error
+          500: { code: 500, message: "Internal Server Error", category: "Server Error", categoryCode: "5xx",
+            description: "服务器内部错误，无法完成请求。",
+            reason: "服务器遇到不可预期的情况，无法完成对请求的处理。" },
+          502: { code: 502, message: "Bad Gateway", category: "Server Error", categoryCode: "5xx",
+            description: "作为网关或代理工作的服务器尝试执行请求时，未能及时从上游服务器收到响应。",
+            reason: "通常是服务器作为网关或代理时，上游服务器无响应。" },
+          503: { code: 503, message: "Service Unavailable", category: "Server Error", categoryCode: "5xx",
+            description: "服务器目前无法使用（由于超载或停机维护）。",
+            reason: "通常是暂时的状态，服务器可能会在一段时间后恢复正常。" },
+          504: { code: 504, message: "Gateway Timeout", category: "Server Error", categoryCode: "5xx",
+            description: "充当网关或代理的服务器，未及时从上游服务器收到请求。",
+            reason: "网关超时，上游服务器未能及时响应。" }
+        };
+
+        // 查询状态码
+        const checkStatus = () => {
+          if (!statusCodeInput.value) {
+            alert('请输入一个HTTP状态码');
+            return;
+          }
+
+          const code = parseInt(statusCodeInput.value);
+          if (isNaN(code) || code < 100 || code > 599) {
+            statusInfo.value = {
+              code: code,
+              message: "Invalid Status Code",
+              category: "Unknown",
+              categoryCode: "",
+              description: "HTTP状态码应在100-599之间。",
+              reason: "输入的状态码不在有效范围内。"
+            };
+            return;
+          }
+
+          // 如果状态码不在预定义列表中，提供通用信息
+          if (!statusDetails[code]) {
+            const category = getStatusCategory(code);
+            statusInfo.value = {
+              code: code,
+              message: "Status Code Not Detailed",
+              category: category.name,
+              categoryCode: category.code,
+              description: `HTTP状态码${code}属于${category.name}类别，表示${category.description}。`,
+              reason: "此状态码的具体信息未在本工具中详细列出。"
+            };
+            return;
+          }
+
+          statusInfo.value = statusDetails[code];
+        };
+
+        // 获取状态码类别
+        const getStatusCategory = (code) => {
+          if (code >= 100 && code < 200) {
+            return { name: "Informational", code: "1xx", description: "信息响应" };
+          } else if (code >= 200 && code < 300) {
+            return { name: "Success", code: "2xx", description: "成功响应" };
+          } else if (code >= 300 && code < 400) {
+            return { name: "Redirection", code: "3xx", description: "重定向" };
+          } else if (code >= 400 && code < 500) {
+            return { name: "Client Error", code: "4xx", description: "客户端错误" };
+          } else if (code >= 500 && code < 600) {
+            return { name: "Server Error", code: "5xx", description: "服务器错误" };
+          }
+          return { name: "Unknown", code: "", description: "未知类别" };
+        };
+
+        // 选择状态码
+        const selectStatusCode = (code) => {
+          statusCodeInput.value = code;
+          checkStatus();
+        };
+
+        // 随机状态码
+        const randomStatus = () => {
+          const codes = Object.keys(statusDetails).map(Number);
+          const randomIndex = Math.floor(Math.random() * codes.length);
+          statusCodeInput.value = codes[randomIndex];
+          checkStatus();
+        };
+
+        // 清空结果
+        const clearResult = () => {
+          statusCodeInput.value = '';
+          statusInfo.value = null;
+        };
+
+        return {
+          statusCodeInput,
+          statusInfo,
+          commonStatusCodes,
+          checkStatus,
+          selectStatusCode,
+          randomStatus,
+          clearResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

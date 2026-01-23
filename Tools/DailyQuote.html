@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>每日一言 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .quote-container {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .quote-text {
+      font-size: 1.5em;
+      font-style: italic;
+      line-height: 1.6;
+      margin: 30px 0;
+      padding: 20px;
+      border-left: 4px solid var(--accent-color);
+      background-color: var(--bg-secondary);
+      border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    }
+    
+    .quote-author {
+      font-size: 1.2em;
+      text-align: right;
+      margin-top: 10px;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+      justify-content: center;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+      text-align: center;
+    }
+    
+    .category-selector {
+      margin: 15px 0;
+    }
+    
+    .category-selector select {
+      padding: 8px 12px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      width: 100%;
+      max-width: 300px;
+    }
+    
+    .quote-actions {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    
+    .action-btn {
+      padding: 8px 16px;
+      background-color: var(--bg-tertiary);
+      border: none;
+      border-radius: var(--border-radius);
+      color: var(--text-primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .action-btn:hover {
+      background-color: var(--accent-color);
+      color: white;
+    }
+    
+    .date-display {
+      font-size: 1.1em;
+      margin-bottom: 20px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>每日一言</h2>
+        <p>每日一句励志或哲理名言</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>每日一言为您提供富有启发性的名言警句，帮助您开始新的一天</p>
+        </div>
+        
+        <div class="date-display">
+          {{ currentDate }}
+        </div>
+        
+        <div class="category-selector">
+          <select v-model="selectedCategory" @change="getRandomQuote">
+            <option value="">所有分类</option>
+            <option value="inspirational">励志</option>
+            <option value="wisdom">智慧</option>
+            <option value="life">生活</option>
+            <option value="love">爱情</option>
+            <option value="success">成功</option>
+          </select>
+        </div>
+        
+        <div class="quote-container">
+          <div class="quote-text">
+            "{{ quote.text }}"
+            <div class="quote-author" v-if="quote.author">— {{ quote.author }}</div>
+          </div>
+          
+          <div class="controls">
+            <button @click="getRandomQuote">换一句</button>
+            <button @click="getTodaysQuote">今日名言</button>
+          </div>
+          
+          <div class="quote-actions">
+            <button class="action-btn" @click="copyQuote">
+              📋 复制
+            </button>
+            <button class="action-btn" @click="tweetQuote">
+              🐦 推特
+            </button>
+            <button class="action-btn" @click="shareQuote" v-if="supportsShareAPI">
+              📤 分享
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const quote = ref({ text: '', author: '' });
+        const currentDate = ref('');
+        const selectedCategory = ref('');
+        const supportsShareAPI = ref(false);
+        
+        // 名言数据库
+        const quotesDatabase = {
+          inspirational: [
+            { text: "成功不是终点，失败不是致命的，继续前进的勇气才是最重要的。", author: "温斯顿·丘吉尔" },
+            { text: "成功是从失败到失败，而热情不减。", author: "温斯顿·丘吉尔" },
+            { text: "生活的意义在于寻找意义。", author: "弗兰克·阿雷奥拉" },
+            { text: "相信自己，你已经成功了一半。", author: "西奥多·罗斯福" },
+            { text: "成功是一种心态。面对困难时，积极的人说：‘我能行！’", author: "沃尔特·迪斯尼" }
+          ],
+          wisdom: [
+            { text: "智慧是在知识和经验之间建立桥梁。", author: "爱因斯坦" },
+            { text: "真正的智慧在于承认自己的无知。", author: "苏格拉底" },
+            { text: "智慧是一种宝贵的财富，而不是权力的工具。", author: "柏拉图" },
+            { text: "智慧就是知道自己无知。", author: "苏格拉底" },
+            { text: "智慧始于承认无知。", author: "戴维·约里" }
+          ],
+          life: [
+            { text: "生活就像骑自行车，想保持平衡就得往前走。", author: "爱因斯坦" },
+            { text: "生活的艺术在于平衡真实与虚幻。", author: "莫里斯·埃曼" },
+            { text: "生活不是等待暴风雨过去，而是学会在雨中起舞。", author: "维维安·格林" },
+            { text: "生活的价值不在于长短，而在于深度。", author: "拉尔夫·沃尔多·爱默生" },
+            { text: "生活要么是一次大胆的冒险，要么什么都不是。", author: "海伦·凯勒" }
+          ],
+          love: [
+            { text: "爱是理解的别名。", author: "甘地" },
+            { text: "爱是地球上最强大的力量，也是最脆弱的力量。", author: "迈克尔·杰克逊" },
+            { text: "爱是生命的火焰；没有它，心就会变成一片荒漠。", author: "罗伯特·路易斯·史蒂文森" },
+            { text: "爱是灵魂的深刻呼唤，希望得到回应。", author: "瓦尔特·惠特曼" },
+            { text: "爱是生命的诗歌。", author: "巴尔扎克" }
+          ],
+          success: [
+            { text: "成功的关键是专注于目标，而不是障碍。", author: "未知" },
+            { text: "成功是每天都在努力的结果。", author: "约翰·C·麦克斯韦" },
+            { text: "成功不是偶然的，它是努力、坚持、学习和实践的结果。", author: "佩莱" },
+            { text: "成功的秘诀在于开始行动。", author: "马克·吐温" },
+            { text: "成功的人做别人不愿做的事，做别人不敢做的事，做别人做不到的事。", author: "戴尔·卡耐基" }
+          ]
+        };
+        
+        // 获取所有名言
+        const allQuotes = [];
+        Object.values(quotesDatabase).forEach(category => {
+          allQuotes.push(...category);
+        });
+        
+        // 格式化当前日期
+        const formatDate = (date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const daysOfWeek = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+          const dayOfWeek = daysOfWeek[date.getDay()];
+          
+          return `${year}年${month}月${day}日 ${dayOfWeek}`;
+        };
+        
+        // 获取随机名言
+        const getRandomQuote = () => {
+          let availableQuotes = [];
+          
+          if (selectedCategory.value) {
+            availableQuotes = [...quotesDatabase[selectedCategory.value]];
+          } else {
+            availableQuotes = [...allQuotes];
+          }
+          
+          if (availableQuotes.length === 0) {
+            quote.value = { text: "暂无该分类的名言", author: "" };
+            return;
+          }
+          
+          const randomIndex = Math.floor(Math.random() * availableQuotes.length);
+          quote.value = { ...availableQuotes[randomIndex] };
+        };
+        
+        // 获取今日名言（基于日期的伪随机）
+        const getTodaysQuote = () => {
+          const today = new Date();
+          const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+          
+          let availableQuotes = [];
+          
+          if (selectedCategory.value) {
+            availableQuotes = [...quotesDatabase[selectedCategory.value]];
+          } else {
+            availableQuotes = [...allQuotes];
+          }
+          
+          if (availableQuotes.length === 0) {
+            quote.value = { text: "暂无该分类的名言", author: "" };
+            return;
+          }
+          
+          const index = dayOfYear % availableQuotes.length;
+          quote.value = { ...availableQuotes[index] };
+        };
+        
+        // 复制名言
+        const copyQuote = async () => {
+          const textToCopy = `"${quote.value.text}" — ${quote.value.author}`;
+          
+          try {
+            await navigator.clipboard.writeText(textToCopy);
+            alert('名言已复制到剪贴板！');
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败');
+          }
+        };
+        
+        // 分享名言
+        const shareQuote = async () => {
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: '每日一言',
+                text: `"${quote.value.text}" — ${quote.value.author}`,
+              });
+            } catch (err) {
+              console.error('分享失败:', err);
+            }
+          }
+        };
+        
+        // 发推文
+        const tweetQuote = () => {
+          const text = encodeURIComponent(`"${quote.value.text}" - ${quote.value.author}`);
+          const url = encodeURIComponent(window.location.href);
+          window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+        };
+        
+        onMounted(() => {
+          currentDate.value = formatDate(new Date());
+          getTodaysQuote();
+          supportsShareAPI.value = !!navigator.share;
+        });
+        
+        return {
+          quote,
+          currentDate,
+          selectedCategory,
+          supportsShareAPI,
+          getRandomQuote,
+          getTodaysQuote,
+          copyQuote,
+          shareQuote,
+          tweetQuote
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

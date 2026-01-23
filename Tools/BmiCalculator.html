@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BMI计算器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .bmi-calculator {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    .input-group {
+      margin: 15px 0;
+    }
+    
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .input-group input, .input-group select {
+      width: 100%;
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .bmi-result {
+      text-align: center;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: var(--border-radius);
+      font-size: 1.5em;
+      font-weight: bold;
+    }
+    
+    .bmi-category-underweight { background-color: #5dade2; } /* 蓝色 - 体重不足 */
+    .bmi-category-normal { background-color: #58d68d; } /* 绿色 - 正常 */
+    .bmi-category-overweight { background-color: #f4d03f; } /* 黄色 - 超重 */
+    .bmi-category-obese { background-color: #e74c3c; } /* 红色 - 肥胖 */
+    
+    .bmi-chart {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .chart-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 4px;
+    }
+    
+    .chart-underweight { background-color: #5dade2; }
+    .chart-normal { background-color: #58d68d; }
+    .chart-overweight { background-color: #f4d03f; }
+    .chart-obese { background-color: #e74c3c; }
+    
+    .health-tips {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .tip-item {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section bmi-calculator">
+        <h2>BMI计算器</h2>
+        <p>计算身体质量指数(BMI)并评估健康状况</p>
+        
+        <div class="info-box">
+          <p><strong>BMI简介：</strong></p>
+          <p>BMI（Body Mass Index，身体质量指数）是国际上常用的衡量人体胖瘦程度及是否健康的一个标准。</p>
+          <p>计算公式：BMI = 体重(kg) ÷ 身高²(m)</p>
+        </div>
+        
+        <div>
+          <div class="input-group">
+            <label for="unitSystem">单位系统</label>
+            <select id="unitSystem" v-model="unitSystem">
+              <option value="metric">公制 (公斤/米)</option>
+              <option value="imperial">英制 (磅/英寸)</option>
+            </select>
+          </div>
+          
+          <div class="input-group">
+            <label for="height">身高</label>
+            <input 
+              type="number" 
+              id="height" 
+              v-model.number="height" 
+              :placeholder="unitSystem === 'metric' ? '身高 (厘米)' : '身高 (英寸)'"
+              min="0"
+              step="any"
+            >
+          </div>
+          
+          <div class="input-group">
+            <label for="weight">体重</label>
+            <input 
+              type="number" 
+              id="weight" 
+              v-model.number="weight" 
+              :placeholder="unitSystem === 'metric' ? '体重 (公斤)' : '体重 (磅)'"
+              min="0"
+              step="any"
+            >
+          </div>
+          
+          <div class="controls">
+            <button @click="calculateBMI">计算BMI</button>
+            <button @click="clearInputs">清空</button>
+          </div>
+          
+          <div class="bmi-result" v-if="bmiValue !== null" :class="bmiCategoryClass">
+            <p>您的BMI: {{ bmiValue }}</p>
+            <p>{{ bmiCategory }}</p>
+          </div>
+          
+          <div class="bmi-chart">
+            <h3>BMI分类标准</h3>
+            <div class="chart-item chart-underweight">
+              <span>体重不足: &lt; 18.5</span>
+            </div>
+            <div class="chart-item chart-normal">
+              <span>正常: 18.5 - 24.9</span>
+            </div>
+            <div class="chart-item chart-overweight">
+              <span>超重: 25 - 29.9</span>
+            </div>
+            <div class="chart-item chart-obese">
+              <span>肥胖: ≥ 30</span>
+            </div>
+          </div>
+          
+          <div class="health-tips" v-if="bmiValue !== null">
+            <h3>健康建议</h3>
+            <div class="tip-item" v-if="bmiCategory === '体重不足'">
+              <p>您的体重偏轻，建议：</p>
+              <ul>
+                <li>适当增加营养摄入，多吃富含蛋白质的食物</li>
+                <li>规律饮食，一日三餐定时定量</li>
+                <li>适量运动，增强体质</li>
+                <li>如有需要，咨询营养师或医生</li>
+              </ul>
+            </div>
+            <div class="tip-item" v-if="bmiCategory === '正常'">
+              <p>恭喜！您的体重在正常范围内，请继续保持：</p>
+              <ul>
+                <li>均衡饮食，保证各类营养素摄入</li>
+                <li>坚持规律运动</li>
+                <li>保持良好的生活习惯</li>
+                <li>定期体检监测健康状况</li>
+              </ul>
+            </div>
+            <div class="tip-item" v-if="bmiCategory === '超重'">
+              <p>您的体重超重，建议：</p>
+              <ul>
+                <li>控制饮食，减少高热量食物摄入</li>
+                <li>增加体育锻炼，每周至少150分钟中等强度运动</li>
+                <li>制定合理的减重计划</li>
+                <li>必要时寻求专业指导</li>
+              </ul>
+            </div>
+            <div class="tip-item" v-if="bmiCategory === '肥胖'">
+              <p>您的体重属于肥胖范围，强烈建议：</p>
+              <ul>
+                <li>立即采取行动，调整饮食结构</li>
+                <li>大幅增加身体活动量</li>
+                <li>寻求医生或营养师的专业帮助</li>
+                <li>设定现实可行的减重目标</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const unitSystem = ref('metric'); // 'metric' 或 'imperial'
+        const height = ref('');
+        const weight = ref('');
+        const bmiValue = ref(null);
+        const bmiCategory = ref('');
+
+        // 计算BMI
+        const calculateBMI = () => {
+          if (!height.value || !weight.value || height.value <= 0 || weight.value <= 0) {
+            alert('请输入有效的身高和体重');
+            return;
+          }
+
+          let heightInMeters, weightInKg;
+
+          if (unitSystem.value === 'metric') {
+            // 公制：身高厘米转米，体重公斤
+            heightInMeters = height.value / 100;
+            weightInKg = weight.value;
+          } else {
+            // 英制：身高英寸转米，体重磅转公斤
+            heightInMeters = height.value * 0.0254; // 1英寸 = 0.0254米
+            weightInKg = weight.value * 0.453592; // 1磅 = 0.453592公斤
+          }
+
+          // 计算BMI
+          const bmi = weightInKg / (heightInMeters * heightInMeters);
+          bmiValue.value = bmi.toFixed(1);
+
+          // 确定BMI分类
+          if (bmi < 18.5) {
+            bmiCategory.value = '体重不足';
+          } else if (bmi < 25) {
+            bmiCategory.value = '正常';
+          } else if (bmi < 30) {
+            bmiCategory.value = '超重';
+          } else {
+            bmiCategory.value = '肥胖';
+          }
+        };
+
+        // BMI分类对应的CSS类
+        const bmiCategoryClass = computed(() => {
+          if (!bmiCategory.value) return '';
+          
+          switch(bmiCategory.value) {
+            case '体重不足':
+              return 'bmi-category-underweight';
+            case '正常':
+              return 'bmi-category-normal';
+            case '超重':
+              return 'bmi-category-overweight';
+            case '肥胖':
+              return 'bmi-category-obese';
+            default:
+              return '';
+          }
+        });
+
+        // 清空输入
+        const clearInputs = () => {
+          height.value = '';
+          weight.value = '';
+          bmiValue.value = null;
+          bmiCategory.value = '';
+        };
+
+        return {
+          unitSystem,
+          height,
+          weight,
+          bmiValue,
+          bmiCategory,
+          bmiCategoryClass,
+          calculateBMI,
+          clearInputs
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到CSS Modules转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .usage-example {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到CSS Modules转换工具</h2>
+        <p>将普通CSS转换为CSS Modules格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将普通CSS代码转换为CSS Modules格式，实现局部作用域和模块化</p>
+        </div>
+        
+        <div class="usage-example">
+          <h3>使用示例 (JavaScript/React):</h3>
+          <pre>import styles from './styles.module.css';
+
+function MyComponent() {
+  return (
+    &lt;div className={styles.container}&gt;
+      &lt;h1 className={styles.title}&gt;Hello World&lt;/h1&gt;
+    &lt;/div&gt;
+  );
+}</pre>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>CSS Modules代码</h3>
+            <textarea 
+              v-model="modulesOutput" 
+              placeholder="转换后的CSS Modules代码将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToCssModules">CSS → CSS Modules</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const modulesOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertToCssModules = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            // 将CSS转换为CSS Modules
+            modulesOutput.value = convertToCssModulesFormat(inputCss.value);
+            result.value = 'CSS已成功转换为CSS Modules格式！';
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertToCssModulesFormat = (cssCode) => {
+          // 解析CSS代码
+          const rules = parseCss(cssCode);
+          
+          // 生成CSS Modules代码
+          let modulesCode = '/* CSS Modules - Local Scope */\n';
+          
+          // 添加注释说明
+          modulesCode += '/* Global styles can be defined using :global */\n';
+          modulesCode += '/* Local styles are default (equivalent to :local) */\n\n';
+          
+          for (const rule of rules) {
+            const selector = rule.selector;
+            const properties = rule.properties;
+            
+            // 检查是否已经包含:global或:local
+            if (selector.includes(':global') || selector.includes(':local')) {
+              // 如果已经包含模块化语法，保留原样
+              modulesCode += `${selector} {\n`;
+              for (const [property, value] of Object.entries(properties)) {
+                modulesCode += `  ${property}: ${value};\n`;
+              }
+              modulesCode += '}\n\n';
+            } else {
+              // 转换普通选择器为局部作用域
+              // 将连字符分隔的类名转换为驼峰命名以便在JS中使用
+              const convertedSelector = convertToSelectorForModules(selector);
+              
+              modulesCode += `/* ${selector} becomes ${convertedSelector} in JS */\n`;
+              modulesCode += `${convertedSelector} {\n`;
+              for (const [property, value] of Object.entries(properties)) {
+                modulesCode += `  ${property}: ${value};\n`;
+              }
+              modulesCode += '}\n\n';
+            }
+          }
+          
+          // 添加composes示例
+          modulesCode += '/* Example of composition: */\n';
+          modulesCode += '.baseButton {\n  padding: 10px 20px;\n  border: none;\n  cursor: pointer;\n}\n\n';
+          modulesCode += '.primaryButton {\n  composes: baseButton;\n  background-color: blue;\n  color: white;\n}\n\n';
+          
+          return modulesCode;
+        };
+
+        const parseCss = (cssCode) => {
+          const rules = [];
+          
+          // 简单的CSS解析器
+          const ruleRegex = /([^{]+)\s*{\s*([^}]+)\s*}/g;
+          let match;
+          
+          while ((match = ruleRegex.exec(cssCode)) !== null) {
+            const selector = match[1].trim();
+            const propertiesStr = match[2].trim();
+            
+            // 解析属性
+            const properties = {};
+            const propRegex = /([a-zA-Z-]+)\s*:\s*([^;]+);?/g;
+            let propMatch;
+            
+            while ((propMatch = propRegex.exec(propertiesStr)) !== null) {
+              const prop = propMatch[1].trim();
+              const value = propMatch[2].trim();
+              properties[prop] = value;
+            }
+            
+            rules.push({
+              selector: selector,
+              properties: properties
+            });
+          }
+          
+          return rules;
+        };
+
+        const convertToSelectorForModules = (selector) => {
+          // 处理不同类型的CSS选择器
+          if (selector.startsWith('.')) {
+            // 类选择器: 转换连字符为驼峰
+            const className = selector.substring(1).replace(/-([a-z])/g, (match, letter) => 
+              letter.toUpperCase()
+            );
+            return `.${className}`;
+          } else if (selector.startsWith('#')) {
+            // ID选择器
+            return selector;
+          } else {
+            // 元素选择器或其他
+            return selector;
+          }
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.header {
+  background-color: #333;
+  padding: 20px;
+  text-align: center;
+}
+
+.header h1 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.header a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.header a:hover {
+  color: #0056b3;
+}
+
+.button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-block;
+  margin: 5px;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          modulesOutput.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          modulesOutput,
+          result,
+          error,
+          convertToCssModules,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

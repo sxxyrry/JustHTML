@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JavaScript格式化与压缩工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .formatter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .tabs {
+      display: flex;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--bg-tertiary);
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+      margin-right: 5px;
+    }
+    
+    .tab.active {
+      background-color: var(--accent-color);
+      color: white;
+    }
+    
+    .code-output {
+      position: relative;
+    }
+    
+    .copy-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JavaScript格式化与压缩工具</h2>
+        <p>格式化或压缩JavaScript代码</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 格式化JS代码 - 使代码更易读</p>
+          <p>• 压缩JS代码 - 移除多余字符减小体积</p>
+          <p>• 代码美化 - 统一缩进和换行</p>
+        </div>
+        
+        <div class="tabs">
+          <div class="tab" :class="{ active: activeTab === 'format' }" @click="activeTab = 'format'">格式化</div>
+          <div class="tab" :class="{ active: activeTab === 'minify' }" @click="activeTab = 'minify'">压缩</div>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputCode" 
+            placeholder="在此输入JavaScript代码..."
+            rows="15"
+          ></textarea>
+          
+          <div class="formatter-options" v-if="activeTab === 'format'">
+            <div class="option-item">
+              <input type="checkbox" id="beautify" v-model="formatOptions.beautify" checked>
+              <label for="beautify">美化代码</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="insertSpaces" v-model="formatOptions.insertSpaces" checked>
+              <label for="insertSpaces">使用空格代替制表符</label>
+            </div>
+            
+            <div class="option-item">
+              <label for="indentSize">缩进大小:</label>
+              <input type="number" id="indentSize" v-model.number="formatOptions.indentSize" min="1" max="8" style="width: 60px; margin-left: 10px;">
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="preserveNewlines" v-model="formatOptions.preserveNewlines" checked>
+              <label for="preserveNewlines">保留换行</label>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button v-if="activeTab === 'format'" @click="formatCode">格式化代码</button>
+            <button v-if="activeTab === 'minify'" @click="minifyCode">压缩代码</button>
+            <button @click="clearCode">清空</button>
+            <button @click="loadExample">加载示例</button>
+            <button @click="downloadCode">下载代码</button>
+          </div>
+          
+          <div class="code-output" v-if="outputCode">
+            <button class="copy-button" @click="copyCode">复制代码</button>
+            <textarea 
+              v-model="outputCode" 
+              placeholder="处理后的代码将显示在这里..."
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCode = ref('');
+        const outputCode = ref('');
+        const activeTab = ref('format'); // 'format' or 'minify'
+        
+        const formatOptions = ref({
+          beautify: true,
+          insertSpaces: true,
+          indentSize: 2,
+          preserveNewlines: true
+        });
+        
+        // 简化的JS格式化函数
+        const formatCode = () => {
+          if (!inputCode.value.trim()) {
+            alert('请先输入JavaScript代码');
+            return;
+          }
+          
+          try {
+            // 这是一个简化的格式化实现
+            // 实际项目中可以使用专门的库如js-beautify
+            let formatted = inputCode.value;
+            
+            // 简单的缩进处理
+            const lines = formatted.split('\n');
+            let indentLevel = 0;
+            const indentChar = formatOptions.value.insertSpaces ? 
+              ' '.repeat(formatOptions.value.indentSize) : '\t';
+              
+            const processedLines = lines.map(line => {
+              const trimmedLine = line.trim();
+              
+              if (!trimmedLine) return line; // 保持空行
+                
+              // 减少缩进的情况：行以 } 或 else 开头
+              if (trimmedLine.startsWith('}') || trimmedLine.startsWith('else')) {
+                indentLevel = Math.max(0, indentLevel - 1);
+              }
+              
+              const indentedLine = indentChar.repeat(indentLevel) + trimmedLine;
+              
+              // 增加缩进的情况：行以 { 结尾或以 if, for, while, function 等开头
+              if (trimmedLine.endsWith('{') || 
+                  /^((if\s*\(|for\s*\(|while\s*\(|function\s+|else\s*{|try\s*{|catch\s*\(|finally\s*{)/.test(trimmedLine)) {
+                indentLevel++;
+              }
+              
+              return indentedLine;
+            });
+            
+            outputCode.value = processedLines.join('\n');
+          } catch (error) {
+            alert('格式化失败: ' + error.message);
+          }
+        };
+        
+        // 简化的JS压缩函数
+        const minifyCode = () => {
+          if (!inputCode.value.trim()) {
+            alert('请先输入JavaScript代码');
+            return;
+          }
+          
+          try {
+            // 简单的压缩实现：移除多余的空白字符和注释
+            let minified = inputCode.value
+              // 移除单行注释
+              .replace(/\/\/.*$/gm, '')
+              // 移除多行注释
+              .replace(/\/\*[\s\S]*?\*\//g, '')
+              // 移除多余的空白字符
+              .replace(/\s+/g, ' ')
+              // 清理多余的空格
+              .replace(/;\s*/g, ';')
+              .replace(/{\s*/g, '{')
+              .replace(/\s*}/g, '}')
+              .replace(/\s*,\s*/g, ', ')
+              .trim();
+            
+            outputCode.value = minified;
+          } catch (error) {
+            alert('压缩失败: ' + error.message);
+          }
+        };
+        
+        const clearCode = () => {
+          inputCode.value = '';
+          outputCode.value = '';
+        };
+        
+        const loadExample = () => {
+          inputCode.value = `function helloWorld(name, age) {
+  // 这是一个示例函数
+  if (age >= 18) {
+    console.log("Hello, " + name + "! You are an adult.");
+  } else {
+    console.log("Hello, " + name + "! You are young.");
+  }
+  
+  /* 
+   * 这是另一个注释
+   * 可以有很多行
+   */
+  return {
+    name: name,
+    age: age,
+    isAdult: age >= 18
+  };
+}`;
+          
+          if (activeTab.value === 'format') {
+            formatCode();
+          } else {
+            minifyCode();
+          }
+        };
+        
+        const copyCode = async () => {
+          try {
+            await navigator.clipboard.writeText(outputCode.value);
+            alert('代码已复制到剪贴板！');
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动选择并复制代码');
+          }
+        };
+        
+        const downloadCode = () => {
+          if (!outputCode.value) {
+            alert('没有可下载的代码');
+            return;
+          }
+          
+          const blob = new Blob([outputCode.value], { type: 'application/javascript' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = activeTab.value === 'format' ? 'formatted-js.js' : 'minified-js.js';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+        
+        return {
+          inputCode,
+          outputCode,
+          activeTab,
+          formatOptions,
+          formatCode,
+          minifyCode,
+          clearCode,
+          loadExample,
+          copyCode,
+          downloadCode
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

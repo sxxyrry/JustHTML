@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cron表达式生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .cron-builder {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    .field-container {
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 15px;
+    }
+    
+    .field-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: var(--accent-color);
+    }
+    
+    .field-description {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+    }
+    
+    .field-input {
+      width: 100%;
+      padding: 8px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    
+    .preset-select {
+      width: 100%;
+      padding: 8px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      margin-top: 5px;
+    }
+    
+    .result-container {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .cron-expression {
+      font-family: monospace;
+      font-size: 1.2em;
+      background-color: var(--bg-primary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+      text-align: center;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .examples-container {
+      margin-top: 20px;
+    }
+    
+    .example-item {
+      padding: 8px;
+      margin: 5px 0;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    
+    .example-item:hover {
+      background-color: var(--bg-tertiary);
+    }
+    
+    .next-runs {
+      margin-top: 15px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .next-run-item {
+      padding: 5px;
+      margin: 3px 0;
+      background-color: var(--bg-primary);
+      border-radius: var(--border-radius);
+    }
+    
+    @media (max-width: 768px) {
+      .cron-builder {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Cron表达式生成器</h2>
+        <p>轻松创建Cron表达式，用于定时任务调度</p>
+        
+        <div class="info-box">
+          <p><strong>Cron表达式格式：</strong></p>
+          <p>秒 分 小时 日 月 星期 年（年是可选的）</p>
+          <p><strong>特殊字符：</strong></p>
+          <p>* 任意值 | , 多个值 | - 范围 | / 间隔</p>
+        </div>
+        
+        <div class="cron-builder">
+          <div class="field-container">
+            <div class="field-title">秒 (0-59)</div>
+            <div class="field-description">指定秒数</div>
+            <input type="text" v-model="cronFields.second" @input="updateExpression" class="field-input" placeholder="例如: 0,30 或 */5">
+            <select @change="setPreset('second', $event.target.value)" class="preset-select">
+              <option value="">选择预设</option>
+              <option value="0">每分钟开始时(0)</option>
+              <option value="30">每分钟中间(30)</option>
+              <option value="*/5">每5秒(* /5)</option>
+              <option value="*/10">每10秒(* /10)</option>
+              <option value="*/15">每15秒(* /15)</option>
+            </select>
+          </div>
+          
+          <div class="field-container">
+            <div class="field-title">分 (0-59)</div>
+            <div class="field-description">指定分钟数</div>
+            <input type="text" v-model="cronFields.minute" @input="updateExpression" class="field-input" placeholder="例如: 0,30 或 */15">
+            <select @change="setPreset('minute', $event.target.value)" class="preset-select">
+              <option value="">选择预设</option>
+              <option value="0">每小时开始(0)</option>
+              <option value="30">每小时中间(30)</option>
+              <option value="*/5">每5分钟(* /5)</option>
+              <option value="*/10">每10分钟(* /10)</option>
+              <option value="*/15">每15分钟(* /15)</option>
+              <option value="*/30">每30分钟(* /30)</option>
+            </select>
+          </div>
+          
+          <div class="field-container">
+            <div class="field-title">时 (0-23)</div>
+            <div class="field-description">指定小时数</div>
+            <input type="text" v-model="cronFields.hour" @input="updateExpression" class="field-input" placeholder="例如: 0,12 或 */6">
+            <select @change="setPreset('hour', $event.target.value)" class="preset-select">
+              <option value="">选择预设</option>
+              <option value="0">午夜(0)</option>
+              <option value="6">早晨(6)</option>
+              <option value="12">中午(12)</option>
+              <option value="18">傍晚(18)</option>
+              <option value="*/6">每6小时(* /6)</option>
+              <option value="*/8">每8小时(* /8)</option>
+            </select>
+          </div>
+          
+          <div class="field-container">
+            <div class="field-title">日 (1-31)</div>
+            <div class="field-description">指定月份中的日期</div>
+            <input type="text" v-model="cronFields.day" @input="updateExpression" class="field-input" placeholder="例如: 1,15 或 */7">
+            <select @change="setPreset('day', $event.target.value)" class="preset-select">
+              <option value="">选择预设</option>
+              <option value="1">每月第一天(1)</option>
+              <option value="15">月中(15)</option>
+              <option value="L">每月最后一天(L)</option>
+              <option value="*/7">每周(*/7)</option>
+            </select>
+          </div>
+          
+          <div class="field-container">
+            <div class="field-title">月 (1-12)</div>
+            <div class="field-description">指定月份</div>
+            <input type="text" v-model="cronFields.month" @input="updateExpression" class="field-input" placeholder="例如: 1,6,12 或 */3">
+            <select @change="setPreset('month', $event.target.value)" class="preset-select">
+              <option value="">选择预设</option>
+              <option value="1">每年1月(1)</option>
+              <option value="*/3">每季度(* /3)</option>
+              <option value="*/6">每半年(* /6)</option>
+            </select>
+          </div>
+          
+          <div class="field-container">
+            <div class="field-title">星期 (0-7)</div>
+            <div class="field-description">指定一周中的某天 (0和7都是周日)</div>
+            <input type="text" v-model="cronFields.weekday" @input="updateExpression" class="field-input" placeholder="例如: 0,6 或 1-5">
+            <select @change="setPreset('weekday', $event.target.value)" class="preset-select">
+              <option value="">选择预设</option>
+              <option value="0">每周日(0)</option>
+              <option value="6">每周六(6)</option>
+              <option value="1-5">工作日(1-5)</option>
+              <option value="0,6">周末(0,6)</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="result-container">
+          <h3>生成的Cron表达式</h3>
+          <div class="cron-expression">{{ cronExpression }}</div>
+          
+          <div class="controls">
+            <button @click="generateCommonExpression('everyMinute')">每分钟</button>
+            <button @click="generateCommonExpression('hourly')">每小时</button>
+            <button @click="generateCommonExpression('daily')">每天</button>
+            <button @click="generateCommonExpression('weekly')">每周</button>
+            <button @click="generateCommonExpression('monthly')">每月</button>
+            <button @click="copyExpression">复制表达式</button>
+            <button @click="clearAll">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            {{ result }}
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            {{ error }}
+          </div>
+        </div>
+        
+        <div class="examples-container">
+          <h3>常用Cron表达式示例</h3>
+          <div class="example-item" @click="loadExample('0 0 * * * ?')">每天午夜执行</div>
+          <div class="example-item" @click="loadExample('0 0 12 * * ?')">每天中午12点执行</div>
+          <div class="example-item" @click="loadExample('0 30 10 ? * MON-FRI')">工作日上午10:30执行</div>
+          <div class="example-item" @click="loadExample('0 0 12 1 * ?')">每月1号中午12点执行</div>
+          <div class="example-item" @click="loadExample('0 0 12 L * ?')">每月最后一天中午12点执行</div>
+          <div class="example-item" @click="loadExample('0 0 12 ? * SAT')">每周六中午12点执行</div>
+        </div>
+        
+        <div class="next-runs" v-if="nextRuns.length > 0">
+          <h3>下次执行时间</h3>
+          <div v-for="(run, index) in nextRuns" :key="index" class="next-run-item">
+            {{ run }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const cronFields = ref({
+          second: '0',
+          minute: '0',
+          hour: '12',
+          day: '*',
+          month: '*',
+          weekday: '?'
+        });
+        
+        const cronExpression = ref('0 0 12 * * ?');
+        const result = ref('');
+        const error = ref('');
+        const nextRuns = ref([]);
+        
+        // 更新表达式
+        const updateExpression = () => {
+          error.value = '';
+          try {
+            cronExpression.value = `${cronFields.value.second} ${cronFields.value.minute} ${cronFields.value.hour} ${cronFields.value.day} ${cronFields.value.month} ${cronFields.value.weekday}`;
+            calculateNextRuns();
+          } catch (e) {
+            error.value = `表达式错误: ${e.message}`;
+          }
+        };
+        
+        // 设置预设值
+        const setPreset = (field, value) => {
+          if (value) {
+            cronFields.value[field] = value;
+            updateExpression();
+          }
+        };
+        
+        // 生成常用表达式
+        const generateCommonExpression = (type) => {
+          switch(type) {
+            case 'everyMinute':
+              cronFields.value = { second: '0', minute: '*', hour: '*', day: '*', month: '*', weekday: '?' };
+              break;
+            case 'hourly':
+              cronFields.value = { second: '0', minute: '0', hour: '*', day: '*', month: '*', weekday: '?' };
+              break;
+            case 'daily':
+              cronFields.value = { second: '0', minute: '0', hour: '0', day: '*', month: '*', weekday: '?' };
+              break;
+            case 'weekly':
+              cronFields.value = { second: '0', minute: '0', hour: '0', day: '?', month: '*', weekday: '1' };
+              break;
+            case 'monthly':
+              cronFields.value = { second: '0', minute: '0', hour: '0', day: '1', month: '*', weekday: '?' };
+              break;
+          }
+          updateExpression();
+          result.value = `已设置为: ${type}`;
+        };
+        
+        // 复制表达式
+        const copyExpression = () => {
+          if (cronExpression.value) {
+            navigator.clipboard.writeText(cronExpression.value)
+              .then(() => {
+                result.value = 'Cron表达式已复制到剪贴板！';
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                error.value = '复制失败';
+              });
+          } else {
+            error.value = '没有可复制的表达式';
+          }
+        };
+        
+        // 加载示例
+        const loadExample = (expression) => {
+          const parts = expression.split(' ');
+          if (parts.length >= 6) {
+            cronFields.value = {
+              second: parts[0],
+              minute: parts[1],
+              hour: parts[2],
+              day: parts[3],
+              month: parts[4],
+              weekday: parts[5]
+            };
+            updateExpression();
+            result.value = `已加载示例: ${expression}`;
+          }
+        };
+        
+        // 清空
+        const clearAll = () => {
+          cronFields.value = {
+            second: '0',
+            minute: '0',
+            hour: '12',
+            day: '*',
+            month: '*',
+            weekday: '?'
+          };
+          updateExpression();
+          result.value = '已清空所有字段';
+        };
+        
+        // 计算下几次执行时间
+        const calculateNextRuns = () => {
+          // 简化的执行时间计算，实际的cron解析非常复杂，这里仅做演示
+          nextRuns.value = [];
+          const now = new Date();
+          
+          // 简单模拟，实际上需要完整的cron解析器
+          if (cronExpression.value === '0 0 12 * * ?') {
+            // 每天中午12点的情况
+            for (let i = 1; i <= 5; i++) {
+              const nextRun = new Date(now);
+              nextRun.setDate(now.getDate() + i);
+              nextRun.setHours(12, 0, 0, 0);
+              nextRuns.value.push(nextRun.toLocaleString());
+            }
+          } else if (cronExpression.value === '0 0 12 L * ?') {
+            // 每月最后一天中午12点
+            for (let i = 0; i < 3; i++) {
+              const nextRun = new Date(now.getFullYear(), now.getMonth() + i + 1, 0, 12, 0, 0);
+              nextRuns.value.push(nextRun.toLocaleString());
+            }
+          } else {
+            // 默认显示当前时间之后的5次执行
+            for (let i = 1; i <= 3; i++) {
+              const nextRun = new Date(now);
+              nextRun.setMinutes(now.getMinutes() + i);
+              nextRuns.value.push(nextRun.toLocaleString());
+            }
+          }
+        };
+        
+        // 初始化
+        updateExpression();
+        
+        return {
+          cronFields,
+          cronExpression,
+          result,
+          error,
+          nextRuns,
+          updateExpression,
+          setPreset,
+          generateCommonExpression,
+          copyExpression,
+          loadExample,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

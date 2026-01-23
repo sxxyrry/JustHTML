@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ULID生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .generator-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .result-container {
+      position: relative;
+      margin-top: 20px;
+    }
+    
+    .copy-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    
+    .ulid-examples {
+      margin-top: 20px;
+    }
+    
+    .example-item {
+      padding: 8px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .example-original {
+      color: var(--text-secondary);
+    }
+    
+    .example-ulid {
+      color: var(--accent-color);
+      font-weight: bold;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius);
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      font-family: monospace;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>ULID生成器</h2>
+        <p>生成通用唯一标识符 (Universally Unique Lexicographically Sortable Identifier)</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• ULID (Universally Unique Lexicographically Sortable Identifier) 是一种标识符方案</p>
+          <p>• 由 10 字节的时间戳和 16 字节的随机值组成，总共 26 个字符</p>
+          <p>• 保证时间顺序性，且具有全局唯一性</p>
+        </div>
+        
+        <div>
+          <div class="generator-options">
+            <div class="option-item">
+              <label for="quantity">生成数量</label>
+              <input 
+                type="number" 
+                id="quantity" 
+                v-model.number="quantity" 
+                min="1" 
+                max="100"
+                placeholder="输入生成数量"
+              >
+            </div>
+            
+            <div class="option-item">
+              <label for="timestamp">时间戳 (可选)</label>
+              <input 
+                type="datetime-local" 
+                id="timestamp" 
+                v-model="timestamp"
+              >
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="generateUlid">生成单个ULID</button>
+            <button @click="generateMultipleUlids">生成多个ULID</button>
+            <button @click="copyResult">复制结果</button>
+            <button @click="clearResult">清空</button>
+          </div>
+          
+          <div class="result-container">
+            <textarea 
+              v-model="generatedUlids.join('\\n')" 
+              placeholder="生成的ULID将显示在这里..."
+              rows="10"
+              readonly
+            ></textarea>
+            <button class="copy-button" @click="copyResult">复制</button>
+          </div>
+          
+          <div class="ulid-examples">
+            <h3>ULID 示例</h3>
+            <div class="example-item">
+              <span class="example-original">当前时间生成:</span>
+              <span class="example-ulid">{{ sampleUlidNow }}</span>
+            </div>
+            <div class="example-item">
+              <span class="example-original">随机时间生成:</span>
+              <span class="example-ulid">{{ sampleUlidRandom }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const quantity = ref(1);
+        const timestamp = ref('');
+        const generatedUlids = ref([]);
+        const sampleUlidNow = ref('');
+        const sampleUlidRandom = ref('');
+        
+        // ULID 字符集
+        const ENCODING = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // Crockford's Base32
+        const ENCODING_LEN = ENCODING.length;
+        const TIME_MAX = Math.pow(2, 48) - 1;
+        const TIME_LEN = 10;
+        const RANDOM_LEN = 16;
+
+        // 生成随机数
+        const randomByte = () => Math.floor(Math.random() * 256);
+
+        // 将数字编码为Crockford的Base32
+        const encodeTime = (time, len) => {
+          if (time > TIME_MAX) throw new Error('Cannot encode time greater than ' + TIME_MAX);
+          let mod;
+          let str = '';
+          for (; len > 0; len--) {
+            mod = time % ENCODING_LEN;
+            str = ENCODING.charAt(mod) + str;
+            time = (time - mod) / ENCODING_LEN;
+          }
+          return str;
+        };
+
+        // 生成随机部分
+        const encodeRandom = (len) => {
+          let str = '';
+          for (; len > 0; len--) {
+            str = ENCODING.charAt(randomByte() % ENCODING_LEN) + str;
+          }
+          return str;
+        };
+
+        // 生成ULID
+        const generateUlid = (time = Date.now()) => {
+          return encodeTime(time, TIME_LEN) + encodeRandom(RANDOM_LEN);
+        };
+
+        // 生成单个ULID
+        const generateSingleUlid = () => {
+          let time = Date.now();
+          if (timestamp.value) {
+            time = new Date(timestamp.value).getTime();
+          }
+          const ulid = generateUlid(time);
+          generatedUlids.value = [ulid];
+        };
+
+        // 生成多个ULID
+        const generateMultipleUlids = () => {
+          const count = Math.max(1, Math.min(quantity.value || 1, 100));
+          let time = Date.now();
+          if (timestamp.value) {
+            time = new Date(timestamp.value).getTime();
+          }
+          generatedUlids.value = [];
+          for (let i = 0; i < count; i++) {
+            // 为了确保时间部分唯一，稍微调整时间
+            generatedUlids.value.push(generateUlid(time + i));
+          }
+        };
+
+        // 复制结果到剪贴板
+        const copyResult = async () => {
+          try {
+            await navigator.clipboard.writeText(generatedUlids.value.join('\\n'));
+            alert('已复制到剪贴板！');
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败，请手动复制');
+          }
+        };
+
+        // 清空结果
+        const clearResult = () => {
+          generatedUlids.value = [];
+        };
+
+        // 生成示例
+        onMounted(() => {
+          sampleUlidNow.value = generateUlid();
+          sampleUlidRandom.value = generateUlid(Date.now() - 86400000); // 一天前的时间
+        });
+
+        return {
+          quantity,
+          timestamp,
+          generatedUlids,
+          sampleUlidNow,
+          sampleUlidRandom,
+          generateUlid: generateSingleUlid,
+          generateMultipleUlids,
+          copyResult,
+          clearResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

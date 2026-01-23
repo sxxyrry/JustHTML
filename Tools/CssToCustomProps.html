@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到CSS自定义属性转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .custom-prop-list {
+      max-height: 200px;
+      overflow-y: auto;
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    .custom-prop-item {
+      margin: 5px 0;
+      padding: 5px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .theme-selector {
+      margin: 15px 0;
+    }
+    
+    .theme-selector select {
+      padding: 8px 12px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      width: 100%;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到CSS自定义属性转换工具</h2>
+        <p>将CSS中的固定值转换为CSS自定义属性（CSS Variables）</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将CSS中的固定颜色、尺寸等值转换为自定义属性，便于主题切换和样式定制</p>
+        </div>
+        
+        <div class="theme-selector">
+          <label for="themeSelect">选择主题:</label>
+          <select id="themeSelect" v-model="selectedTheme">
+            <option value="default">默认主题</option>
+            <option value="dark">暗色主题</option>
+            <option value="light">亮色主题</option>
+            <option value="blue">蓝色主题</option>
+            <option value="green">绿色主题</option>
+          </select>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>带有自定义属性的代码</h3>
+            <textarea 
+              v-model="cssWithCustomProps" 
+              placeholder="转换后的CSS自定义属性代码将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToCustomProps">CSS → 自定义属性</button>
+          <button @click="applyTheme">应用主题</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="custom-prop-list" v-if="customProps.length > 0">
+          <h3>定义的自定义属性:</h3>
+          <div class="custom-prop-item" v-for="(prop, index) in customProps" :key="index">
+            <span><code>{{ prop.name }}: {{ prop.value }}</code></span>
+            <span>(使用 {{ prop.usageCount }} 次)</span>
+          </div>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, watch } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const cssWithCustomProps = ref('');
+        const result = ref('');
+        const error = ref('');
+        const customProps = ref([]);
+        const selectedTheme = ref('default');
+
+        // 监听主题变化
+        watch(selectedTheme, () => {
+          if (cssWithCustomProps.value) {
+            applyTheme();
+          }
+        });
+
+        const convertToCustomProps = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            const { convertedCss, props } = convertToCssCustomProps(inputCss.value);
+            cssWithCustomProps.value = convertedCss;
+            customProps.value = props;
+            result.value = `CSS已成功转换为包含${props.length}个自定义属性的代码！`;
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertToCssCustomProps = (cssCode) => {
+          // 提取颜色值、尺寸值等常见重复值
+          const colorMatches = cssCode.match(/#[0-9a-fA-F]{3,6}|rgba?\([^)]+\)|hsla?\([^)]+\)|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*#[0-9a-fA-F]{3,6}|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*rgba?\([^)]+\)|[a-z]+[ \t\r\n\f]*:[ \t\r\n\f]*hsla?\([^)]+\)/gi) || [];
+          
+          // 统计每个颜色值的出现次数
+          const colorCount = {};
+          colorMatches.forEach(color => {
+            // 提取实际颜色值（去除属性名）
+            const actualColor = color.includes(':') ? color.split(':')[1].trim() : color.trim();
+            colorCount[actualColor] = (colorCount[actualColor] || 0) + 1;
+          });
+          
+          // 提取尺寸值
+          const dimensionMatches = cssCode.match(/\b\d+(\.\d+)?(px|em|rem|%|pt|cm|mm|in|pc|ch|ex|vw|vh|vmin|vmax)\b/g) || [];
+          
+          // 统计每个尺寸值的出现次数
+          const dimensionCount = {};
+          dimensionMatches.forEach(dimension => {
+            dimensionCount[dimension] = (dimensionCount[dimension] || 0) + 1;
+          });
+          
+          // 找出出现的所有颜色和尺寸（不管是否重复）
+          const allColors = Object.keys(colorCount);
+          const allDimensions = Object.keys(dimensionCount);
+          
+          // 创建自定义属性映射
+          const propMap = {};
+          const props = [];
+          
+          // 添加颜色属性
+          allColors.forEach((color, index) => {
+            const propName = `--color-${sanitizeVarName(color)}`;
+            propMap[color] = `var(${propName})`;
+            props.push({
+              name: propName,
+              value: color,
+              usageCount: colorCount[color]
+            });
+          });
+          
+          // 添加尺寸属性
+          allDimensions.forEach((dim, index) => {
+            const propName = `--size-${sanitizeVarName(dim)}`;
+            propMap[dim] = `var(${propName})`;
+            props.push({
+              name: propName,
+              value: dim,
+              usageCount: dimensionCount[dim]
+            });
+          });
+          
+          // 创建自定义属性定义
+          let propDefinitions = ':root {\n';
+          props.forEach(p => {
+            propDefinitions += `  ${p.name}: ${p.value};\n`;
+          });
+          propDefinitions += '}\n\n';
+          
+          // 替换CSS代码中的值
+          let updatedCss = cssCode;
+          
+          // 替换颜色值
+          allColors.forEach(color => {
+            // 使用正则表达式替换，确保只替换完整的颜色值
+            const colorPattern = new RegExp(`(?<![-\\w#])${color.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![-\\w])`, 'g');
+            updatedCss = updatedCss.replace(colorPattern, propMap[color]);
+          });
+          
+          // 替换尺寸值
+          allDimensions.forEach(dim => {
+            // 使用正则表达式替换，确保只替换完整的尺寸值
+            const dimPattern = new RegExp(`\\b${dim.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+            updatedCss = updatedCss.replace(dimPattern, propMap[dim]);
+          });
+          
+          return {
+            convertedCss: propDefinitions + updatedCss,
+            props: props
+          };
+        };
+
+        const sanitizeVarName = (value) => {
+          // 清理变量名，使其符合CSS自定义属性的命名规则
+          return value.replace(/[^a-zA-Z0-9-_]/g, '_');
+        };
+
+        const applyTheme = () => {
+          if (!cssWithCustomProps.value) {
+            return;
+          }
+
+          // 根据所选主题修改自定义属性值
+          const themeValues = getThemeValues(selectedTheme.value);
+          let updatedCss = cssWithCustomProps.value;
+
+          // 替换主题值
+          for (const [propName, propValue] of Object.entries(themeValues)) {
+            const regex = new RegExp(`(${propName}:\\s*)([^;]+)(;)`, 'g');
+            updatedCss = updatedCss.replace(regex, `$1${propValue}$3`);
+          }
+
+          cssWithCustomProps.value = updatedCss;
+          result.value = `已应用${getThemeName(selectedTheme.value)}主题！`;
+        };
+
+        const getThemeValues = (theme) => {
+          switch (theme) {
+            case 'dark':
+              return {
+                '--color-333333': '#1a1a1a',
+                '--color-ffffff': '#0d0d0d',
+                '--color-007bff': '#0d6efd',
+                '--color-f8f9fa': '#212529',
+                '--color-dee2e6': '#495057',
+                '--color-fff': '#f8f9fa',
+                '--color-333': '#f8f9fa',
+                '--color-0056b3': '#0b5ed7'
+              };
+            case 'light':
+              return {
+                '--color-333333': '#f8f9fa',
+                '--color-007bff': '#6ea8fe',
+                '--color-f8f9fa': '#e9ecef',
+                '--color-dee2e6': '#ced4da',
+                '--color-333': '#495057',
+                '--color-0056b3': '#3d8bfd'
+              };
+            case 'blue':
+              return {
+                '--color-333333': '#0d6efd',
+                '--color-007bff': '#3d8bfd',
+                '--color-0056b3': '#3067a8',
+                '--color-333': '#0a58ca'
+              };
+            case 'green':
+              return {
+                '--color-333333': '#198754',
+                '--color-007bff': '#47b78d',
+                '--color-0056b3': '#3a9571',
+                '--color-333': '#157347'
+              };
+            default: // default theme
+              return {};
+          }
+        };
+
+        const getThemeName = (theme) => {
+          switch (theme) {
+            case 'dark': return '暗色';
+            case 'light': return '亮色';
+            case 'blue': return '蓝色';
+            case 'green': return '绿色';
+            default: return '默认';
+          }
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.header {
+  background-color: #333;
+  padding: 20px;
+  color: #fff;
+}
+
+.header h1 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.nav-link {
+  color: #007bff;
+  text-decoration: none;
+  padding: 10px;
+}
+
+.nav-link:hover {
+  color: #0056b3;
+  background-color: #f8f9fa;
+}
+
+.button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}
+
+.card {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 20px;
+  margin: 10px;
+  background-color: #fff;
+}
+
+.card-title {
+  color: #333;
+  font-size: 1.25rem;
+  margin-bottom: 10px;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          cssWithCustomProps.value = '';
+          result.value = '';
+          error.value = '';
+          customProps.value = [];
+        };
+
+        return {
+          inputCss,
+          cssWithCustomProps,
+          result,
+          error,
+          customProps,
+          selectedTheme,
+          convertToCustomProps,
+          applyTheme,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

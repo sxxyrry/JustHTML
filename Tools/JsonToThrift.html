@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到Thrift转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到Thrift转换工具</h2>
+        <p>分析JSON结构并生成对应的Thrift IDL定义</p>
+        
+        <div class="info-box">
+          <p><strong>说明：</strong></p>
+          <p>此工具分析JSON数据结构并生成相应的Thrift IDL定义，实际的序列化/反序列化需要在服务端完成</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>JSON数据</h3>
+            <textarea 
+              v-model="jsonData" 
+              placeholder='输入JSON数据，例如: {"name": "张三", "age": 30, "email": "zhangsan@example.com"}'
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>生成的Thrift定义</h3>
+            <textarea 
+              v-model="thriftDefinition" 
+              placeholder="Thrift IDL定义将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertJsonToThrift">生成Thrift定义</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>分析结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const jsonData = ref('');
+        const thriftDefinition = ref('');
+        const result = ref('');
+
+        const convertJsonToThrift = () => {
+          if (!jsonData.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonData.value);
+            thriftDefinition.value = generateThriftDefinition(parsed, 'DataStruct');
+            result.value = 'Thrift定义生成成功！';
+          } catch (e) {
+            result.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const generateThriftDefinition = (data, structName) => {
+          if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+            return `// 无法从基本类型或数组直接生成顶层结构定义\n// 请提供对象类型的根节点`;
+          }
+
+          let thriftDef = `struct ${structName} {\n`;
+          let fieldId = 1;
+
+          const processValue = (value, fieldName, id) => {
+            let type = determineThriftType(value);
+            if (type === 'struct') {
+              // 对于嵌套对象，我们需要生成一个新的结构定义
+              const subStructName = capitalizeFirstLetter(fieldName);
+              thriftDef += `  1: ${subStructName} ${fieldName}\n`;
+              // 递归处理嵌套对象
+              generateNestedStruct(value, subStructName);
+            } else if (Array.isArray(value)) {
+              // 对于数组，确定数组元素的类型
+              if (value.length > 0) {
+                const elementType = determineThriftType(value[0]);
+                if (elementType === 'struct') {
+                  const subStructName = capitalizeFirstLetter(fieldName) + 'Item';
+                  thriftDef += `  ${id}: list<${subStructName}> ${fieldName}\n`;
+                  generateNestedStruct(value[0], subStructName);
+                } else {
+                  thriftDef += `  ${id}: list<${elementType}> ${fieldName}\n`;
+                }
+              } else {
+                thriftDef += `  ${id}: list<string> ${fieldName} // 无法确定数组类型\n`;
+              }
+            } else {
+              thriftDef += `  ${id}: ${type} ${fieldName}\n`;
+            }
+          };
+
+          for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+              processValue(data[key], key, fieldId++);
+            }
+          }
+
+          thriftDef += `}\n`;
+          return thriftDef;
+        };
+
+        const generateNestedStruct = (obj, structName) => {
+          if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+            return;
+          }
+
+          let nestedThrift = `\nstruct ${structName} {\n`;
+          let fieldId = 1;
+
+          for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+              const value = obj[key];
+              let type = determineThriftType(value);
+              
+              if (type === 'struct') {
+                const subStructName = capitalizeFirstLetter(key);
+                nestedThrift += `  ${fieldId}: ${subStructName} ${key}\n`;
+                fieldId++;
+                generateNestedStruct(value, subStructName);
+              } else if (Array.isArray(value)) {
+                if (value.length > 0) {
+                  const elementType = determineThriftType(value[0]);
+                  if (elementType === 'struct') {
+                    const subStructName = capitalizeFirstLetter(key) + 'Item';
+                    nestedThrift += `  ${fieldId}: list<${subStructName}> ${key}\n`;
+                    fieldId++;
+                    generateNestedStruct(value[0], subStructName);
+                  } else {
+                    nestedThrift += `  ${fieldId}: list<${elementType}> ${key}\n`;
+                    fieldId++;
+                  }
+                } else {
+                  nestedThrift += `  ${fieldId}: list<string> ${key} // 无法确定数组类型\n`;
+                  fieldId++;
+                }
+              } else {
+                nestedThrift += `  ${fieldId}: ${type} ${key}\n`;
+                fieldId++;
+              }
+            }
+          }
+
+          nestedThrift += `}\n`;
+          
+          // 在主thrift定义末尾添加嵌套结构定义
+          thriftDefinition.value = thriftDefinition.value.replace(/\n}$/, '') + nestedThrift;
+        };
+
+        const determineThriftType = (value) => {
+          if (value === null) return 'string';
+          if (Array.isArray(value)) return 'list';
+          if (typeof value === 'object') return 'struct';
+          if (typeof value === 'string') {
+            // 尝试判断是否为特殊格式的字符串
+            if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) return 'string'; // datetime
+            if (/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(value)) return 'string'; // email
+            if (/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(value)) return 'string'; // url
+            return 'string';
+          }
+          if (typeof value === 'number') {
+            return Number.isInteger(value) ? 'i32' : 'double';
+          }
+          if (typeof value === 'boolean') return 'bool';
+          return 'string';
+        };
+
+        const capitalizeFirstLetter = (str) => {
+          return str.charAt(0).toUpperCase() + str.slice(1);
+        };
+
+        const loadExample = () => {
+          jsonData.value = JSON.stringify({
+            name: "张三",
+            age: 30,
+            email: "zhangsan@example.com",
+            address: {
+              street: "中山路123号",
+              city: "北京",
+              zipCode: "100000"
+            },
+            hobbies: ["读书", "游泳", "编程"],
+            metadata: {
+              createdAt: "2023-01-01T00:00:00Z",
+              lastLogin: "2023-12-01T12:30:45Z"
+            }
+          }, null, 2);
+        };
+
+        const clearAll = () => {
+          jsonData.value = '';
+          thriftDefinition.value = '';
+          result.value = '';
+        };
+
+        return {
+          jsonData,
+          thriftDefinition,
+          result,
+          convertJsonToThrift,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON数组排序工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .sort-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON数组排序工具</h2>
+        <p>对JSON数组按照指定字段进行排序</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 按指定字段排序数组</p>
+          <p>• 支持升序和降序</p>
+          <p>• 支持数值和字符串排序</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder='在此输入JSON数组，例如: [{"name": "张三", "age": 30}, {"name": "李四", "age": 25}]'
+            rows="12"
+          ></textarea>
+          
+          <div class="sort-options">
+            <div class="option-item">
+              <label for="sortBy">排序字段</label>
+              <input 
+                type="text" 
+                id="sortBy" 
+                v-model="sortBy" 
+                placeholder="输入字段名"
+              >
+            </div>
+            
+            <div class="option-item">
+              <label for="sortOrder">排序顺序</label>
+              <select id="sortOrder" v-model="sortOrder">
+                <option value="asc">升序</option>
+                <option value="desc">降序</option>
+              </select>
+            </div>
+            
+            <div class="option-item">
+              <label for="dataType">数据类型</label>
+              <select id="dataType" v-model="dataType">
+                <option value="string">字符串</option>
+                <option value="number">数值</option>
+                <option value="date">日期</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="sortArray">排序数组</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const sortBy = ref('');
+        const sortOrder = ref('asc');
+        const dataType = ref('string');
+
+        const sortArray = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(inputText.value);
+            
+            if (!Array.isArray(jsonData)) {
+              throw new Error('输入必须是JSON数组');
+            }
+
+            if (!sortBy.value) {
+              throw new Error('请输入要排序的字段');
+            }
+
+            // 检查数组中的对象是否都有排序字段
+            for (let item of jsonData) {
+              if (typeof item !== 'object' || item === null || !(sortBy.value in item)) {
+                throw new Error(`数组中某些对象不包含字段 "${sortBy.value}"`);
+              }
+            }
+
+            // 排序函数
+            const sortedArray = [...jsonData].sort((a, b) => {
+              let valA = a[sortBy.value];
+              let valB = b[sortBy.value];
+
+              // 根据数据类型处理值
+              if (dataType.value === 'number') {
+                valA = Number(valA);
+                valB = Number(valB);
+                if (isNaN(valA) || isNaN(valB)) {
+                  throw new Error(`字段 "${sortBy.value}" 包含非数值数据，无法按数值排序`);
+                }
+              } else if (dataType.value === 'date') {
+                valA = new Date(valA);
+                valB = new Date(valB);
+                if (isNaN(valA.getTime()) || isNaN(valB.getTime())) {
+                  throw new Error(`字段 "${sortBy.value}" 包含非日期数据，无法按日期排序`);
+                }
+              } else {
+                // 字符串类型，转换为字符串比较
+                valA = String(valA);
+                valB = String(valB);
+              }
+
+              // 比较值
+              let comparison = 0;
+              if (valA > valB) {
+                comparison = 1;
+              } else if (valA < valB) {
+                comparison = -1;
+              }
+
+              // 如果是降序，则翻转比较结果
+              return sortOrder.value === 'desc' ? -comparison : comparison;
+            });
+
+            result.value = JSON.stringify(sortedArray, null, 2);
+          } catch (e) {
+            error.value = `排序错误: ${e.message}`;
+          }
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(inputText.value);
+            if (!Array.isArray(parsed)) {
+              result.value = '✓ JSON格式有效，但数据不是数组';
+            } else {
+              result.value = `✓ JSON格式有效，数组包含 ${parsed.length} 个项目`;
+            }
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+          sortBy.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          sortBy,
+          sortOrder,
+          dataType,
+          sortArray,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

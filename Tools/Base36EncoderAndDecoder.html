@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base36编码/解码工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Base36编码/解码工具</h2>
+        <p>将数字转换为Base36编码或将Base36编码解码为数字</p>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要编码或解码的数字或Base36字符串..."
+            rows="8"
+          ></textarea>
+          
+          <button @click="encodeBase36">数字转Base36</button>
+          <button @click="decodeBase36">Base36转数字</button>
+          <button @click="clearText">清空</button>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        
+        // Base36编码函数（数字转Base36）
+        const encodeBase36 = () => {
+          error.value = '';
+          try {
+            // 尝试将输入解析为数字
+            const num = parseInt(inputText.value.trim());
+            if (isNaN(num)) {
+              throw new Error("输入不是有效的数字");
+            }
+            if (num < 0) {
+              throw new Error("目前仅支持非负整数");
+            }
+            
+            result.value = num.toString(36).toUpperCase();
+          } catch (e) {
+            error.value = `编码失败: ${e.message}`;
+          }
+        };
+        
+        // Base36解码函数（Base36转数字）
+        const decodeBase36 = () => {
+          error.value = '';
+          try {
+            const base36Str = inputText.value.trim().toLowerCase();
+            if (!/^[0-9a-z]+$/.test(base36Str)) {
+              throw new Error("输入包含无效的Base36字符");
+            }
+            
+            const num = parseInt(base36Str, 36);
+            if (isNaN(num)) {
+              throw new Error("无法解析Base36字符串");
+            }
+            
+            result.value = num.toString();
+          } catch (e) {
+            error.value = `解码失败: ${e.message}`;
+          }
+        };
+        
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          encodeBase36,
+          decodeBase36,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

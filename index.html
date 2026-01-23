@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>全能工具箱 - JustHTML</title>
+  <link rel="stylesheet" href="./assets/style.css">
+
+  <script src="./package/Vue/code/vue.global.prod.js"></script>
+  <script src="./package/Marked/code/marked.umd.js"></script>
+  <script type="module" src="./package/Sober/code/main.js"></script>
+
+  <script src="./assets/Tools.js"></script>
+  <script src="./assets/ToolsData.js"></script>
+  <script>
+    window.ToolsData = deepcopy(ToolsData);
+  </script>
+  <style>
+    .search-container {
+      margin: 20px auto;
+      max-width: 600px;
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 12px 20px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 16px;
+    }
+
+    .categories {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .category {
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .category h2 {
+      color: var(--accent-color);
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+
+    .tools-list {
+      list-style: none;
+    }
+
+    .tools-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+
+    .tools-list li:last-child {
+      border-bottom: none;
+    }
+
+    .tool-link {
+      color: var(--text-primary);
+      text-decoration: none;
+      display: block;
+      transition: var(--transition);
+      padding: 5px 10px;
+      border-radius: 4px;
+    }
+
+    .tool-link:hover {
+      background-color: var(--bg-tertiary);
+      color: var(--accent-color);
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      padding: 20px;
+      color: var(--text-secondary);
+      border-top: 1px solid var(--bg-tertiary);
+    }
+
+    .highlight {
+      background-color: rgba(74, 158, 255, 0.2);
+    }
+
+    .subcategory-title {
+      font-weight: bold;
+      color: #6c757d;
+      margin-top: 15px;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px dashed var(--bg-tertiary);
+    }
+
+    .no-results {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 40px;
+      grid-column: 1 / -1;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div class="container">
+      <header>
+        <h1>全能工具箱 - JustHTML</h1>
+        <p>一个集合了多种实用工具的工具箱，完全基于HTML、CSS和JavaScript</p>
+      </header>
+
+      <div class="search-container">
+        <input type="text" id="searchBox" v-model="searchQuery" class="search-box" placeholder="搜索工具...">
+      </div>
+
+      <div ref="cate" class="categories">
+        <!-- 使用 Vue v-for 循环生成工具分类 -->
+        <div v-for="(category, catIndex) in filteredCategories" :key="catIndex" class="category"
+          v-show="category.totalTools > 0">
+          <h2>{{ category.title }}</h2>
+          <ul class="tools-list">
+            <!-- 遍历每个分类下的子项目 -->
+            <template v-for="item in category.items">
+              <!-- 如果子项目有 items 数组，说明是分组结构 -->
+              <template v-if="item.items">
+                <li class="subcategory-title">{{ item.name }}</li>
+                <li v-for="subItem in item.items" :key="subItem.link"
+                  :class="{ highlight: isHighlighted(subItem.content) }">
+                  <a :href="subItem.link" class="tool-link">
+                    {{ subItem.content.replace(/^[^-]* - /, '') }}
+                  </a>
+                </li>
+              </template>
+
+              <!-- 如果子项目直接有 link 和 content，说明是单个工具 -->
+              <li v-else :key="item.link" :class="{ highlight: isHighlighted(item.content) }">
+                <a :href="item.link" class="tool-link">
+                  {{ item.content.replace(/^[^-]* - /, '') }}
+                </a>
+              </li>
+            </template>
+          </ul>
+        </div>
+
+        <!-- 显示无结果提示 -->
+        <div v-if="!loading && ToolsData.length === 0" class="no-results">
+          <p>没有获取到工具</p>
+        </div>
+
+        <!-- 显示无结果提示 -->
+        <div v-if="!loading && searchQuery !== '' && filteredCategories.length === 0" class="no-results">
+          <p>没有找到匹配的工具</p>
+        </div>
+
+        <!-- 添加加载状态 -->
+        <div v-if="loading && searchQuery === ''" class="no-results">
+          <p>加载中...</p>
+        </div>
+      </div>
+
+      <footer>
+        <p>全能工具箱 - JustHTML &copy; 2023 - 包含多种实用工具</p>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    const { onMounted, createApp, ref, computed } = Vue;
+
+    const cate = ref()
+    let App = null;
+
+    // 创建一个延迟加载的函数
+    function initApp() {
+      App = createApp({
+        setup() {
+          // 初始化搜索查询
+          const searchQuery = ref('');
+          const loading = ref(true);
+          const isSearching = ref(false);
+
+          // 获取工具数据并处理
+          const toolsData = window.ToolsData || [];
+
+          // 如果工具数据不存在，返回空数组
+          if (!toolsData || toolsData.length === 0) {
+            loading.value = false;
+            return {
+              searchQuery,
+              loading,
+              isSearching,
+              filteredCategories: computed(() => []),
+              isHighlighted: () => false,
+              ToolsData: toolsData,
+            };
+          }
+
+          // 将原始数据转换为包含总工具数的对象
+          const processedToolsData = toolsData.map(category => {
+            let totalTools = 0;
+
+            const itemsWithCounts = category.items.map(item => {
+              if (item.items) {
+                // 分组项目
+                totalTools += item.items.length;
+                return {
+                  ...item,
+                  count: item.items.length
+                };
+              } else {
+                // 单个项目
+                totalTools++;
+                return item;
+              }
+            });
+
+            return {
+              ...category,
+              items: itemsWithCounts,
+              totalTools: totalTools
+            };
+          });
+
+          // 计算属性：根据搜索词过滤工具
+          const filteredCategories = computed(() => {
+            if (!searchQuery.value.trim()) {
+              return processedToolsData;
+            }
+
+            const query = searchQuery.value.toLowerCase();
+
+            return processedToolsData.map(category => {
+              let totalTools = 0;
+
+              const filteredItems = category.items.flatMap(item => {
+                if (item.items) {
+                  // 处理分组项目
+                  const filteredSubItems = item.items.filter(subItem =>
+                    subItem.content.toLowerCase().includes(query) ||
+                    subItem.link.toLowerCase().includes(query)
+                  );
+
+                  if (filteredSubItems.length > 0) {
+                    totalTools += filteredSubItems.length;
+                    
+                    return [{
+                      ...item,
+                      items: filteredSubItems
+                    }];
+                  }
+                } else {
+                  // 处理单个项目
+                  if (
+                    item.content.toLowerCase().includes(query) ||
+                    item.link.toLowerCase().includes(query)
+                  ) {
+                    totalTools++;
+                    return [item];
+                  }
+                }
+
+                return [];
+              });
+
+              return {
+                ...category,
+                items: filteredItems,
+                totalTools: totalTools
+              };
+            }).filter(category => category.totalTools > 0); // 只显示有匹配工具的分类
+          });
+
+          // 判断工具名称是否高亮显示
+          const isHighlighted = (toolContent) => {
+            if (!searchQuery.value.trim()) {
+              return false;
+            }
+
+            return toolContent.toLowerCase().includes(searchQuery.value.toLowerCase());
+          };
+
+          loading.value = false;
+
+          return {
+            searchQuery,
+            loading,
+            isSearching,
+            filteredCategories,
+            isHighlighted,
+            ToolsData: toolsData,
+          };
+        }
+      })
+      App.mount('#app');
+    }
+
+    initApp();
+  </script>
+</body>
+
+</html>

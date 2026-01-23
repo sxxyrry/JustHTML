@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML格式化/压缩工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .options-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>HTML格式化/压缩工具</h2>
+        <p>格式化或压缩HTML代码，使其更易读或更紧凑</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 格式化：使HTML代码结构清晰，易于阅读和编辑</p>
+          <p>• 压缩：移除不必要的空白和换行，减少文件大小</p>
+          <p>• 验证：检查HTML代码的基本语法</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始HTML</h3>
+            <textarea 
+              v-model="inputHtml" 
+              placeholder="在此输入HTML代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>处理后的HTML</h3>
+            <textarea 
+              v-model="formattedHtml" 
+              placeholder="格式化/压缩后的HTML代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="options-container">
+          <div class="option-item">
+            <input type="checkbox" id="preserveComments" v-model="options.preserveComments">
+            <label for="preserveComments">保留注释</label>
+          </div>
+          
+          <div class="option-item">
+            <input type="checkbox" id="removeEmptyAttrs" v-model="options.removeEmptyAttrs">
+            <label for="removeEmptyAttrs">移除空属性</label>
+          </div>
+          
+          <div class="option-item">
+            <input type="checkbox" id="normalizeWhitespace" v-model="options.normalizeWhitespace">
+            <label for="normalizeWhitespace">规范化空白符</label>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="formatHtml">格式化HTML</button>
+          <button @click="minifyHtml">压缩HTML</button>
+          <button @click="validateHtml">验证HTML</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="validationResult">
+          <h3>验证结果：</h3>
+          <p>{{ validationResult }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputHtml = ref('');
+        const options = ref({
+          preserveComments: false,
+          removeEmptyAttrs: false,
+          normalizeWhitespace: true
+        });
+        
+        // 简单的HTML格式化函数
+        const formatHtmlFn = (html, minify = false) => {
+          if (!html) return '';
+          
+          let result = html;
+          
+          if (minify) {
+            // 压缩模式 - 移除多余的空白和注释
+            if (!options.value.preserveComments) {
+              result = result.replace(/<!--[\s\S]*?-->/g, '');
+            }
+            
+            if (options.value.normalizeWhitespace) {
+              result = result.replace(/\s+/g, ' ');
+            }
+            
+            result = result.trim();
+          } else {
+            // 格式化模式 - 添加适当的缩进
+            let indent = 0;
+            const tab = '  '; // 两个空格作为一个缩进
+            
+            // 分割为标签和文本节点
+            result = result
+              .replace(/>|<\//g, (match) => `\n${match}`)
+              .replace(/><|\/>|<\//g, (match) => `${match}\n`)
+              .split('\n')
+              .filter(line => line.trim() !== '' || line.includes('<'))
+              .map(line => {
+                const trimmedLine = line.trim();
+                
+                // 检查是否是结束标签
+                if (trimmedLine.match(/<\/\w/)) {
+                  indent--;
+                }
+                
+                const indentedLine = tab.repeat(Math.max(0, indent)) + trimmedLine;
+                
+                // 检查是否是开始标签（但不是自闭合标签）
+                if (trimmedLine.match(/<\w/) && !trimmedLine.match(/\/>/) && !trimmedLine.match(/<\/\w/)) {
+                  // 检查是否是自闭合标签
+                  const isSelfClosing = ['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'].some(tag => 
+                    trimmedLine.match(new RegExp(`<${tag}\\s*(>|[^>]*[^/]>$)`))
+                  );
+                  
+                  if (!isSelfClosing) {
+                    indent++;
+                  }
+                }
+                
+                return indentedLine;
+              })
+              .join('\n');
+              
+            // 处理属性的换行（如果需要更精细的格式化）
+            if (options.value.normalizeWhitespace) {
+              result = result.replace(/>\s+</g, '>\n<'); // 标签之间添加换行
+            }
+          }
+          
+          // 根据选项移除空属性
+          if (options.value.removeEmptyAttrs) {
+            result = result.replace(/\s+\w+\s*=\s*""/g, ''); // 移除空属性
+          }
+          
+          return result;
+        };
+        
+        // 格式化的HTML
+        const formattedHtml = computed(() => {
+          return formatHtmlFn(inputHtml.value, false);
+        });
+        
+        // 验证结果
+        const validationResult = ref('');
+        
+        // 格式化HTML
+        const formatHtml = () => {
+          inputHtml.value = formatHtmlFn(inputHtml.value, false);
+        };
+        
+        // 压缩HTML
+        const minifyHtml = () => {
+          inputHtml.value = formatHtmlFn(inputHtml.value, true);
+        };
+        
+        // 验证HTML
+        const validateHtml = () => {
+          try {
+            // 创建一个临时DOM元素来解析HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(inputHtml.value, 'text/html');
+            
+            // 检查是否发生了错误
+            const errorElement = doc.querySelector('parsererror');
+            if (errorElement) {
+              validationResult.value = 'HTML语法错误：' + errorElement.textContent;
+              return;
+            }
+            
+            // 简单的验证：检查未闭合标签
+            const parser2 = new DOMParser();
+            const doc2 = parser2.parseFromString(inputHtml.value, 'text/html');
+            
+            // 检查是否所有的标签都有对应的闭合标签
+            const allTags = (inputHtml.value.match(/<\/?([a-zA-Z]+)/g) || []).map(tag => {
+              const isClosing = tag.startsWith('</');
+              return {
+                name: tag.substring(isClosing ? 2 : 1),
+                isClosing
+              };
+            });
+            
+            // 简单检查标签是否平衡
+            let stack = [];
+            let isValid = true;
+            let errorMsg = '';
+            
+            for (const tag of allTags) {
+              if (!tag.isClosing) {
+                // 自闭合标签不需要压入堆栈
+                const selfClosingTags = [
+                  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 
+                  'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'
+                ];
+                
+                if (!selfClosingTags.includes(tag.name.toLowerCase())) {
+                  stack.push(tag.name);
+                }
+              } else {
+                const lastTag = stack.pop();
+                if (lastTag !== tag.name) {
+                  isValid = false;
+                  errorMsg = `标签不匹配: 期望 </${lastTag}> 但得到 </${tag.name}>`;
+                  break;
+                }
+              }
+            }
+            
+            if (!isValid) {
+              validationResult.value = errorMsg;
+            } else if (stack.length > 0) {
+              validationResult.value = `未闭合的标签: <${stack.pop()}>`;
+            } else {
+              validationResult.value = 'HTML格式有效！';
+            }
+          } catch (e) {
+            validationResult.value = `验证出错: ${e.message}`;
+          }
+        };
+        
+        // 清空所有
+        const clearAll = () => {
+          inputHtml.value = '';
+          validationResult.value = '';
+        };
+        
+        // 加载示例
+        const loadExample = () => {
+          inputHtml.value = `<!DOCTYPE html><html><head><title>示例页面</title><meta charset="UTF-8"></head><body><div class="container"><h1>标题</h1><p>这是一个段落。</p><ul><li>列表项1</li><li>列表项2</li></ul></div></body></html>`;
+        };
+        
+        return {
+          inputHtml,
+          formattedHtml,
+          options,
+          validationResult,
+          formatHtml,
+          minifyHtml,
+          validateHtml,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

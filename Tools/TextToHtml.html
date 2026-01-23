@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本转HTML - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>文本转HTML</h2>
+        <p>将纯文本转换为HTML格式</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>将纯文本转换为有效的HTML格式，可以选择保留换行符、转换URL链接等</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入纯文本内容..."
+            rows="12"
+          ></textarea>
+          
+          <div class="converter-options">
+            <div class="option-item">
+              <input type="checkbox" id="preserveNewlines" v-model="options.preserveNewlines" checked>
+              <label for="preserveNewlines">保留换行符 (&lt;br&gt;)</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="wrapInParagraphs" v-model="options.wrapInParagraphs">
+              <label for="wrapInParagraphs">自动包裹段落 (&lt;p&gt;)</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="convertUrls" v-model="options.convertUrls" checked>
+              <label for="convertUrls">转换URL为链接</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="escapeHtml" v-model="options.escapeHtml">
+              <label for="escapeHtml">转义HTML字符</label>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="convertToHtml">转换为HTML</button>
+            <button @click="convertToFormattedHtml">格式化HTML</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const options = ref({
+          preserveNewlines: true,
+          wrapInParagraphs: false,
+          convertUrls: true,
+          escapeHtml: false
+        });
+
+        const convertToHtml = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          
+          let html = inputText.value;
+          
+          // 如果需要转义HTML字符
+          if (options.value.escapeHtml) {
+            html = escapeHtml(html);
+          }
+          
+          // 如果需要转换URL为链接
+          if (options.value.convertUrls) {
+            // 匹配URL并转换为链接
+            html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1">$1</a>');
+          }
+          
+          // 如果需要保留换行符
+          if (options.value.preserveNewlines) {
+            html = html.replace(/\n/g, '<br>\n');
+          }
+          
+          // 如果需要自动包裹段落
+          if (options.value.wrapInParagraphs) {
+            if (options.value.preserveNewlines) {
+              // 如果已经替换了换行符为<br>，则按空行分割段落
+              html = html.replace(/(<br>\n){2,}/g, '</p>\n<p>');
+              html = `<p>${html}</p>`;
+              html = html.replace(/<p><br>\n<\/p>/g, '<p><br></p>'); // 修正空段落
+            } else {
+              // 按空行分割段落
+              const paragraphs = html.split(/\n\s*\n/);
+              html = '<p>' + paragraphs.join('</p>\n<p>') + '</p>';
+            }
+          }
+          
+          result.value = html;
+        };
+
+        const convertToFormattedHtml = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          
+          let html = inputText.value;
+          
+          // 转义HTML字符
+          html = escapeHtml(html);
+          
+          // 转换URL为链接
+          html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1">$1</a>');
+          
+          // 按空行分割段落
+          const paragraphs = html.split(/\n\s*\n/);
+          html = '<p>' + paragraphs.map(p => p.replace(/\n/g, '<br>\n')).join('</p>\n<p>') + '</p>';
+          
+          // 格式化HTML
+          result.value = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>转换结果</title>
+</head>
+<body>
+    ${html}
+</body>
+</html>`;
+        };
+
+        // 转义HTML字符
+        const escapeHtml = (text) => {
+          return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          options,
+          convertToHtml,
+          convertToFormattedHtml,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

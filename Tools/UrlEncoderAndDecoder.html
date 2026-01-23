@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL编码/解码工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>URL编码/解码工具</h2>
+        <p>将URL中的特殊字符进行编码和解码，确保URL的有效性和安全性</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• URL编码：将URL中的特殊字符转换为%编码格式</p>
+          <p>• URL解码：将%编码格式还原为原始字符</p>
+          <p>• 清空：清空输入和输出框</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要编码或解码的URL或文本..."
+            rows="10"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="encodeUrl">URL编码</button>
+            <button @click="decodeUrl">URL解码</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>转换结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+
+        const encodeUrl = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          try {
+            result.value = encodeURIComponent(inputText.value);
+          } catch (error) {
+            result.value = '编码失败：' + error.message;
+          }
+        };
+
+        const decodeUrl = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          try {
+            result.value = decodeURIComponent(inputText.value);
+          } catch (error) {
+            result.value = '解码失败：' + error.message;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = async () => {
+          if (result.value) {
+            try {
+              await navigator.clipboard.writeText(result.value);
+              alert('已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              // 降级方案
+              const textArea = document.createElement('textarea');
+              textArea.value = result.value;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              alert('已复制到剪贴板！');
+            }
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          encodeUrl,
+          decodeUrl,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

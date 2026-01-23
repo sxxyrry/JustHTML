@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>进制转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .options-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .base-selector {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    
+    .base-option {
+      padding: 8px 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    
+    .base-option:hover {
+      background-color: var(--bg-secondary);
+    }
+    
+    .base-option.selected {
+      background-color: var(--accent-color);
+      color: white;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>进制转换工具</h2>
+        <p>在不同进制之间转换数字</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 支持二进制、八进制、十进制、十六进制等多种进制之间的转换</p>
+          <p>• 输入一个数字并选择其当前进制，系统会自动转换为其他进制</p>
+          <p>• 支持大数转换</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>输入</h3>
+            
+            <div class="base-selector">
+              <div 
+                class="base-option" 
+                :class="{ selected: selectedBase === 2 }"
+                @click="selectedBase = 2"
+              >
+                二进制 (BIN)
+              </div>
+              <div 
+                class="base-option" 
+                :class="{ selected: selectedBase === 8 }"
+                @click="selectedBase = 8"
+              >
+                八进制 (OCT)
+              </div>
+              <div 
+                class="base-option" 
+                :class="{ selected: selectedBase === 10 }"
+                @click="selectedBase = 10"
+              >
+                十进制 (DEC)
+              </div>
+              <div 
+                class="base-option" 
+                :class="{ selected: selectedBase === 16 }"
+                @click="selectedBase = 16"
+              >
+                十六进制 (HEX)
+              </div>
+            </div>
+            
+            <textarea 
+              v-model="inputNumber" 
+              placeholder="在此输入要转换的数字..."
+              rows="6"
+              @input="convertNumber"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>输出</h3>
+            
+            <div class="result" style="height: 100%;">
+              <p><strong>二进制 (BIN):</strong> {{ binResult }}</p>
+              <p><strong>八进制 (OCT):</strong> {{ octResult }}</p>
+              <p><strong>十进制 (DEC):</strong> {{ decResult }}</p>
+              <p><strong>十六进制 (HEX):</strong> {{ hexResult }}</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="clearAll">清空</button>
+          <button @click="copyResult">复制结果</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, watch } = Vue;
+
+    createApp({
+      setup() {
+        const inputNumber = ref('');
+        const selectedBase = ref(10);
+        const binResult = ref('');
+        const octResult = ref('');
+        const decResult = ref('');
+        const hexResult = ref('');
+        
+        // 将数字从任意进制转换为十进制
+        const toDecimal = (numStr, base) => {
+          if (!numStr) return 0;
+          
+          // 验证输入是否符合指定进制
+          const validChars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+          const baseChars = validChars.substring(0, base);
+          const regex = new RegExp(`^[${baseChars}]+$`, 'i');
+          
+          if (!regex.test(numStr)) {
+            throw new Error(`输入的数字不符合${base}进制格式`);
+          }
+          
+          return parseInt(numStr, base);
+        };
+        
+        // 将十进制数字转换为任意进制
+        const fromDecimal = (decimalNum, base) => {
+          if (decimalNum === 0) return '0';
+          
+          let result = '';
+          const validChars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+          
+          while (decimalNum > 0) {
+            result = validChars[decimalNum % base] + result;
+            decimalNum = Math.floor(decimalNum / base);
+          }
+          
+          return result;
+        };
+        
+        // 执行进制转换
+        const convertNumber = () => {
+          if (!inputNumber.value.trim()) {
+            binResult.value = '';
+            octResult.value = '';
+            decResult.value = '';
+            hexResult.value = '';
+            return;
+          }
+          
+          try {
+            // 将输入的数字转换为十进制
+            const decimal = toDecimal(inputNumber.value.toUpperCase(), selectedBase.value);
+            
+            // 将十进制数字转换为各种进制
+            binResult.value = fromDecimal(decimal, 2);
+            octResult.value = fromDecimal(decimal, 8);
+            decResult.value = decimal.toString();
+            hexResult.value = fromDecimal(decimal, 16);
+          } catch (error) {
+            binResult.value = '错误';
+            octResult.value = '错误';
+            decResult.value = '错误';
+            hexResult.value = '错误';
+          }
+        };
+        
+        const clearAll = () => {
+          inputNumber.value = '';
+          binResult.value = '';
+          octResult.value = '';
+          decResult.value = '';
+          hexResult.value = '';
+        };
+        
+        const copyResult = async () => {
+          const resultText = 
+            `二进制 (BIN): ${binResult.value}\n` +
+            `八进制 (OCT): ${octResult.value}\n` +
+            `十进制 (DEC): ${decResult.value}\n` +
+            `十六进制 (HEX): ${hexResult.value}`;
+          
+          if (resultText.trim()) {
+            try {
+              await navigator.clipboard.writeText(resultText);
+              alert('已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              // 降级方案
+              const textArea = document.createElement('textarea');
+              textArea.value = resultText;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              alert('已复制到剪贴板！');
+            }
+          }
+        };
+        
+        // 监听输入变化并自动转换
+        watch(inputNumber, convertNumber);
+        watch(selectedBase, convertNumber);
+        
+        // 页面加载时执行一次转换
+        convertNumber();
+
+        return {
+          inputNumber,
+          selectedBase,
+          binResult,
+          octResult,
+          decResult,
+          hexResult,
+          convertNumber,
+          clearAll,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

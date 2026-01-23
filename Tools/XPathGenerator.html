@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XPath生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .generator-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .generator-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .generator-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .xpath-examples {
+      margin-top: 20px;
+    }
+    
+    .example-item {
+      padding: 8px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      margin-bottom: 8px;
+    }
+    
+    .xpath-result {
+      font-family: monospace;
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .element-input {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+      align-items: center;
+    }
+    
+    .element-input input, .element-input select {
+      padding: 8px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    
+    .attribute-input {
+      display: flex;
+      gap: 5px;
+      margin: 5px 0;
+      align-items: center;
+    }
+    
+    .attribute-input input {
+      padding: 5px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+    
+    @media (max-width: 768px) {
+      .generator-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>XPath生成器</h2>
+        <p>生成用于查找HTML/XML元素的XPath表达式</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• XPath (XML Path Language) 是一种在XML文档中查找信息的语言</p>
+          <p>• 也适用于HTML文档，用于定位特定元素</p>
+          <p>• 常用于自动化测试、网页抓取等场景</p>
+        </div>
+        
+        <div class="generator-container">
+          <div class="generator-section">
+            <h3>元素配置</h3>
+            
+            <div class="element-input">
+              <label for="elementType">元素类型:</label>
+              <select id="elementType" v-model="elementType">
+                <option value="*">任意元素(*)</option>
+                <option value="div">div</option>
+                <option value="span">span</option>
+                <option value="p">p</option>
+                <option value="a">a</option>
+                <option value="img">img</option>
+                <option value="input">input</option>
+                <option value="form">form</option>
+                <option value="table">table</option>
+                <option value="tr">tr</option>
+                <option value="td">td</option>
+                <option value="th">th</option>
+                <option value="ul">ul</option>
+                <option value="li">li</option>
+                <option value="h1">h1</option>
+                <option value="h2">h2</option>
+                <option value="h3">h3</option>
+                <option value="h4">h4</option>
+                <option value="h5">h5</option>
+                <option value="h6">h6</option>
+                <option value="button">button</option>
+                <option value="label">label</option>
+                <option value="select">select</option>
+                <option value="textarea">textarea</option>
+                <option value="script">script</option>
+                <option value="style">style</option>
+                <option value="meta">meta</option>
+                <option value="link">link</option>
+                <option value="other">其他</option>
+              </select>
+              <input v-if="elementType === 'other'" type="text" v-model="customElementType" placeholder="输入元素类型">
+            </div>
+            
+            <div class="element-input">
+              <label for="position">位置:</label>
+              <select id="position" v-model="position">
+                <option value="">任意位置</option>
+                <option value="first">第一个</option>
+                <option value="last">最后一个</option>
+                <option value="index">指定索引</option>
+              </select>
+              <input v-if="position === 'index'" type="number" v-model.number="positionIndex" min="1" placeholder="索引 (1基)">
+            </div>
+            
+            <h4>属性条件</h4>
+            <div class="attribute-input">
+              <input type="text" v-model="newAttribute.name" placeholder="属性名 (如: class, id, name)">
+              <input type="text" v-model="newAttribute.value" placeholder="属性值">
+              <button @click="addAttribute">添加</button>
+            </div>
+            
+            <div class="attribute-input" v-for="(attr, index) in attributes" :key="index">
+              <input type="text" v-model="attr.name" placeholder="属性名" readonly>
+              <input type="text" v-model="attr.value" placeholder="属性值">
+              <button @click="removeAttribute(index)">删除</button>
+            </div>
+            
+            <div class="controls">
+              <button @click="generateXpath">生成XPath</button>
+              <button @click="clearAll">清空</button>
+              <button @click="addSampleAttributes">添加示例</button>
+            </div>
+          </div>
+          
+          <div class="generator-section">
+            <h3>生成的XPath</h3>
+            <div class="xpath-result">
+              <p>{{ xpathResult || '请配置元素参数并点击生成' }}</p>
+            </div>
+            
+            <h3>HTML示例</h3>
+            <textarea 
+              v-model="htmlSample" 
+              placeholder="粘贴HTML代码以生成XPath..."
+              rows="8"
+            ></textarea>
+            
+            <div class="controls">
+              <button @click="generateXpathFromHtml">从HTML生成XPath</button>
+            </div>
+            
+            <div class="xpath-examples">
+              <h3>XPath示例</h3>
+              <div class="example-item">
+                <strong>//div[@class='container']</strong> - 查找class为container的div元素
+              </div>
+              <div class="example-item">
+                <strong>//input[@type='submit' and @value='Click']</strong> - 查找type为submit且value为Click的input元素
+              </div>
+              <div class="example-item">
+                <strong>//a[contains(@href, 'example.com')]</strong> - 查找href包含example.com的链接
+              </div>
+              <div class="example-item">
+                <strong>//table//tr[1]/td[2]</strong> - 查找表格中第一行第二列的单元格
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const elementType = ref('*');
+        const customElementType = ref('');
+        const position = ref('');
+        const positionIndex = ref(1);
+        const attributes = ref([]);
+        const newAttribute = ref({ name: '', value: '' });
+        const htmlSample = ref('');
+        
+        // 计算最终元素类型
+        const finalElementType = computed(() => {
+          return elementType.value === 'other' ? customElementType.value : elementType.value;
+        });
+        
+        // 生成XPath结果
+        const xpathResult = computed(() => {
+          if (!finalElementType.value) return '';
+          
+          // 构建基本XPath
+          let xpath = '//';
+          
+          if (finalElementType.value) {
+            xpath += finalElementType.value;
+          }
+          
+          // 添加属性条件
+          if (attributes.value.length > 0) {
+            const attrConditions = attributes.value
+              .filter(attr => attr.name && attr.value)
+              .map(attr => `@${attr.name}='${attr.value}'`)
+              .join(' and ');
+            
+            if (attrConditions) {
+              xpath += `[${attrConditions}]`;
+            }
+          }
+          
+          // 添加位置条件
+          if (position.value === 'first') {
+            xpath += '[1]';
+          } else if (position.value === 'last') {
+            xpath += '[last()]';
+          } else if (position.value === 'index' && positionIndex.value >= 1) {
+            xpath += `[${positionIndex.value}]`;
+          }
+          
+          return xpath;
+        });
+        
+        // 添加属性
+        const addAttribute = () => {
+          if (newAttribute.value.name && newAttribute.value.value) {
+            attributes.value.push({...newAttribute.value});
+            newAttribute.value = { name: '', value: '' };
+          }
+        };
+        
+        // 删除属性
+        const removeAttribute = (index) => {
+          attributes.value.splice(index, 1);
+        };
+        
+        // 生成XPath
+        const generateXpath = () => {
+          // xpathResult是计算属性，会自动更新
+        };
+        
+        // 清空所有
+        const clearAll = () => {
+          elementType.value = '*';
+          customElementType.value = '';
+          position.value = '';
+          positionIndex.value = 1;
+          attributes.value = [];
+          newAttribute.value = { name: '', value: '' };
+        };
+        
+        // 添加示例属性
+        const addSampleAttributes = () => {
+          attributes.value = [
+            { name: 'class', value: 'btn primary' },
+            { name: 'id', value: 'submitBtn' }
+          ];
+        };
+        
+        // 从HTML生成XPath
+        const generateXpathFromHtml = () => {
+          // 这是一个简化版本，实际应用中可能需要更复杂的解析
+          if (!htmlSample.value) {
+            alert('请先粘贴HTML代码');
+            return;
+          }
+          
+          try {
+            // 尝试解析HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlSample.value, 'text/html');
+            
+            // 获取第一个元素作为示例
+            const firstElement = doc.body.querySelector('*');
+            if (firstElement) {
+              // 构建简单的XPath
+              const simpleXpath = `//${firstElement.tagName.toLowerCase()}`;
+              const classAttr = firstElement.getAttribute('class');
+              const idAttr = firstElement.getAttribute('id');
+              
+              let fullXpath = simpleXpath;
+              const conditions = [];
+              
+              if (idAttr) {
+                conditions.push(`@id='${idAttr}'`);
+              }
+              
+              if (classAttr) {
+                conditions.push(`@class='${classAttr}'`);
+              }
+              
+              if (conditions.length > 0) {
+                fullXpath += `[${conditions.join(' and ')}]`;
+              }
+              
+              // 更新结果
+              // 在实际应用中，我们可能需要一个更复杂的算法来生成精确的XPath
+            } else {
+              alert('未在HTML中找到任何元素');
+            }
+          } catch (e) {
+            alert('解析HTML时出错: ' + e.message);
+          }
+        };
+        
+        return {
+          elementType,
+          customElementType,
+          position,
+          positionIndex,
+          attributes,
+          newAttribute,
+          htmlSample,
+          xpathResult,
+          addAttribute,
+          removeAttribute,
+          generateXpath,
+          clearAll,
+          addSampleAttributes,
+          generateXpathFromHtml,
+          finalElementType
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

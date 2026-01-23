@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本排序工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .sort-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .option-item label {
+      margin-right: 15px;
+    }
+    
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .radio-option {
+      display: flex;
+      align-items: center;
+    }
+    
+    .radio-option input {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>文本排序工具</h2>
+        <p>对文本行、单词或数字进行排序</p>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要排序的文本，每行一条记录或用空格分隔的单词..."
+            rows="12"
+          ></textarea>
+          
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" id="sortByLines" value="lines" v-model="sortType">
+              <label for="sortByLines">按行排序</label>
+            </div>
+            
+            <div class="radio-option">
+              <input type="radio" id="sortByWords" value="words" v-model="sortType">
+              <label for="sortByWords">按单词排序</label>
+            </div>
+            
+            <div class="radio-option">
+              <input type="radio" id="sortByNumbers" value="numbers" v-model="sortType">
+              <label for="sortByNumbers">按数字排序</label>
+            </div>
+          </div>
+          
+          <div class="sort-options">
+            <div class="option-item">
+              <input type="checkbox" id="ascending" v-model="options.ascending">
+              <label for="ascending">升序排列</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="caseSensitive" v-model="options.caseSensitive">
+              <label for="caseSensitive">区分大小写</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="removeDuplicates" v-model="options.removeDuplicates">
+              <label for="removeDuplicates">移除重复项</label>
+            </div>
+          </div>
+          
+          <button @click="sortText">排序文本</button>
+          <button @click="reverseOrder">反转顺序</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="clearText">清空</button>
+          
+          <div class="result" v-if="result">
+            <p><strong>排序结果 (原: {{ originalCount }}, 现: {{ resultCount }}):</strong></p>
+            <pre style="white-space: pre-wrap; word-break: break-word;">{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const sortType = ref('lines');
+        const originalCount = ref(0);
+        const resultCount = ref(0);
+        
+        const options = reactive({
+          ascending: true,
+          caseSensitive: false,
+          removeDuplicates: false
+        });
+
+        const sortText = () => {
+          error.value = '';
+          result.value = '';
+          originalCount.value = 0;
+          resultCount.value = 0;
+          
+          if (!inputText.value) {
+            error.value = '请输入要排序的文本';
+            return;
+          }
+          
+          try {
+            let items = [];
+            
+            // 根据排序类型分割文本
+            if (sortType.value === 'lines') {
+              items = inputText.value.split('\n');
+            } else if (sortType.value === 'words') {
+              items = inputText.value.split(/\s+/).filter(item => item.length > 0);
+            } else if (sortType.value === 'numbers') {
+              // 提取数字
+              items = inputText.value
+                .split(/[\s\n,]+/)
+                .map(item => item.trim())
+                .filter(item => item !== '')
+                .map(item => {
+                  const num = parseFloat(item);
+                  return isNaN(num) ? item : num;
+                });
+            }
+            
+            originalCount.value = items.length;
+            
+            // 如果需要移除重复项
+            if (options.removeDuplicates) {
+              if (sortType.value === 'numbers') {
+                // 数字类型的特殊处理
+                const seen = new Set();
+                items = items.filter(item => {
+                  const key = typeof item === 'number' ? item : (options.caseSensitive ? item : item.toLowerCase());
+                  if (seen.has(key)) {
+                    return false;
+                  }
+                  seen.add(key);
+                  return true;
+                });
+              } else {
+                const seen = new Set();
+                items = items.filter(item => {
+                  const key = options.caseSensitive ? item : item.toLowerCase();
+                  if (seen.has(key)) {
+                    return false;
+                  }
+                  seen.add(key);
+                  return true;
+                });
+              }
+            }
+            
+            // 执行排序
+            if (sortType.value === 'numbers') {
+              // 数字排序
+              items.sort((a, b) => {
+                // 如果都是数字，进行数字比较，否则进行字符串比较
+                const numA = typeof a === 'number' ? a : parseFloat(a);
+                const numB = typeof b === 'number' ? b : parseFloat(b);
+                
+                if (!isNaN(numA) && !isNaN(numB)) {
+                  return options.ascending ? numA - numB : numB - numA;
+                } else {
+                  // 至少有一个不是数字，转换为字符串比较
+                  const strA = String(a);
+                  const strB = String(b);
+                  const comparison = options.caseSensitive 
+                    ? strA.localeCompare(strB) 
+                    : strA.toLowerCase().localeCompare(strB.toLowerCase());
+                  
+                  return options.ascending ? comparison : -comparison;
+                }
+              });
+            } else {
+              // 字符串排序
+              items.sort((a, b) => {
+                const strA = options.caseSensitive ? a : a.toLowerCase();
+                const strB = options.caseSensitive ? b : b.toLowerCase();
+                
+                const comparison = strA.localeCompare(strB);
+                return options.ascending ? comparison : -comparison;
+              });
+            }
+            
+            // 根据排序类型重新组合结果
+            if (sortType.value === 'lines') {
+              result.value = items.join('\n');
+            } else {
+              result.value = items.join(sortType.value === 'words' ? ' ' : ', ');
+            }
+            
+            resultCount.value = items.length;
+          } catch (e) {
+            error.value = `排序文本时出错: ${e.message}`;
+          }
+        };
+
+        const reverseOrder = () => {
+          if (!result.value) {
+            error.value = '请先排序文本';
+            return;
+          }
+          
+          let items = [];
+          
+          if (sortType.value === 'lines') {
+            items = result.value.split('\n');
+          } else if (sortType.value === 'words') {
+            items = result.value.split(/\s+/);
+          } else if (sortType.value === 'numbers') {
+            items = result.value.split(/[\s\n,]+/);
+          }
+          
+          result.value = items.reverse().join(
+            sortType.value === 'lines' ? '\n' : 
+            sortType.value === 'words' ? ' ' : ', '
+          );
+        };
+
+        const copyResult = () => {
+          if (!result.value) {
+            error.value = '没有可复制的结果';
+            return;
+          }
+          
+          navigator.clipboard.writeText(result.value)
+            .then(() => {
+              alert('排序结果已复制到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+              error.value = '复制失败';
+            });
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+          originalCount.value = 0;
+          resultCount.value = 0;
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          sortType,
+          originalCount,
+          resultCount,
+          options,
+          sortText,
+          reverseOrder,
+          copyResult,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

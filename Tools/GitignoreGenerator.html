@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gitignore生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .tech-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .tech-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .tech-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Gitignore生成器</h2>
+        <p>生成gitignore文件内容</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 选择技术栈来自动生成对应的gitignore规则</p>
+          <p>• 支持多种编程语言和技术栈</p>
+          <p>• 可自定义添加额外的忽略规则</p>
+        </div>
+        
+        <div>
+          <h3>选择技术栈</h3>
+          <div class="tech-selector">
+            <div class="tech-item">
+              <input type="checkbox" id="node" v-model="selectedTech.node">
+              <label for="node">Node.js</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="python" v-model="selectedTech.python">
+              <label for="python">Python</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="java" v-model="selectedTech.java">
+              <label for="java">Java</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="php" v-model="selectedTech.php">
+              <label for="php">PHP</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="dotnet" v-model="selectedTech.dotnet">
+              <label for="dotnet">.NET</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="ruby" v-model="selectedTech.ruby">
+              <label for="ruby">Ruby</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="go" v-model="selectedTech.go">
+              <label for="go">Go</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="rust" v-model="selectedTech.rust">
+              <label for="rust">Rust</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="react" v-model="selectedTech.react">
+              <label for="react">React</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="vue" v-model="selectedTech.vue">
+              <label for="vue">Vue</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="angular" v-model="selectedTech.angular">
+              <label for="angular">Angular</label>
+            </div>
+            <div class="tech-item">
+              <input type="checkbox" id="docker" v-model="selectedTech.docker">
+              <label for="docker">Docker</label>
+            </div>
+          </div>
+          
+          <h3>自定义规则</h3>
+          <textarea 
+            v-model="customRules" 
+            placeholder="在此添加自定义的gitignore规则，每行一个规则..."
+            rows="5"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="generateGitignore">生成gitignore</button>
+            <button @click="selectAll">全选</button>
+            <button @click="clearSelection">清除选择</button>
+            <button @click="clearAll">清空所有</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>生成的.gitignore内容：</h3>
+            <pre>{{ result }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive, watch } = Vue;
+
+    createApp({
+      setup() {
+        // 技术栈选择状态
+        const selectedTech = reactive({
+          node: false,
+          python: false,
+          java: false,
+          php: false,
+          dotnet: false,
+          ruby: false,
+          go: false,
+          rust: false,
+          react: false,
+          vue: false,
+          angular: false,
+          docker: false
+        });
+        
+        const customRules = ref('');
+        const result = ref('');
+
+        // 不同技术栈的gitignore规则
+        const gitignoreTemplates = {
+          node: `# Dependency directories
+node_modules/
+jspm_packages/
+
+# Production builds
+/dist
+/build
+/.next
+/.vercel
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDEs
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Temporary folders
+tmp/
+temp/
+`,
+          python: `# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDEs
+.pytest_cache/
+.coverage
+.vscode/
+.idea/
+
+# Environment
+.env
+.venv
+env.bak
+`,
+          java: `# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+replay_pid*
+
+# misc
+*.orig
+
+# Cast
+cast.log
+
+# MT
+.mt
+
+# STS
+.apt_generated
+.springBeans
+
+# Checkstyle
+checkstyle*
+
+# JSHint
+jshint*
+`,
+          php: `# Composer
+vendor/
+composer.phar
+
+# Framework specifics
+/app/storage/**
+!/app/storage/.gitkeep
+!/public/uploads/*
+/storage/**
+!/storage/.gitkeep
+!/storage/logs/.gitkeep
+/bootstrap/cache/**
+!/bootstrap/cache/.gitkeep
+
+# Environment
+.env*
+!.env.example
+
+# IDEs
+.idea/
+.vscode/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+`,
+          dotnet: `# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]ogs/
+
+# User-specific files
+*.rs.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio cache/options
+.vs/
+.vsconfig
+.directory
+.history/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# NUNIT
+*.VisualState.xml
+TestResult.xml
+`,
+          ruby: `# Gemfile dependencies
+/vendor/bundle/
+/Gemfile.lock
+
+# Environment
+.env
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Documentation
+doc/
+.rdoc_options
+
+# Coverage
+coverage/
+*.cov
+.codeclimate.yml
+
+# Logs
+/log/
+*.log
+
+# Temp
+/tmp/
+`,
+          go: `# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with \`go test -c\`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# IDEs
+.vscode/
+.idea/
+
+# Environment
+.env
+`,
+          rust: `# Generated by Cargo
+# Will have compiled files and executables
+/target/
+
+# Remove Cargo.lock from gitignore if it's a binary crate
+# Since this is an example of a library, we don't actually want to ignore it
+# Cargo.lock
+**/*.rs.bk
+
+# Many test frameworks and coverage tools generate a file that ends in .profraw
+# This is excluded to prevent those files from being committed
+*.profraw
+
+# Benchmark outputs
+**/benches/**/*.txt
+
+# IDEs
+.vscode/
+.idea/
+`,
+          react: `# Dependencies
+node_modules/
+
+# Production builds
+build/
+dist/
+coverage/
+
+# Environment
+.env*
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+`,
+          vue: `# Dependencies
+node_modules/
+
+# Production builds
+dist/
+dist-ssr/
+.nuxt/
+coverage/
+
+# Environment
+.env*
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+`,
+          angular: `# Dependencies
+node_modules/
+
+# Production builds
+dist/
+dist-prod/
+output/
+dist-server/
+.angular/
+
+# E2E
+/e2e/screenshots/
+*.log
+
+# Environment
+.env*
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+`,
+          docker: `# Docker build context
+!Dockerfile
+!docker-compose.yml
+!docker-compose.*.yml
+
+# Log files
+*.log
+
+# Environment
+.env
+.dockerenv
+
+# IDEs
+.vscode/
+.idea/
+`
+        };
+
+        // 监听技术栈选择变化，自动生成结果
+        watch(() => ({...selectedTech}), () => {
+          generateGitignore();
+        }, { deep: true });
+
+        // 监听自定义规则变化
+        watch(customRules, () => {
+          generateGitignore();
+        });
+
+        // 生成gitignore
+        const generateGitignore = () => {
+          let gitignoreContent = '';
+          
+          // 添加选中的技术栈规则
+          for (const [tech, isSelected] of Object.entries(selectedTech)) {
+            if (isSelected && gitignoreTemplates[tech]) {
+              gitignoreContent += `# ${tech.toUpperCase()}\n`;
+              gitignoreContent += gitignoreTemplates[tech];
+              gitignoreContent += '\n';
+            }
+          }
+          
+          // 添加自定义规则
+          if (customRules.value.trim()) {
+            gitignoreContent += '# Custom Rules\n';
+            gitignoreContent += customRules.value.trim();
+            gitignoreContent += '\n';
+          }
+          
+          result.value = gitignoreContent.trim();
+        };
+
+        // 全选
+        const selectAll = () => {
+          for (const tech in selectedTech) {
+            selectedTech[tech] = true;
+          }
+        };
+
+        // 清除选择
+        const clearSelection = () => {
+          for (const tech in selectedTech) {
+            selectedTech[tech] = false;
+          }
+        };
+
+        // 清空所有
+        const clearAll = () => {
+          clearSelection();
+          customRules.value = '';
+          result.value = '';
+        };
+
+        // 复制结果
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('gitignore内容已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          selectedTech,
+          customRules,
+          result,
+          generateGitignore,
+          selectAll,
+          clearSelection,
+          clearAll,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

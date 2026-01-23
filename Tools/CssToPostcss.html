@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到PostCSS转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .features-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .feature-item {
+      background-color: var(--bg-secondary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到PostCSS转换工具</h2>
+        <p>展示如何使用PostCSS处理CSS代码</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>PostCSS是一个使用JavaScript插件转换CSS的工具。这些示例展示了常见PostCSS插件的功能。</p>
+        </div>
+        
+        <div class="features-list">
+          <div class="feature-item">
+            <strong>Autoprefixer</strong>: 自动添加浏览器前缀
+          </div>
+          <div class="feature-item">
+            <strong>PreCSS</strong>: 使用类似Sass的语法
+          </div>
+          <div class="feature-item">
+            <strong>cssnext</strong>: 使用未来的CSS语法
+          </div>
+          <div class="feature-item">
+            <strong>Nested</strong>: 支持嵌套规则
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>PostCSS处理后</h3>
+            <textarea 
+              v-model="postcssOutput" 
+              placeholder="PostCSS处理后的代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="processWithPostcss">CSS → PostCSS处理</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>处理结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const postcssOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const processWithPostcss = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            // 模拟PostCSS处理
+            postcssOutput.value = processWithPostcssPlugins(inputCss.value);
+            result.value = 'CSS已通过PostCSS插件处理！';
+          } catch (e) {
+            error.value = `处理错误: ${e.message}`;
+          }
+        };
+
+        const processWithPostcssPlugins = (cssCode) => {
+          // 模拟各种PostCSS插件的效果
+          let processedCss = cssCode;
+          
+          // 模拟Autoprefixer插件：添加浏览器前缀
+          processedCss = addVendorPrefixes(processedCss);
+          
+          // 模拟CSS Nesting插件：处理嵌套规则
+          processedCss = processNesting(processedCss);
+          
+          // 模拟CSS Modules插件：作用域处理（示意）
+          processedCss = processCssModules(processedCss);
+          
+          return processedCss;
+        };
+
+        // 模拟添加浏览器前缀
+        const addVendorPrefixes = (css) => {
+          // 简单的前缀添加示例
+          return css
+            .replace(/(transform\s*:)/g, '-webkit-$1 -moz-$1 -ms-$1 $1')
+            .replace(/(transition\s*:)/g, '-webkit-$1 -moz-$1 -ms-$1 $1')
+            .replace(/(box-shadow\s*:)/g, '-webkit-$1 -moz-$1 $1')
+            .replace(/(border-radius\s*:)/g, '-webkit-$1 -moz-$1 $1');
+        };
+
+        // 模拟CSS Nesting处理
+        const processNesting = (css) => {
+          // 简单的嵌套处理示例
+          // 注意：真正的PostCSS插件会更复杂
+          const lines = css.split('\n');
+          const result = [];
+          let currentSelector = '';
+          let indentLevel = 0;
+          
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            
+            if (!trimmedLine || trimmedLine.startsWith('/*') || trimmedLine.startsWith('//')) {
+              result.push(line);
+              continue;
+            }
+            
+            if (trimmedLine.includes('{') && !trimmedLine.includes('}')) {
+              // 新的选择器开始
+              currentSelector = trimmedLine.replace('{', '').trim();
+              result.push(line);
+            } else if (trimmedLine.includes('}') && !trimmedLine.includes('{')) {
+              // 选择器结束
+              currentSelector = '';
+              result.push(line);
+            } else if (trimmedLine.includes(':') && !trimmedLine.includes('{') && !trimmedLine.includes('}')) {
+              // CSS属性
+              if (currentSelector && line.startsWith('  ')) {
+                // 这是一个嵌套的属性，需要特殊处理
+                const nestedSelector = currentSelector;
+                result.push(line);
+              } else {
+                result.push(line);
+              }
+            } else {
+              result.push(line);
+            }
+          }
+          
+          return result.join('\n');
+        };
+
+        // 模拟CSS Modules处理（仅示意）
+        const processCssModules = (css) => {
+          // 实际的CSS Modules会在构建时生成哈希类名
+          // 这里仅添加注释说明
+          return `/* This CSS would be transformed with scoped class names by CSS Modules */\n${css}`;
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.header {
+  background-color: #333;
+  padding: 20px;
+  text-align: center;
+}
+
+.header h1 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.5rem;
+  transform: scale(1);
+  transition: transform 0.3s ease;
+}
+
+.header a {
+  color: #007bff;
+  text-decoration: none;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header a:hover {
+  color: #0056b3;
+  transform: translateY(-2px);
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          postcssOutput.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          postcssOutput,
+          result,
+          error,
+          processWithPostcss,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

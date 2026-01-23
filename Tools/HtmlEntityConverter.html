@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML实体编码/解码工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>HTML实体编码/解码工具</h2>
+        <p>将HTML中的特殊字符转换为实体字符或将HTML实体字符转换为普通字符</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• HTML实体编码：将特殊字符（如&lt;&gt;&amp;"&nbsp;'）转换为HTML实体</p>
+          <p>• HTML实体解码：将HTML实体转换为普通字符</p>
+          <p>• 清空：清空输入和输出框</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要编码或解码的HTML文本..."
+            rows="10"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="encodeHtmlEntities">HTML实体编码</button>
+            <button @click="decodeHtmlEntities">HTML实体解码</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>转换结果：</h3>
+            <p v-html="result"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+
+        // 编码映射
+        const entityMap = {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+          '/': '&#x2F;',
+          '`': '&#x60;',
+          '=': '&#x3D;'
+        };
+
+        // 解码映射
+        const decodeMap = {
+          '&amp;': '&',
+          '&lt;': '<',
+          '&gt;': '>',
+          '&quot;': '"',
+          '&#39;': "'",
+          '&#x2F;': '/',
+          '&#x60;': '`',
+          '&#x3D;': '=',
+          '&nbsp;': ' '
+        };
+
+        const encodeHtmlEntities = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          result.value = inputText.value.replace(/[&<>"'`=\/]/g, function (s) {
+            return entityMap[s];
+          });
+        };
+
+        const decodeHtmlEntities = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          let decoded = inputText.value;
+          Object.keys(decodeMap).forEach(key => {
+            const re = new RegExp(key, 'g');
+            decoded = decoded.replace(re, decodeMap[key]);
+          });
+          result.value = decoded;
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = async () => {
+          if (result.value) {
+            try {
+              await navigator.clipboard.writeText(result.value);
+              alert('已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              // 降级方案
+              const textArea = document.createElement('textarea');
+              textArea.value = result.value;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              alert('已复制到剪贴板！');
+            }
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          encodeHtmlEntities,
+          decodeHtmlEntities,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

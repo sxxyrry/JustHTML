@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到Styled Components转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .component-preview {
+      margin: 20px 0;
+      padding: 20px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+    }
+    
+    .preview-controls {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+      flex-wrap: wrap;
+    }
+    
+    .preview-controls button {
+      padding: 8px 15px;
+      border-radius: var(--border-radius);
+      border: none;
+      background-color: var(--accent-color);
+      color: white;
+      cursor: pointer;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到Styled Components转换工具</h2>
+        <p>将CSS代码转换为Styled Components格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将传统CSS转换为Styled Components格式，实现CSS-in-JS的组件化样式管理</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>Styled Components代码</h3>
+            <textarea 
+              v-model="styledComponentsOutput" 
+              placeholder="转换后的Styled Components代码将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertToStyledComponents">CSS → Styled Components</button>
+          <button @click="validateCss">验证CSS</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="component-preview" v-if="previewCode">
+          <h3>代码预览 (React JSX):</h3>
+          <pre>{{ previewCode }}</pre>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const styledComponentsOutput = ref('');
+        const result = ref('');
+        const error = ref('');
+        const previewCode = ref('');
+
+        const convertToStyledComponents = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          try {
+            const { styledCode, preview } = convertCssToStyledComponents(inputCss.value);
+            styledComponentsOutput.value = styledCode;
+            previewCode.value = preview;
+            result.value = 'CSS已成功转换为Styled Components格式！';
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertCssToStyledComponents = (cssCode) => {
+          // 解析CSS代码
+          const rules = parseCss(cssCode);
+          
+          // 生成Styled Components代码
+          let styledCode = `import styled from 'styled-components';\n\n`;
+          let previewCode = '';
+          
+          for (const rule of rules) {
+            const selector = rule.selector;
+            const properties = rule.properties;
+            
+            // 将CSS选择器转换为组件名
+            const componentName = generateComponentName(selector);
+            
+            styledCode += `export const ${componentName} = styled.div\`\n`;
+            
+            // 转换CSS属性为模板字符串
+            for (const [property, value] of Object.entries(properties)) {
+              styledCode += `  ${camelCaseToKebabCase(property)}: ${value};\n`;
+            }
+            
+            styledCode += `\`;\n\n`;
+            
+            // 生成预览代码
+            previewCode += `// ${componentName} 组件使用示例\n`;
+            previewCode += `const App = () => (\n`;
+            previewCode += `  <${componentName}>\n`;
+            previewCode += `    <h1>示例内容</h1>\n`;
+            previewCode += `    <p>这是一个示例段落</p>\n`;
+            previewCode += `  </${componentName}>\n`;
+            previewCode += `);\n\n`;
+          }
+          
+          // 如果没有规则，生成默认组件
+          if (rules.length === 0) {
+            styledCode += `export const DefaultComponent = styled.div\`\n`;
+            styledCode += `  padding: 20px;\n`;
+            styledCode += `  background-color: #f5f5f5;\n`;
+            styledCode += `  border-radius: 4px;\n`;
+            styledCode += `\`;\n\n`;
+            
+            previewCode = `// DefaultComponent 组件使用示例\n`;
+            previewCode += `const App = () => (\n`;
+            previewCode += `  <DefaultComponent>\n`;
+            previewCode += `    <h1>示例内容</h1>\n`;
+            previewCode += `    <p>这是一个示例段落</p>\n`;
+            previewCode += `  </DefaultComponent>\n`;
+            previewCode += `);\n`;
+          }
+          
+          return {
+            styledCode: styledCode,
+            preview: previewCode
+          };
+        };
+
+        const parseCss = (cssCode) => {
+          const rules = [];
+          
+          // 简单的CSS解析器
+          const ruleRegex = /([^{]+)\s*{\s*([^}]+)\s*}/g;
+          let match;
+          
+          while ((match = ruleRegex.exec(cssCode)) !== null) {
+            const selector = match[1].trim();
+            const propertiesStr = match[2].trim();
+            
+            // 解析属性
+            const properties = {};
+            const propRegex = /([a-zA-Z-]+)\s*:\s*([^;]+);?/g;
+            let propMatch;
+            
+            while ((propMatch = propRegex.exec(propertiesStr)) !== null) {
+              const prop = propMatch[1].trim();
+              const value = propMatch[2].trim();
+              properties[prop] = value;
+            }
+            
+            rules.push({
+              selector: selector,
+              properties: properties
+            });
+          }
+          
+          return rules;
+        };
+
+        const generateComponentName = (selector) => {
+          // 将CSS选择器转换为有效的组件名称
+          // 移除CSS选择器符号并转换为帕斯卡命名法
+          return selector
+            .replace(/[.#]/g, ' ')
+            .replace(/[^a-zA-Z0-9\s]/g, ' ')
+            .split(/\s+/)
+            .filter(part => part.length > 0)
+            .map((part, index) => {
+              // 第一个单词首字母大写，其余单词首字母大写
+              return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+            })
+            .join('');
+        };
+
+        const camelCaseToKebabCase = (str) => {
+          return str.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const loadExample = () => {
+          inputCss.value = `.header {
+  background-color: #333;
+  padding: 20px;
+  color: #fff;
+  text-align: center;
+}
+
+.header h1 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.nav-link {
+  color: #007bff;
+  text-decoration: none;
+  padding: 10px;
+}
+
+.nav-link:hover {
+  color: #0056b3;
+  background-color: #f8f9fa;
+}
+
+.button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.button:hover {
+  background-color: #0056b3;
+}
+
+.card {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 20px;
+  margin: 10px;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-title {
+  color: #333;
+  font-size: 1.25rem;
+  margin-bottom: 10px;
+}`;
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          styledComponentsOutput.value = '';
+          result.value = '';
+          error.value = '';
+          previewCode.value = '';
+        };
+
+        return {
+          inputCss,
+          styledComponentsOutput,
+          result,
+          error,
+          previewCode,
+          convertToStyledComponents,
+          validateCss,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

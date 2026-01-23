@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大小写转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .case-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .result-section {
+      margin-top: 20px;
+    }
+    
+    .result-item {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>大小写转换工具</h2>
+        <p>将文本转换为不同的大小写格式</p>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要转换大小写的文本..."
+            rows="8"
+          ></textarea>
+          
+          <div class="case-buttons">
+            <button @click="convertTo('uppercase')">转换为大写</button>
+            <button @click="convertTo('lowercase')">转换为小写</button>
+            <button @click="convertTo('titlecase')">转换为首字母大写</button>
+            <button @click="convertTo('sentencecase')">转换为句首大写</button>
+            <button @click="convertTo('togglecase')">切换大小写</button>
+            <button @click="convertTo('camelcase')">转换为驼峰命名</button>
+            <button @click="convertTo('pascalcase')">转换为帕斯卡命名</button>
+            <button @click="convertTo('snakecase')">转换为蛇形命名</button>
+            <button @click="convertTo('kebabcase')">转换为短横线命名</button>
+          </div>
+          
+          <div class="result-section">
+            <p><strong>转换结果:</strong></p>
+            <div class="result-item">
+              <p><strong>大写: </strong>{{ uppercaseText }}</p>
+            </div>
+            <div class="result-item">
+              <p><strong>小写: </strong>{{ lowercaseText }}</p>
+            </div>
+            <div class="result-item">
+              <p><strong>首字母大写: </strong>{{ titlecaseText }}</p>
+            </div>
+            <div class="result-item">
+              <p><strong>句首大写: </strong>{{ sentencecaseText }}</p>
+            </div>
+            <div class="result-item">
+              <p><strong>驼峰命名: </strong>{{ camelcaseText }}</p>
+            </div>
+            <div class="result-item">
+              <p><strong>帕斯卡命名: </strong>{{ pascalcaseText }}</p>
+            </div>
+            <div class="result-item">
+              <p><strong>蛇形命名: </strong>{{ snakecaseText }}</p>
+            </div>
+            <div class="result-item">
+              <p><strong>短横线命名: </strong>{{ kebabcaseText }}</p>
+            </div>
+          </div>
+          
+          <button @click="copyResult">复制当前结果</button>
+          <button @click="clearText">清空</button>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+
+        // 计算属性，用于实时转换
+        const uppercaseText = computed(() => inputText.value.toUpperCase());
+        const lowercaseText = computed(() => inputText.value.toLowerCase());
+        const titlecaseText = computed(() => {
+          return inputText.value.replace(/\w\S*/g, (txt) => {
+            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+          });
+        });
+        const sentencecaseText = computed(() => {
+          return inputText.value.replace(/(^\s*\w|[.!?]\s*\w)/g, (c) => c.toUpperCase());
+        });
+        const togglecaseText = computed(() => {
+          return inputText.value.split('').map(char => {
+            if (char >= 'a' && char <= 'z') {
+              return char.toUpperCase();
+            } else if (char >= 'A' && char <= 'Z') {
+              return char.toLowerCase();
+            } else {
+              return char;
+            }
+          }).join('');
+        });
+        const camelcaseText = computed(() => {
+          return inputText.value
+            .replace(/(?:^\w|[A-Z]|\b\w)/g, (word, index) => {
+              return index === 0 ? word.toLowerCase() : word.toUpperCase();
+            })
+            .replace(/\s+/g, '');
+        });
+        const pascalcaseText = computed(() => {
+          return inputText.value
+            .replace(/(?:^\w|[A-Z]|\b\w)/g, (word) => {
+              return word.toUpperCase();
+            })
+            .replace(/\s+/g, '');
+        });
+        const snakecaseText = computed(() => {
+          return inputText.value
+            .replace(/[\s\-_\s]+/g, '_')
+            .replace(/([a-z])([A-Z])/g, '$1_$2')
+            .toLowerCase();
+        });
+        const kebabcaseText = computed(() => {
+          return inputText.value
+            .replace(/[\s\_\-]+/g, '-')
+            .replace(/([a-z])([A-Z])/g, '$1-$2')
+            .toLowerCase();
+        });
+
+        const error = ref('');
+        const currentResult = ref('');
+
+        const convertTo = (type) => {
+          switch(type) {
+            case 'uppercase':
+              currentResult.value = uppercaseText.value;
+              break;
+            case 'lowercase':
+              currentResult.value = lowercaseText.value;
+              break;
+            case 'titlecase':
+              currentResult.value = titlecaseText.value;
+              break;
+            case 'sentencecase':
+              currentResult.value = sentencecaseText.value;
+              break;
+            case 'togglecase':
+              currentResult.value = togglecaseText.value;
+              break;
+            case 'camelcase':
+              currentResult.value = camelcaseText.value;
+              break;
+            case 'pascalcase':
+              currentResult.value = pascalcaseText.value;
+              break;
+            case 'snakecase':
+              currentResult.value = snakecaseText.value;
+              break;
+            case 'kebabcase':
+              currentResult.value = kebabcaseText.value;
+              break;
+            default:
+              currentResult.value = inputText.value;
+          }
+        };
+
+        const copyResult = () => {
+          if (!currentResult.value) {
+            error.value = '请先进行转换';
+            return;
+          }
+          
+          navigator.clipboard.writeText(currentResult.value)
+            .then(() => {
+              alert('结果已复制到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+              error.value = '复制失败';
+            });
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          error.value = '';
+          currentResult.value = '';
+        };
+
+        return {
+          inputText,
+          uppercaseText,
+          lowercaseText,
+          titlecaseText,
+          sentencecaseText,
+          camelcaseText,
+          pascalcaseText,
+          snakecaseText,
+          kebabcaseText,
+          error,
+          currentResult,
+          convertTo,
+          copyResult,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

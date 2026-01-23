@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到Protocol Buffers Schema转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .usage-example {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到Protocol Buffers Schema转换工具</h2>
+        <p>将JSON数据结构转换为Protocol Buffers Schema定义</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>输入JSON数据，系统将分析其结构并生成相应的Protocol Buffers Schema定义</p>
+        </div>
+        
+        <div class="usage-example">
+          <h3>Protocol Buffers Schema 示例:</h3>
+          <pre>syntax = "proto3";
+
+message Person {
+  string name = 1;
+  int32 id = 2;
+  string email = 3;
+  
+  enum PhoneType {
+    MOBILE = 0;
+    HOME = 1;
+    WORK = 2;
+  }
+  
+  message PhoneNumber {
+    string number = 1;
+    PhoneType type = 2;
+  }
+  
+  repeated PhoneNumber phones = 4;
+}</pre>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>JSON数据</h3>
+            <textarea 
+              v-model="inputJson" 
+              placeholder='输入JSON数据，例如: {"id": 1, "name": "张三", "email": "zhangsan@example.com"}'
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>Protocol Buffers Schema</h3>
+            <textarea 
+              v-model="protobufSchema" 
+              placeholder="生成的Protocol Buffers Schema将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertJsonToProtobuf">JSON → Protobuf Schema</button>
+          <button @click="validateJson">验证JSON</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+        
+        <div class="result" v-if="error" style="color: #ff6b6b;">
+          <p><strong>错误:</strong></p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputJson = ref('');
+        const protobufSchema = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertJsonToProtobuf = () => {
+          error.value = '';
+          if (!inputJson.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(inputJson.value);
+            protobufSchema.value = generateProtobufSchema(parsed, 'Data');
+            result.value = 'Protocol Buffers Schema生成成功！';
+          } catch (e) {
+            error.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const generateProtobufSchema = (data, messageName) => {
+          if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+            return `// 输入必须是对象类型的JSON数据\n// 例如: {"name": "张三", "age": 30}`;
+          }
+
+          let schema = `syntax = "proto3";\n\nmessage ${messageName} {\n`;
+          let fieldIndex = 1;
+          
+          for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+              const value = data[key];
+              const { fieldType, nestedDefinition } = determineProtobufType(value, capitalizeFirstLetter(key));
+              
+              schema += `  ${fieldType} ${key} = ${fieldIndex};\n`;
+              fieldIndex++;
+              
+              if (nestedDefinition) {
+                schema += `\n${nestedDefinition}\n`;
+              }
+            }
+          }
+          
+          schema += '}';
+          return schema;
+        };
+
+        const determineProtobufType = (value, nestedMessageName) => {
+          if (value === null) {
+            return { fieldType: 'string', nestedDefinition: null };
+          }
+          
+          if (Array.isArray(value)) {
+            if (value.length === 0) {
+              return { fieldType: 'repeated string', nestedDefinition: null };
+            }
+            
+            // 确定数组元素类型
+            const elementType = determineProtobufType(value[0], nestedMessageName + 'Item');
+            return { 
+              fieldType: `repeated ${elementType.fieldType}`, 
+              nestedDefinition: elementType.nestedDefinition 
+            };
+          }
+          
+          if (typeof value === 'object' && value !== null) {
+            // 生成嵌套消息定义
+            const nestedDefinition = generateProtobufSchema(value, nestedMessageName);
+            return { 
+              fieldType: nestedMessageName, 
+              nestedDefinition: nestedDefinition 
+            };
+          }
+          
+          if (typeof value === 'string') {
+            // 检查是否为特殊格式的字符串
+            if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+              return { fieldType: 'string', nestedDefinition: null }; // Protocol Buffers中时间通常也是string
+            }
+            if (/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(value)) {
+              return { fieldType: 'string', nestedDefinition: null };
+            }
+            if (/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(value)) {
+              return { fieldType: 'string', nestedDefinition: null };
+            }
+            return { fieldType: 'string', nestedDefinition: null };
+          }
+          
+          if (typeof value === 'number') {
+            if (Number.isInteger(value)) {
+              if (value >= -2147483648 && value <= 2147483647) {
+                return { fieldType: 'int32', nestedDefinition: null };
+              } else {
+                return { fieldType: 'int64', nestedDefinition: null };
+              }
+            } else {
+              return { fieldType: 'double', nestedDefinition: null };
+            }
+          }
+          
+          if (typeof value === 'boolean') {
+            return { fieldType: 'bool', nestedDefinition: null };
+          }
+          
+          return { fieldType: 'string', nestedDefinition: null };
+        };
+
+        const capitalizeFirstLetter = (str) => {
+          return str.charAt(0).toUpperCase() + str.slice(1);
+        };
+
+        const validateJson = () => {
+          if (!inputJson.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            JSON.parse(inputJson.value);
+            result.value = '✓ JSON格式有效';
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const loadExample = () => {
+          inputJson.value = JSON.stringify({
+            id: 1,
+            name: "张三",
+            email: "zhangsan@example.com",
+            age: 30,
+            isActive: true,
+            profile: {
+              bio: "这是一个个人简介",
+              avatar: "https://example.com/avatar.jpg"
+            },
+            posts: [
+              {
+                id: 1,
+                title: "我的第一篇文章",
+                content: "文章内容...",
+                publishedAt: "2023-01-01T00:00:00Z"
+              }
+            ]
+          }, null, 2);
+        };
+
+        const clearAll = () => {
+          inputJson.value = '';
+          protobufSchema.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputJson,
+          protobufSchema,
+          result,
+          error,
+          convertJsonToProtobuf,
+          validateJson,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

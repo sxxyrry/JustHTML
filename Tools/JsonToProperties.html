@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到属性文件转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到属性文件转换工具</h2>
+        <p>将JSON数据转换为属性文件格式（如Java Properties）</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将JSON对象转换为属性文件格式，支持嵌套对象的展开</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder='在此输入JSON对象，例如: {"app": {"name": "MyApp", "version": "1.0"}, "database": {"host": "localhost", "port": 3306}}'
+            rows="12"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertJsonToProps">JSON → 属性文件</button>
+            <button @click="convertPropsToJson">属性文件 → JSON</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertJsonToProps = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(inputText.value);
+            result.value = jsonToProperties(jsonData, '');
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const jsonToProperties = (obj, prefix) => {
+          let props = '';
+          
+          if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
+            // 处理非对象类型（包括数组）和null值
+            return `${prefix}=${obj === null ? 'null' : JSON.stringify(obj)}\n`;
+          }
+          
+          for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+              const value = obj[key];
+              const fullKey = prefix ? `${prefix}.${key}` : key;
+              
+              if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+                // 递归处理嵌套对象
+                props += jsonToProperties(value, fullKey);
+              } else {
+                // 处理基本类型值
+                props += `${fullKey}=${escapePropertyValue(value)}\n`;
+              }
+            }
+          }
+          
+          return props;
+        };
+
+        const escapePropertyValue = (value) => {
+          if (value === null) {
+            return 'null';
+          }
+          
+          if (typeof value === 'string') {
+            // 转义属性值中的特殊字符
+            return value
+              .replace(/\\/g, '\\\\')  // 转义反斜杠
+              .replace(/\n/g, '\\n')   // 转义换行符
+              .replace(/\r/g, '\\r')   // 转义回车符
+              .replace(/\t/g, '\\t')   // 转义制表符
+              .replace(/=/g, '\\=')    // 转义等号
+              .replace(/:/g, '\\:')    // 转义冒号
+              .replace(/!/g, '\\!')    // 转义感叹号
+              .replace(/#/g, '\\#');   // 转义井号
+          }
+          
+          return String(value);
+        };
+
+        const convertPropsToJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            result.value = JSON.stringify(propertiesToJson(inputText.value), null, 2);
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const propertiesToJson = (propsText) => {
+          const lines = propsText.split('\n');
+          const result = {};
+          
+          for (const line of lines) {
+            // 跳过空行和注释行
+            if (!line.trim() || line.trim().startsWith('#') || line.trim().startsWith('!')) {
+              continue;
+            }
+            
+            // 查找等号或冒号分隔符
+            const separatorIndex = findSeparator(line);
+            if (separatorIndex === -1) {
+              continue; // 没有找到分隔符，跳过该行
+            }
+            
+            const key = unescapeKey(line.substring(0, separatorIndex).trim());
+            const value = unescapeValue(line.substring(separatorIndex + 1).trim());
+            
+            // 将键路径转换为嵌套对象结构
+            setNestedProperty(result, key.split('.'), value);
+          }
+          
+          return result;
+        };
+
+        const findSeparator = (line) => {
+          // 查找第一个非转义的等号或冒号
+          for (let i = 0; i < line.length; i++) {
+            if (line[i] === '=' || line[i] === ':') {
+              // 检查是否被转义（前面有反斜杠）
+              if (i === 0 || line[i - 1] !== '\\') {
+                return i;
+              }
+            }
+          }
+          return -1;
+        };
+
+        const unescapeKey = (key) => {
+          // 解转义键名
+          return key
+            .replace(/\\=/g, '=')    // 解转义等号
+            .replace(/\\:/g, ':')    // 解转义冒号
+            .replace(/\\!/g, '!')    // 解转义感叹号
+            .replace(/\\#/g, '#');   // 解转义井号
+        };
+
+        const unescapeValue = (value) => {
+          // 解转义值
+          return value
+            .replace(/\\n/g, '\n')   // 解转义换行符
+            .replace(/\\r/g, '\r')   // 解转义回车符
+            .replace(/\\t/g, '\t')   // 解转义制表符
+            .replace(/\\\\/g, '\\')  // 解转义反斜杠
+            .replace(/\\=/g, '=')    // 解转义等号
+            .replace(/\\:/g, ':')    // 解转义冒号
+            .replace(/\\!/g, '!')    // 解转义感叹号
+            .replace(/\\#/g, '#');   // 解转义井号
+        };
+
+        const setNestedProperty = (obj, keys, value) => {
+          let current = obj;
+          
+          for (let i = 0; i < keys.length - 1; i++) {
+            const key = keys[i];
+            
+            if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+              current[key] = {};
+            }
+            
+            current = current[key];
+          }
+          
+          current[keys[keys.length - 1]] = value;
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            JSON.parse(inputText.value);
+            result.value = '✓ JSON格式有效';
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          convertJsonToProps,
+          convertPropsToJson,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

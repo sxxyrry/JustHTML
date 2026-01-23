@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base64图像转换器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .image-preview {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    .image-box {
+      flex: 1;
+      min-width: 300px;
+    }
+    
+    .image-box img {
+      max-width: 100%;
+      max-height: 300px;
+      display: block;
+      margin: 10px 0;
+      border-radius: var(--border-radius);
+    }
+    
+    .image-box textarea {
+      width: 100%;
+      min-height: 100px;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Base64图像转换器</h2>
+        <p>将图像转换为Base64编码或将Base64编码转换为图像</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>上传图像文件以转换为Base64编码，或粘贴Base64编码以显示图像</p>
+        </div>
+        
+        <div>
+          <input 
+            type="file" 
+            accept="image/*" 
+            @change="handleImageUpload"
+            style="margin-bottom: 15px;"
+          >
+          
+          <div class="controls">
+            <button @click="convertToBase64">转换为Base64</button>
+            <button @click="convertToImage">转换为图像</button>
+            <button @click="clearAll">清空</button>
+          </div>
+          
+          <div class="image-preview">
+            <div class="image-box">
+              <h3>原始图像</h3>
+              <img v-if="originalImageUrl" :src="originalImageUrl" alt="Original Image">
+              <p v-if="originalImageSize">大小: {{ originalImageSize }} KB</p>
+            </div>
+            
+            <div class="image-box">
+              <h3>Base64编码</h3>
+              <textarea 
+                v-model="base64String" 
+                placeholder="粘贴Base64编码或上传图像"
+                rows="8"
+              ></textarea>
+              <div class="controls" style="justify-content: flex-start;">
+                <button @click="copyBase64">复制编码</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="image-box" v-if="base64String">
+            <h3>从Base64生成的图像</h3>
+            <img :src="base64String" alt="Generated from Base64">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const originalImageUrl = ref('');
+        const base64String = ref('');
+        const originalImageSize = ref(0);
+
+        const handleImageUpload = (event) => {
+          const file = event.target.files[0];
+          if (!file || !file.type.match('image.*')) {
+            alert('请选择一张有效的图像文件');
+            return;
+          }
+
+          // 显示原始图像
+          originalImageUrl.value = URL.createObjectURL(file);
+          
+          // 计算文件大小（KB）
+          originalImageSize.value = Math.round(file.size / 1024);
+          
+          // 转换为Base64
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            base64String.value = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        };
+
+        const convertToBase64 = () => {
+          if (!originalImageUrl.value) {
+            alert('请先上传一张图像');
+            return;
+          }
+          // 这个功能已在handleImageUpload中实现
+        };
+
+        const convertToImage = () => {
+          if (!base64String.value) {
+            alert('请输入Base64编码');
+            return;
+          }
+          // 图像会自动显示，因为v-model双向绑定
+        };
+
+        const copyBase64 = () => {
+          if (!base64String.value) {
+            alert('没有Base64编码可复制');
+            return;
+          }
+          
+          navigator.clipboard.writeText(base64String.value).then(() => {
+            alert('Base64编码已复制到剪贴板');
+          }).catch(err => {
+            console.error('复制失败:', err);
+            // 降级方案
+            const textArea = document.createElement('textarea');
+            textArea.value = base64String.value;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('Base64编码已复制到剪贴板');
+          });
+        };
+
+        const clearAll = () => {
+          originalImageUrl.value = '';
+          base64String.value = '';
+          originalImageSize.value = 0;
+        };
+
+        return {
+          originalImageUrl,
+          base64String,
+          originalImageSize,
+          handleImageUpload,
+          convertToBase64,
+          convertToImage,
+          copyBase64,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

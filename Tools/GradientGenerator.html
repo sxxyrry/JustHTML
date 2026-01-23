@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>渐变色生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .gradient-preview {
+      width: 100%;
+      height: 200px;
+      border-radius: var(--border-radius);
+      margin: 20px 0;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .control-group {
+      flex: 1;
+      min-width: 250px;
+      background-color: var(--bg-secondary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin-bottom: 15px;
+    }
+    
+    .color-stops {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .color-stop {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      min-width: 150px;
+    }
+    
+    .color-picker-container {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      cursor: pointer;
+      overflow: hidden;
+    }
+    
+    .color-picker {
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      opacity: 0;
+    }
+    
+    .code-output {
+      position: relative;
+      margin-top: 20px;
+    }
+    
+    .copy-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    
+    .direction-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .direction-btn {
+      padding: 8px;
+      background-color: var(--bg-tertiary);
+      border: none;
+      border-radius: var(--border-radius);
+      color: var(--text-primary);
+      cursor: pointer;
+      text-align: center;
+    }
+    
+    .direction-btn.active {
+      background-color: var(--accent-color);
+      color: white;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .gradient-types {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+      flex-wrap: wrap;
+    }
+    
+    .gradient-type {
+      flex: 1;
+      min-width: 120px;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      text-align: center;
+      cursor: pointer;
+    }
+    
+    .gradient-type.active {
+      background-color: var(--accent-color);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>渐变色生成器</h2>
+        <p>创建和自定义CSS渐变色彩方案</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 支持线性渐变和径向渐变</p>
+          <p>• 可调整颜色停止点和方向</p>
+          <p>• 实时预览和CSS代码生成</p>
+        </div>
+        
+        <div 
+          class="gradient-preview" 
+          :style="{ background: gradientStyle }"
+        ></div>
+        
+        <div class="gradient-types">
+          <div 
+            class="gradient-type" 
+            :class="{ active: gradientType === 'linear' }"
+            @click="gradientType = 'linear'"
+          >
+            线性渐变
+          </div>
+          <div 
+            class="gradient-type" 
+            :class="{ active: gradientType === 'radial' }"
+            @click="gradientType = 'radial'"
+          >
+            径向渐变
+          </div>
+        </div>
+        
+        <div class="direction-controls" v-if="gradientType === 'linear'">
+          <div 
+            class="direction-btn" 
+            :class="{ active: direction === 'to right' }"
+            @click="direction = 'to right'"
+          >
+            左到右
+          </div>
+          <div 
+            class="direction-btn" 
+            :class="{ active: direction === 'to bottom' }"
+            @click="direction = 'to bottom'"
+          >
+            上到下
+          </div>
+          <div 
+            class="direction-btn" 
+            :class="{ active: direction === 'to bottom right' }"
+            @click="direction = 'to bottom right'"
+          >
+            左上到右下
+          </div>
+          <div 
+            class="direction-btn" 
+            :class="{ active: direction === 'to bottom left' }"
+            @click="direction = 'to bottom left'"
+          >
+            右上到左下
+          </div>
+          <div 
+            class="direction-btn" 
+            :class="{ active: direction === '45deg' }"
+            @click="direction = '45deg'"
+          >
+            45° 角
+          </div>
+          <div 
+            class="direction-btn" 
+            :class="{ active: direction === '135deg' }"
+            @click="direction = '135deg'"
+          >
+            135° 角
+          </div>
+        </div>
+        
+        <div class="color-stops">
+          <div class="color-stop" v-for="(stop, index) in colorStops" :key="index">
+            <div class="color-picker-container">
+              <input 
+                type="color" 
+                class="color-picker" 
+                v-model="stop.color" 
+                @input="updateGradient"
+              >
+              <div :style="{ backgroundColor: stop.color }" class="color-picker-container"></div>
+            </div>
+            <input 
+              type="text" 
+              v-model="stop.color" 
+              @input="updateGradient"
+              style="width: 100px; margin-top: 10px;"
+            >
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              v-model.number="stop.position" 
+              @input="updateGradient"
+              style="width: 100px; margin-top: 5px;"
+            >
+            <span>{{ stop.position }}%</span>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="addColorStop">添加颜色点</button>
+          <button @click="removeColorStop" v-if="colorStops.length > 2">删除最后一点</button>
+          <button @click="randomizeColors">随机颜色</button>
+          <button @click="presetGradients">预设渐变</button>
+        </div>
+        
+        <div class="control-group">
+          <h3>CSS代码</h3>
+          <div class="code-output">
+            <button class="copy-button" @click="copyCSS">复制CSS</button>
+            <textarea 
+              :value="gradientStyle" 
+              readonly
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } from Vue;
+
+    createApp({
+      setup() {
+        const gradientType = ref('linear');
+        const direction = ref('to right');
+        const colorStops = ref([
+          { color: '#ff6b6b', position: 0 },
+          { color: '#4ecdc4', position: 100 }
+        ]);
+        
+        const gradientStyle = computed(() => {
+          let gradientDef = '';
+          
+          if (gradientType.value === 'linear') {
+            gradientDef = `linear-gradient(${direction.value}, `;
+          } else {
+            gradientDef = `radial-gradient(circle, `;
+          }
+          
+          const stops = colorStops.value
+            .map(stop => `${stop.color} ${stop.position}%`)
+            .join(', ');
+          
+          return gradientDef + stops + ')';
+        });
+        
+        const updateGradient = () => {
+          // 更新已完成，因为是响应式的
+        };
+        
+        const addColorStop = () => {
+          const newPosition = Math.min(100, Math.max(0, 
+            colorStops.value[colorStops.value.length - 1].position - 20
+          ));
+          
+          colorStops.value.push({
+            color: getRandomColor(),
+            position: newPosition
+          });
+        };
+        
+        const removeColorStop = () => {
+          if (colorStops.value.length > 2) {
+            colorStops.value.pop();
+          }
+        };
+        
+        const randomizeColors = () => {
+          colorStops.value.forEach(stop => {
+            stop.color = getRandomColor();
+          });
+        };
+        
+        const getRandomColor = () => {
+          const letters = '0123456789ABCDEF';
+          let color = '#';
+          for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+          }
+          return color;
+        };
+        
+        const presetGradients = () => {
+          const presets = [
+            [
+              { color: '#ff6b6b', position: 0 },
+              { color: '#4ecdc4', position: 50 },
+              { color: '#45b7d1', position: 100 }
+            ],
+            [
+              { color: '#667eea', position: 0 },
+              { color: '#764ba2', position: 100 }
+            ],
+            [
+              { color: '#f093fb', position: 0 },
+              { color: '#f5576c', position: 100 }
+            ],
+            [
+              { color: '#4facfe', position: 0 },
+              { color: '#00f2fe', position: 100 }
+            ],
+            [
+              { color: '#43e97b', position: 0 },
+              { color: '#38f9d7', position: 100 }
+            ]
+          ];
+          
+          const randomPreset = presets[Math.floor(Math.random() * presets.length)];
+          colorStops.value = JSON.parse(JSON.stringify(randomPreset));
+        };
+        
+        const copyCSS = async () => {
+          try {
+            await navigator.clipboard.writeText(gradientStyle.value);
+            alert('CSS代码已复制到剪贴板！');
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败');
+          }
+        };
+        
+        return {
+          gradientType,
+          direction,
+          colorStops,
+          gradientStyle,
+          updateGradient,
+          addColorStop,
+          removeColorStop,
+          randomizeColors,
+          presetGradients,
+          copyCSS
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

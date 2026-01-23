@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>随机数生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .generator-settings {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .setting-group label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .setting-group input, .setting-group select {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+      justify-content: center;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .result-container {
+      margin: 20px 0;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .result-number {
+      font-size: 2.5em;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin: 10px 0;
+      min-height: 50px;
+    }
+    
+    .result-list {
+      margin: 15px 0;
+      text-align: left;
+    }
+    
+    .result-list li {
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .result-list li:last-child {
+      border-bottom: none;
+    }
+    
+    .history-container {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .history-item {
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    
+    .history-item:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>随机数生成器</h2>
+        <p>生成指定范围内的随机数</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 可设置最小值和最大值范围</p>
+          <p>• 支持生成单个或多个随机数</p>
+          <p>• 可选择是否允许重复</p>
+          <p>• 提供随机数历史记录</p>
+        </div>
+        
+        <div class="generator-settings">
+          <div class="setting-group">
+            <label for="minValue">最小值</label>
+            <input 
+              type="number" 
+              id="minValue" 
+              v-model.number="minValue" 
+              placeholder="最小值"
+            >
+          </div>
+          
+          <div class="setting-group">
+            <label for="maxValue">最大值</label>
+            <input 
+              type="number" 
+              id="maxValue" 
+              v-model.number="maxValue" 
+              placeholder="最大值"
+            >
+          </div>
+          
+          <div class="setting-group">
+            <label for="quantity">生成数量</label>
+            <input 
+              type="number" 
+              id="quantity" 
+              v-model.number="quantity" 
+              min="1"
+              max="100"
+              placeholder="数量"
+            >
+          </div>
+          
+          <div class="setting-group">
+            <label for="allowDuplicates">重复选项</label>
+            <select id="allowDuplicates" v-model="allowDuplicates">
+              <option value="true">允许重复</option>
+              <option value="false">不允许重复</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="generateRandomNumbers">生成随机数</button>
+          <button @click="clearResults">清空结果</button>
+          <button @click="setDefaults">重置设置</button>
+        </div>
+        
+        <div class="result-container">
+          <h3>生成结果</h3>
+          <div class="result-number" v-if="results.length === 1">
+            {{ results[0] }}
+          </div>
+          
+          <div class="result-list" v-if="results.length > 1">
+            <ol>
+              <li v-for="(num, index) in results" :key="index">
+                {{ num }}
+              </li>
+            </ol>
+          </div>
+          
+          <p v-if="results.length === 0">点击上方按钮生成随机数</p>
+        </div>
+        
+        <div class="history-container" v-if="history.length > 0">
+          <h3>生成历史</h3>
+          <div v-for="(item, index) in recentHistory" :key="index" class="history-item">
+            <strong>{{ item.time }}:</strong> 
+            <span v-if="item.numbers.length === 1">{{ item.numbers[0] }}</span>
+            <span v-else>{{ item.numbers.join(', ') }}</span>
+            <br>
+            <small>范围: {{ item.min }} ~ {{ item.max }}, 数量: {{ item.count }}</small>
+          </div>
+          
+          <button @click="clearHistory" style="margin-top: 10px;">清空历史</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const minValue = ref(1);
+        const maxValue = ref(100);
+        const quantity = ref(1);
+        const allowDuplicates = ref(true);
+        const results = ref([]);
+        const history = ref([]);
+        
+        // 最近的历史记录（限制为10条）
+        const recentHistory = computed(() => {
+          return [...history.value].reverse().slice(0, 10);
+        });
+
+        // 生成随机数
+        const generateRandomNumbers = () => {
+          // 验证输入
+          if (minValue.value >= maxValue.value) {
+            alert('最小值必须小于最大值');
+            return;
+          }
+          
+          if (quantity.value <= 0 || quantity.value > 100) {
+            alert('生成数量必须在1到100之间');
+            return;
+          }
+          
+          // 如果不允许重复，检查范围是否足够大
+          if (allowDuplicates.value === 'false' && (maxValue.value - minValue.value + 1) < quantity.value) {
+            alert(`在范围${minValue.value}-${maxValue.value}内无法生成${quantity.value}个不重复的数`);
+            return;
+          }
+          
+          results.value = [];
+          
+          if (quantity.value === 1) {
+            // 生成单个随机数
+            const randomNum = Math.floor(Math.random() * (maxValue.value - minValue.value + 1)) + minValue.value;
+            results.value = [randomNum];
+          } else {
+            if (allowDuplicates.value === 'true') {
+              // 允许重复
+              for (let i = 0; i < quantity.value; i++) {
+                const randomNum = Math.floor(Math.random() * (maxValue.value - minValue.value + 1)) + minValue.value;
+                results.value.push(randomNum);
+              }
+            } else {
+              // 不允许重复
+              const availableNumbers = [];
+              for (let i = minValue.value; i <= maxValue.value; i++) {
+                availableNumbers.push(i);
+              }
+              
+              // 随机打乱数组并取前quantity个
+              for (let i = availableNumbers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [availableNumbers[i], availableNumbers[j]] = [availableNumbers[j], availableNumbers[i]];
+              }
+              
+              results.value = availableNumbers.slice(0, quantity.value);
+            }
+          }
+          
+          // 添加到历史记录
+          history.value.push({
+            time: new Date().toLocaleTimeString(),
+            numbers: [...results.value],
+            min: minValue.value,
+            max: maxValue.value,
+            count: quantity.value
+          });
+        };
+
+        // 清空结果
+        const clearResults = () => {
+          results.value = [];
+        };
+
+        // 重置设置为默认值
+        const setDefaults = () => {
+          minValue.value = 1;
+          maxValue.value = 100;
+          quantity.value = 1;
+          allowDuplicates.value = true;
+          clearResults();
+        };
+
+        // 清空历史
+        const clearHistory = () => {
+          history.value = [];
+        };
+
+        return {
+          minValue,
+          maxValue,
+          quantity,
+          allowDuplicates,
+          results,
+          history,
+          recentHistory,
+          generateRandomNumbers,
+          clearResults,
+          setDefaults,
+          clearHistory
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

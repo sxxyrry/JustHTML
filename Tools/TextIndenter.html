@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本缩进工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .indent-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>文本缩进工具</h2>
+        <p>为文本添加缩进格式</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 为文本的每一行添加指定数量的空格或制表符缩进</p>
+          <p>• 支持不同类型的缩进（空格或制表符）</p>
+          <p>• 可设置缩进级别（缩进多少个单位）</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要添加缩进的文本..."
+            rows="12"
+          ></textarea>
+          
+          <div class="indent-options">
+            <div class="option-item">
+              <label for="indentType">缩进类型</label>
+              <select id="indentType" v-model="indentType">
+                <option value="spaces">空格</option>
+                <option value="tabs">制表符(Tab)</option>
+              </select>
+            </div>
+            
+            <div class="option-item">
+              <label for="indentLevel">缩进级别</label>
+              <input 
+                type="number" 
+                id="indentLevel" 
+                v-model.number="indentLevel" 
+                min="1" 
+                max="10"
+                placeholder="输入缩进级别"
+              >
+            </div>
+            
+            <div class="option-item">
+              <label for="indentPerLevel">每级缩进长度</label>
+              <input 
+                type="number" 
+                id="indentPerLevel" 
+                v-model.number="indentPerLevel" 
+                min="1" 
+                max="8"
+                placeholder="每级缩进长度"
+              >
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="applyIndent">应用缩进</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>缩进后的文本：</h3>
+            <pre>{{ result }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, watch } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const indentType = ref('spaces'); // 'spaces' or 'tabs'
+        const indentLevel = ref(1);
+        const indentPerLevel = ref(4);
+
+        const applyIndent = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          const lines = inputText.value.split('\n');
+          let indentString;
+
+          if (indentType.value === 'spaces') {
+            indentString = ' '.repeat(indentLevel.value * indentPerLevel.value);
+          } else {
+            indentString = '\t'.repeat(indentLevel.value);
+          }
+
+          result.value = lines.map(line => indentString + line).join('\n');
+        };
+
+        // 当参数变化时自动重新应用缩进
+        watch([indentType, indentLevel, indentPerLevel], () => {
+          if (inputText.value) {
+            applyIndent();
+          }
+        });
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          indentType,
+          indentLevel,
+          indentPerLevel,
+          applyIndent,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS到SCSS转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS到SCSS转换工具</h2>
+        <p>将CSS代码转换为SCSS格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将普通的CSS代码转换为SCSS格式，支持嵌套结构</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputCss" 
+            placeholder="在此输入CSS代码..."
+            rows="15"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertCssToScss">CSS → SCSS</button>
+            <button @click="validateCss">验证CSS</button>
+            <button @click="clearAll">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertCssToScss = () => {
+          error.value = '';
+          if (!inputCss.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 简单的CSS到SCSS转换
+            // 主要是将CSS的嵌套结构转换为SCSS格式
+            result.value = convertToScssFormat(inputCss.value);
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const convertToScssFormat = (cssCode) => {
+          // 首先标准化换行符
+          cssCode = cssCode.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+          
+          // 分割成行
+          const lines = cssCode.split('\n');
+          
+          // 结果数组
+          const resultLines = [];
+          
+          // 当前嵌套级别
+          let indentLevel = 0;
+          const indent = '  '; // 两个空格作为缩进
+          
+          // 逐行处理
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (!line) {
+              resultLines.push('');
+              continue;
+            }
+            
+            // 如果行以 } 开始，减少缩进
+            if (line.startsWith('}')) {
+              indentLevel = Math.max(0, indentLevel - 1);
+              resultLines.push(indent.repeat(indentLevel) + line);
+              continue;
+            }
+            
+            // 检查是否是规则声明（如 .class 或 #id）
+            if (line.includes('{') && !line.includes('}') && 
+                (line.includes('.') || line.includes('#') || 
+                 line.includes('[') || line.includes(':') || 
+                 /^[a-zA-Z]/.test(line))) {
+              // 这是一个CSS规则开始
+              resultLines.push(indent.repeat(indentLevel) + line);
+              indentLevel++;
+            } else if (line.endsWith('{')) {
+              // 检查是否是简单的嵌套规则
+              resultLines.push(indent.repeat(indentLevel) + line);
+              indentLevel++;
+            } else if (line.endsWith('}')) {
+              // 减少缩进并添加行
+              indentLevel = Math.max(0, indentLevel - 1);
+              resultLines.push(indent.repeat(indentLevel) + line);
+            } else if (line.includes(':') && !line.includes('{') && !line.includes('}')) {
+              // 这是一个CSS属性
+              resultLines.push(indent.repeat(indentLevel) + line);
+            } else if (line === '{') {
+              // 单独的 { 行
+              resultLines.push(indent.repeat(indentLevel) + line);
+              indentLevel++;
+            } else {
+              // 其他情况，保持原有缩进
+              resultLines.push(indent.repeat(indentLevel) + line);
+            }
+          }
+          
+          // 处理可能的嵌套选择器
+          let scssOutput = resultLines.join('\n');
+          
+          // 尝试转换伪类和伪元素为嵌套格式
+          scssOutput = convertPseudoSelectors(scssOutput);
+          
+          return scssOutput;
+        };
+
+        // 转换伪类和伪元素为嵌套格式
+        const convertPseudoSelectors = (scssCode) => {
+          // 正则表达式匹配伪类和伪元素
+          const pseudoRegex = /([^{]+)(:[^:{]+)\s*{([^{}]*)}/g;
+          
+          return scssCode.replace(pseudoRegex, (match, selector, pseudo, content) => {
+            // 去除选择器和伪类的前后空格
+            selector = selector.trim();
+            pseudo = pseudo.trim();
+            
+            // 检查是否已经是嵌套格式
+            if (selector.includes(':')) {
+              // 分离主要选择器和伪类部分
+              const parts = selector.split(/(:.*)$/);
+              if (parts.length > 1) {
+                const mainSelector = parts[0].trim();
+                const pseudoPart = parts[1].trim();
+                return `${mainSelector} {\n  ${pseudoPart} {\n    ${content}\n  }\n}`;
+              }
+            }
+            
+            // 如果是独立的伪类规则，尝试嵌套
+            if (selector.includes(' ')) {
+              // 复杂选择器，如 "div span:hover"
+              const selectorParts = selector.split(/\s+/);
+              if (selectorParts.length > 1) {
+                const lastPart = selectorParts.pop();
+                if (lastPart.includes(':')) {
+                  const parentSelector = selectorParts.join(' ');
+                  return `${parentSelector} {\n  ${lastPart} {\n    ${content}\n  }\n}`;
+                }
+              }
+            }
+            
+            // 如果选择器包含伪类，将其转换为嵌套格式
+            if (pseudo.startsWith(':')) {
+              // 简单的伪类嵌套
+              return `${selector} {\n  ${pseudo} {\n    ${content}\n  }\n}`;
+            }
+            
+            return match; // 如果不匹配任何条件，返回原始内容
+          });
+        };
+
+        const validateCss = () => {
+          if (!inputCss.value) {
+            result.value = '请输入CSS代码';
+            return;
+          }
+
+          // 简单验证CSS基本结构
+          const openBraces = (inputCss.value.match(/\{/g) || []).length;
+          const closeBraces = (inputCss.value.match(/\}/g) || []).length;
+          
+          if (openBraces !== closeBraces) {
+            error.value = `CSS格式错误: 括号数量不匹配 (${openBraces} 个 {, ${closeBraces} 个 })`;
+            return;
+          }
+          
+          result.value = `✓ CSS格式检查通过 (${openBraces} 个规则块)`;
+          error.value = '';
+        };
+
+        const clearAll = () => {
+          inputCss.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputCss,
+          result,
+          error,
+          convertCssToScss,
+          validateCss,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

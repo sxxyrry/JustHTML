@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML格式化与压缩工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>HTML格式化与压缩工具</h2>
+        <p>格式化混乱的HTML代码或将HTML压缩成一行</p>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入HTML代码..."
+            rows="15"
+            style="font-family: 'Courier New', monospace;"
+          ></textarea>
+          
+          <button @click="formatHtml">格式化HTML</button>
+          <button @click="minifyHtml">压缩HTML</button>
+          <button @click="validateHtml">验证HTML</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="clearText">清空</button>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre style="white-space: pre-wrap; word-break: break-word;">{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        // 格式化HTML
+        const formatHtml = () => {
+          error.value = '';
+          try {
+            let html = inputText.value;
+            
+            // 简单的HTML格式化
+            let formatted = '';
+            let indentLevel = 0;
+            const indent = '  ';
+            
+            // 分割HTML为标签和内容
+            const parts = html.split(/(<[^>]+>)/);
+            
+            for (let part of parts) {
+              part = part.trim();
+              if (!part) continue;
+              
+              // 检查是否是开始标签
+              if (part.startsWith('<') && !part.startsWith('</')) {
+                // 自闭合标签
+                if (part.match(/<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\b/i)) {
+                  formatted += indent.repeat(indentLevel) + part + '\n';
+                } 
+                // 普通开始标签
+                else if (!part.endsWith('/>')) {
+                  formatted += indent.repeat(indentLevel) + part + '\n';
+                  indentLevel++;
+                } 
+                // 自闭合标签 (带/)
+                else {
+                  formatted += indent.repeat(indentLevel) + part + '\n';
+                }
+              } 
+              // 结束标签
+              else if (part.startsWith('</')) {
+                indentLevel--;
+                formatted += indent.repeat(indentLevel) + part + '\n';
+              } 
+              // 文本内容
+              else {
+                const trimmedPart = part.trim();
+                if (trimmedPart) {
+                  formatted += indent.repeat(indentLevel) + trimmedPart + '\n';
+                }
+              }
+            }
+            
+            result.value = formatted.trim();
+          } catch (e) {
+            error.value = `格式化HTML时出错: ${e.message}`;
+          }
+        };
+
+        // 压缩HTML
+        const minifyHtml = () => {
+          error.value = '';
+          try {
+            let html = inputText.value;
+            
+            // 移除注释
+            html = html.replace(/<!--[\s\S]*?-->/g, '');
+            
+            // 移除多余的空白字符
+            html = html.replace(/\s+/g, ' ');
+            
+            // 移除标签间的空白
+            html = html.replace( />\s+</g, '><' );
+            
+            // 移除首尾空白
+            result.value = html.trim();
+          } catch (e) {
+            error.value = `压缩HTML时出错: ${e.message}`;
+          }
+        };
+
+        // 验证HTML
+        const validateHtml = () => {
+          error.value = '';
+          result.value = '';
+          
+          try {
+            // 尝试创建一个临时元素来验证HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = inputText.value;
+            
+            // 检查是否有未闭合的标签
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(inputText.value, 'text/html');
+            
+            // 检查错误
+            const parserErrors = doc.querySelectorAll("parsererror");
+            if (parserErrors.length > 0) {
+              error.value = 'HTML格式无效：' + parserErrors[0].textContent;
+              return;
+            }
+            
+            result.value = '✓ HTML格式有效';
+          } catch (e) {
+            error.value = `验证HTML时出错: ${e.message}`;
+          }
+        };
+
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('HTML代码已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                error.value = '复制失败';
+              });
+          } else {
+            error.value = '没有可复制的结果';
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          formatHtml,
+          minifyHtml,
+          validateHtml,
+          copyResult,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

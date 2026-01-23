@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>凯撒密码 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .shift-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .shift-controls label {
+      color: var(--accent-color);
+    }
+    
+    .shift-controls input {
+      width: 80px;
+      padding: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>凯撒密码</h2>
+        <p>一种替换加密的技术，将明文中的各个字母按一定规律替换为其他字母</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 凯撒密码是一种最简单的加密方法之一</p>
+          <p>• 将字母表中的每个字母按照固定位数进行替换</p>
+          <p>• 例如，当偏移量为3时，A变为D，B变为E，以此类推</p>
+        </div>
+        
+        <div class="shift-controls">
+          <label for="shiftValue">偏移量：</label>
+          <input 
+            type="number" 
+            id="shiftValue" 
+            v-model.number="shiftValue" 
+            min="0" 
+            max="25" 
+            @change="onShiftChange"
+          >
+          <button @click="decreaseShift">-</button>
+          <button @click="increaseShift">+</button>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要加密或解密的文本..."
+            rows="8"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="encrypt">加密</button>
+            <button @click="decrypt">解密</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const shiftValue = ref(3); // 默认偏移量为3
+        
+        const caesarCipher = (text, shift, decrypt = false) => {
+          if (!text) return '';
+          
+          // 如果是解密，则将偏移量取反
+          if (decrypt) {
+            shift = -shift;
+          }
+          
+          // 确保偏移量在0-25范围内
+          shift = ((shift % 26) + 26) % 26;
+          
+          return text.split('').map(char => {
+            // 检查是否是字母
+            if (char >= 'a' && char <= 'z') {
+              // 处理小写字母
+              const charCode = char.charCodeAt(0) - 'a'.charCodeAt(0);
+              const shiftedCode = (charCode + shift) % 26;
+              return String.fromCharCode(shiftedCode + 'a'.charCodeAt(0));
+            } else if (char >= 'A' && char <= 'Z') {
+              // 处理大写字母
+              const charCode = char.charCodeAt(0) - 'A'.charCodeAt(0);
+              const shiftedCode = (charCode + shift) % 26;
+              return String.fromCharCode(shiftedCode + 'A'.charCodeAt(0));
+            } else {
+              // 非字母字符不变
+              return char;
+            }
+          }).join('');
+        };
+        
+        const encrypt = () => {
+          result.value = caesarCipher(inputText.value, shiftValue.value);
+        };
+        
+        const decrypt = () => {
+          result.value = caesarCipher(inputText.value, shiftValue.value, true);
+        };
+        
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+        
+        const copyResult = async () => {
+          if (result.value) {
+            try {
+              await navigator.clipboard.writeText(result.value);
+              alert('已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              // 降级方案
+              const textArea = document.createElement('textarea');
+              textArea.value = result.value;
+              document.body.appendChild(textArea);
+              textArea.select();
+              document.execCommand('copy');
+              document.body.removeChild(textArea);
+              alert('已复制到剪贴板！');
+            }
+          }
+        };
+        
+        const decreaseShift = () => {
+          shiftValue.value = ((shiftValue.value - 1 + 26) % 26);
+        };
+        
+        const increaseShift = () => {
+          shiftValue.value = ((shiftValue.value + 1) % 26);
+        };
+        
+        const onShiftChange = () => {
+          // 确保偏移量在0-25范围内
+          if (shiftValue.value < 0) {
+            shiftValue.value = 0;
+          } else if (shiftValue.value > 25) {
+            shiftValue.value = 25;
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          shiftValue,
+          encrypt,
+          decrypt,
+          clearText,
+          copyResult,
+          decreaseShift,
+          increaseShift,
+          onShiftChange
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

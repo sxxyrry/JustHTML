@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON工具</h2>
+        <p>JSON字符串转义、格式化及转换为其他格式</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• JSON格式化：美化JSON字符串，使其易于阅读</p>
+          <p>• JSON转义：转义JSON字符串中的特殊字符</p>
+          <p>• JSON转CSV：将JSON数据转换为CSV格式</p>
+          <p>• JSON转TSV：将JSON数据转换为TSV格式</p>
+          <p>• JSON转XML：将JSON数据转换为XML格式</p>
+          <p>• JSON转YAML：将JSON数据转换为YAML格式</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputJson" 
+            placeholder="在此输入JSON数据..."
+            rows="12"
+          ></textarea>
+          
+          <div class="converter-options">
+            <div class="option-item">
+              <label for="convertTo">转换为</label>
+              <select id="convertTo" v-model="convertTo">
+                <option value="format">格式化JSON</option>
+                <option value="escape">转义JSON</option>
+                <option value="csv">JSON转CSV</option>
+                <option value="tsv">JSON转TSV</option>
+                <option value="xml">JSON转XML</option>
+                <option value="yaml">JSON转YAML</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="convertJson">转换JSON</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>转换结果：</h3>
+            <pre>{{ result }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputJson = ref('');
+        const result = ref('');
+        const convertTo = ref('format');
+
+        // 格式化JSON
+        const formatJson = () => {
+          try {
+            const parsed = JSON.parse(inputJson.value);
+            return JSON.stringify(parsed, null, 2);
+          } catch (error) {
+            return `JSON格式错误: ${error.message}`;
+          }
+        };
+
+        // 转义JSON
+        const escapeJson = () => {
+          try {
+            // 解析输入的JSON
+            const parsed = JSON.parse(inputJson.value);
+            // 将其转换为字符串并转义
+            return JSON.stringify(JSON.stringify(parsed)).slice(1, -1);
+          } catch (error) {
+            return `JSON格式错误: ${error.message}`;
+          }
+        };
+
+        // JSON转CSV
+        const jsonToCsv = (jsonData) => {
+          try {
+            const arr = typeof jsonData !== 'object' ? JSON.parse(jsonData) : jsonData;
+            if (!Array.isArray(arr) || arr.length === 0) {
+              return '输入必须是非空数组';
+            }
+
+            const headers = Object.keys(arr[0]);
+            const csvRows = [headers.join(',')];
+
+            for (const row of arr) {
+              const values = headers.map(header => {
+                const value = row[header] === null ? '' : row[header];
+                // 如果值包含逗号或引号，需要用引号包围并转义内部引号
+                const escaped = typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+                return escaped;
+              });
+              csvRows.push(values.join(','));
+            }
+
+            return csvRows.join('\n');
+          } catch (error) {
+            return `转换错误: ${error.message}`;
+          }
+        };
+
+        // JSON转TSV
+        const jsonToTsv = (jsonData) => {
+          try {
+            const arr = typeof jsonData !== 'object' ? JSON.parse(jsonData) : jsonData;
+            if (!Array.isArray(arr) || arr.length === 0) {
+              return '输入必须是非空数组';
+            }
+
+            const headers = Object.keys(arr[0]);
+            const tsvRows = [headers.join('\t')];
+
+            for (const row of arr) {
+              const values = headers.map(header => {
+                const value = row[header] === null ? '' : row[header];
+                // TSV使用制表符分隔，需要处理值中的制表符和换行符
+                const escaped = typeof value === 'string' ? value.replace(/\t/g, ' ').replace(/\n/g, ' ') : value;
+                return escaped;
+              });
+              tsvRows.push(values.join('\t'));
+            }
+
+            return tsvRows.join('\n');
+          } catch (error) {
+            return `转换错误: ${error.message}`;
+          }
+        };
+
+        // JSON转XML
+        const jsonToXml = (jsonData) => {
+          try {
+            const obj = typeof jsonData !== 'object' ? JSON.parse(jsonData) : jsonData;
+            
+            const convert = (obj, level = 0) => {
+              let xml = '';
+              const indent = '  '.repeat(level);
+              
+              if (typeof obj === 'object' && obj !== null) {
+                if (Array.isArray(obj)) {
+                  for (const item of obj) {
+                    xml += `${indent}<item>\n${convert(item, level + 1)}${indent}</item>\n`;
+                  }
+                } else {
+                  for (const key in obj) {
+                    const value = obj[key];
+                    if (typeof value === 'object' && value !== null) {
+                      xml += `${indent}<${key}>\n${convert(value, level + 1)}${indent}</${key}>\n`;
+                    } else {
+                      xml += `${indent}<${key}>${value}</${key}>\n`;
+                    }
+                  }
+                }
+              } else {
+                return `${indent}${obj}\n`;
+              }
+              
+              return xml;
+            };
+            
+            return `<?xml version="1.0" encoding="UTF-8"?>\n<root>\n${convert(obj, 1)}</root>`;
+          } catch (error) {
+            return `转换错误: ${error.message}`;
+          }
+        };
+
+        // JSON转YAML
+        const jsonToYaml = (jsonData) => {
+          try {
+            const obj = typeof jsonData !== 'object' ? JSON.parse(jsonData) : jsonData;
+            
+            const convert = (obj, level = 0) => {
+              let yaml = '';
+              const indent = '  '.repeat(level);
+              
+              if (typeof obj === 'object' && obj !== null) {
+                if (Array.isArray(obj)) {
+                  for (const item of obj) {
+                    yaml += `${indent}- ${typeof item === 'object' ? '\n' + convert(item, level + 1) : item}\n`;
+                  }
+                } else {
+                  for (const key in obj) {
+                    const value = obj[key];
+                    if (typeof value === 'object' && value !== null) {
+                      yaml += `${indent}${key}:\n${convert(value, level + 1)}`;
+                    } else {
+                      yaml += `${indent}${key}: ${typeof value === 'string' ? `"${value}"` : value}\n`;
+                    }
+                  }
+                }
+              }
+              
+              return yaml;
+            };
+            
+            return `---\n${convert(obj)}`;
+          } catch (error) {
+            return `转换错误: ${error.message}`;
+          }
+        };
+
+        // 执行转换
+        const convertJson = () => {
+          if (!inputJson.value) {
+            result.value = '';
+            return;
+          }
+
+          switch(convertTo.value) {
+            case 'format':
+              result.value = formatJson();
+              break;
+            case 'escape':
+              result.value = escapeJson();
+              break;
+            case 'csv':
+              result.value = jsonToCsv(inputJson.value);
+              break;
+            case 'tsv':
+              result.value = jsonToTsv(inputJson.value);
+              break;
+            case 'xml':
+              result.value = jsonToXml(inputJson.value);
+              break;
+            case 'yaml':
+              result.value = jsonToYaml(inputJson.value);
+              break;
+            default:
+              result.value = '请选择正确的转换类型';
+          }
+        };
+
+        // 清空文本
+        const clearText = () => {
+          inputJson.value = '';
+          result.value = '';
+        };
+
+        // 复制结果
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputJson,
+          result,
+          convertTo,
+          convertJson,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>站点地图生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .url-inputs {
+      margin: 15px 0;
+    }
+    
+    .url-input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    
+    .url-input-row input {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .sitemap-output {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .sitemap-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 15px;
+    }
+    
+    .sitemap-tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+      margin-right: 5px;
+    }
+    
+    .sitemap-tab.active {
+      background-color: var(--bg-primary);
+      border-bottom: 1px solid var(--bg-primary);
+      margin-bottom: -1px;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .priority-select {
+      width: 80px;
+      padding: 5px;
+    }
+    
+    .changefreq-select {
+      width: 120px;
+      padding: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>站点地图生成器</h2>
+        <p>生成XML格式的站点地图(Sitemap)</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 生成符合Google标准的XML站点地图</p>
+          <p>• 支持设置页面优先级和更新频率</p>
+          <p>• 可添加最后修改时间</p>
+        </div>
+        
+        <div class="url-inputs">
+          <h3>添加页面URL</h3>
+          <div v-for="(url, index) in urls" :key="index" class="url-input-row">
+            <input 
+              type="url" 
+              v-model="url.loc" 
+              placeholder="https://example.com/page"
+            >
+            <select v-model="url.priority" class="priority-select">
+              <option value="1.0">1.0 (最高)</option>
+              <option value="0.9">0.9</option>
+              <option value="0.8">0.8</option>
+              <option value="0.7">0.7</option>
+              <option value="0.6">0.6</option>
+              <option value="0.5" selected>0.5 (默认)</option>
+              <option value="0.4">0.4</option>
+              <option value="0.3">0.3</option>
+              <option value="0.2">0.2</option>
+              <option value="0.1">0.1</option>
+              <option value="0.0">0.0 (最低)</option>
+            </select>
+            <select v-model="url.changefreq" class="changefreq-select">
+              <option value="always">总是</option>
+              <option value="hourly">每小时</option>
+              <option value="daily">每天</option>
+              <option value="weekly" selected>每周</option>
+              <option value="monthly">每月</option>
+              <option value="yearly">每年</option>
+              <option value="never">从不</option>
+            </select>
+            <input 
+              type="date" 
+              v-model="url.lastmod"
+              placeholder="最后修改"
+            >
+            <button @click="removeUrl(index)">删除</button>
+          </div>
+          
+          <button @click="addUrl">添加URL</button>
+        </div>
+        
+        <div class="controls">
+          <button @click="generateSitemap">生成站点地图</button>
+          <button @click="clearUrls">清空列表</button>
+          <button @click="addSampleUrls">添加示例</button>
+        </div>
+        
+        <div class="sitemap-output" v-if="generatedSitemap">
+          <div class="sitemap-tabs">
+            <div class="sitemap-tab" :class="{ active: activeTab === 'xml' }" @click="activeTab = 'xml'">
+              XML格式
+            </div>
+            <div class="sitemap-tab" :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">
+              预览
+            </div>
+          </div>
+          
+          <div class="tab-content" :class="{ active: activeTab === 'xml' }">
+            <h3>站点地图内容：</h3>
+            <pre>{{ generatedSitemap }}</pre>
+            <button @click="downloadSitemap">下载 sitemap.xml</button>
+          </div>
+          
+          <div class="tab-content" :class="{ active: activeTab === 'preview' }">
+            <h3>预览：</h3>
+            <div v-for="(url, index) in urls.filter(u => u.loc)" :key="index" class="url-preview">
+              <p><strong>URL:</strong> {{ url.loc }}</p>
+              <p><strong>优先级:</strong> {{ url.priority }} | <strong>更新频率:</strong> {{ url.changefreq }} 
+                 <span v-if="url.lastmod">| <strong>最后修改:</strong> {{ url.lastmod }}</span></p>
+              <hr>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const urls = ref([
+          { loc: '', priority: '0.5', changefreq: 'weekly', lastmod: '' }
+        ]);
+        const generatedSitemap = ref('');
+        const activeTab = ref('xml');
+
+        // 添加URL
+        const addUrl = () => {
+          urls.value.push({
+            loc: '',
+            priority: '0.5',
+            changefreq: 'weekly',
+            lastmod: ''
+          });
+        };
+
+        // 删除URL
+        const removeUrl = (index) => {
+          if (urls.value.length > 1) {
+            urls.value.splice(index, 1);
+          } else {
+            // 如果只剩一个，清空而不是删除
+            urls.value[0] = {
+              loc: '',
+              priority: '0.5',
+              changefreq: 'weekly',
+              lastmod: ''
+            };
+          }
+        };
+
+        // 清空URL列表
+        const clearUrls = () => {
+          urls.value = [{
+            loc: '',
+            priority: '0.5',
+            changefreq: 'weekly',
+            lastmod: ''
+          }];
+          generatedSitemap.value = '';
+        };
+
+        // 添加示例URL
+        const addSampleUrls = () => {
+          urls.value = [
+            {
+              loc: 'https://example.com/',
+              priority: '1.0',
+              changefreq: 'daily',
+              lastmod: new Date().toISOString().split('T')[0]
+            },
+            {
+              loc: 'https://example.com/about',
+              priority: '0.8',
+              changefreq: 'monthly',
+              lastmod: new Date().toISOString().split('T')[0]
+            },
+            {
+              loc: 'https://example.com/contact',
+              priority: '0.7',
+              changefreq: 'weekly',
+              lastmod: new Date().toISOString().split('T')[0]
+            }
+          ];
+        };
+
+        // 生成站点地图
+        const generateSitemap = () => {
+          if (!urls.value.some(url => url.loc)) {
+            alert('请至少添加一个有效的URL');
+            return;
+          }
+
+          let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+          xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+
+          urls.value.forEach(url => {
+            if (url.loc) {
+              xml += '  <url>\n';
+              xml += `    <loc>${url.loc}</loc>\n`;
+              xml += `    <priority>${url.priority}</priority>\n`;
+              xml += `    <changefreq>${url.changefreq}</changefreq>\n`;
+              
+              if (url.lastmod) {
+                xml += `    <lastmod>${url.lastmod}</lastmod>\n`;
+              }
+              
+              xml += '  </url>\n';
+            }
+          });
+
+          xml += '</urlset>';
+          generatedSitemap.value = xml;
+        };
+
+        // 下载站点地图
+        const downloadSitemap = () => {
+          if (!generatedSitemap.value) {
+            alert('请先生成站点地图');
+            return;
+          }
+
+          const blob = new Blob([generatedSitemap.value], { type: 'application/xml' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'sitemap.xml';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+
+        return {
+          urls,
+          generatedSitemap,
+          activeTab,
+          addUrl,
+          removeUrl,
+          clearUrls,
+          addSampleUrls,
+          generateSitemap,
+          downloadSitemap
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

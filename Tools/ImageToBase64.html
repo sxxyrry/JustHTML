@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片转Base64 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .image-preview {
+      max-width: 100%;
+      max-height: 300px;
+      margin: 10px 0;
+      border: 1px solid var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .controls {
+      margin: 15px 0;
+    }
+    
+    .controls button {
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>图片转Base64</h2>
+        <p>将本地图片文件转换为Base64编码，方便在网页中直接使用</p>
+        
+        <div>
+          <input 
+            type="file" 
+            accept="image/*" 
+            @change="handleFileSelect"
+            id="imageInput"
+          >
+          
+          <div class="controls" v-if="imageSrc">
+            <button @click="copyBase64">复制Base64编码</button>
+            <button @click="downloadAsFile">下载为文本文件</button>
+            <button @click="clearImage">清除</button>
+          </div>
+          
+          <img 
+            v-if="imageSrc" 
+            :src="imageSrc" 
+            alt="预览图片" 
+            class="image-preview"
+          >
+          
+          <div class="result" v-if="base64Result">
+            <p><strong>Base64编码 (点击复制):</strong></p>
+            <textarea 
+              :value="base64Result" 
+              readonly 
+              @click="selectText"
+              rows="6"
+            ></textarea>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const imageSrc = ref('');
+        const base64Result = ref('');
+        const error = ref('');
+
+        const handleFileSelect = (event) => {
+          error.value = '';
+          const file = event.target.files[0];
+          
+          if (!file) {
+            return;
+          }
+          
+          // 检查是否为图片文件
+          if (!file.type.match('image.*')) {
+            error.value = '请选择有效的图片文件 (JPEG, PNG, GIF等)';
+            return;
+          }
+          
+          // 检查文件大小（限制为5MB）
+          if (file.size > 5 * 1024 * 1024) {
+            error.value = '文件过大，请选择小于5MB的图片';
+            return;
+          }
+          
+          const reader = new FileReader();
+          
+          reader.onload = (e) => {
+            imageSrc.value = e.target.result;
+            // 移除"data:image/xxx;base64,"前缀部分，只保留Base64编码
+            base64Result.value = e.target.result.split(',')[1];
+          };
+          
+          reader.onerror = () => {
+            error.value = '读取文件时出错';
+          };
+          
+          reader.readAsDataURL(file);
+        };
+
+        const copyBase64 = () => {
+          if (base64Result.value) {
+            navigator.clipboard.writeText(base64Result.value)
+              .then(() => {
+                alert('Base64编码已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                error.value = '复制失败，请手动复制';
+              });
+          } else {
+            error.value = '没有可复制的Base64编码';
+          }
+        };
+
+        const downloadAsFile = () => {
+          if (!base64Result.value) {
+            error.value = '没有可下载的内容';
+            return;
+          }
+          
+          const blob = new Blob([base64Result.value], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'image-base64.txt';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+
+        const clearImage = () => {
+          imageSrc.value = '';
+          base64Result.value = '';
+          error.value = '';
+          document.getElementById('imageInput').value = '';
+        };
+
+        const selectText = (event) => {
+          event.target.select();
+        };
+
+        return {
+          imageSrc,
+          base64Result,
+          error,
+          handleFileSelect,
+          copyBase64,
+          downloadAsFile,
+          clearImage,
+          selectText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .format-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item select {
+      padding: 8px;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .stat-item {
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    
+    th, td {
+      border: 1px solid var(--bg-tertiary);
+      padding: 8px;
+      text-align: left;
+    }
+    
+    th {
+      background-color: var(--bg-tertiary);
+    }
+    
+    tr:nth-child(even) {
+      background-color: var(--bg-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSV转换工具</h2>
+        <p>将CSV数据转换为JSON、TSV或其他格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>• 支持CSV、TSV、JSON格式之间的相互转换</p>
+          <p>• CSV格式使用逗号分隔，支持引号包围的字段</p>
+          <p>• 转换后的数据会显示在右侧区域</p>
+        </div>
+        
+        <div class="format-options">
+          <div class="option-item">
+            <label for="inputFormat">输入格式</label>
+            <select id="inputFormat" v-model="inputFormat">
+              <option value="csv">CSV</option>
+              <option value="tsv">TSV</option>
+              <option value="json">JSON</option>
+            </select>
+          </div>
+          
+          <div class="option-item">
+            <label for="outputFormat">输出格式</label>
+            <select id="outputFormat" v-model="outputFormat">
+              <option value="csv">CSV</option>
+              <option value="tsv">TSV</option>
+              <option value="json">JSON</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>输入数据</h3>
+            <textarea 
+              v-model="inputData" 
+              placeholder="在此输入CSV、TSV或JSON数据..."
+              rows="15"
+              @input="convertData"
+            ></textarea>
+            
+            <div class="controls">
+              <button @click="loadSampleData">加载示例数据</button>
+              <button @click="clearInput">清空输入</button>
+            </div>
+          </div>
+          
+          <div class="converter-section">
+            <h3>输出数据</h3>
+            <textarea 
+              v-model="outputData" 
+              placeholder="转换后的数据将显示在此处"
+              rows="15"
+              readonly
+            ></textarea>
+            
+            <div class="controls">
+              <button @click="copyOutput" :disabled="!outputData">复制结果</button>
+              <button @click="downloadOutput" :disabled="!outputData">下载结果</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="stats-container" v-if="parsedData.length > 0">
+          <div class="stat-item">
+            <div class="stat-value">{{ parsedData.length }}</div>
+            <div class="stat-label">行数</div>
+          </div>
+          <div class="stat-item" v-if="parsedData[0]">
+            <div class="stat-value">{{ Object.keys(parsedData[0]).length }}</div>
+            <div class="stat-label">列数</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">{{ inputData.length }}</div>
+            <div class="stat-label">字符数</div>
+          </div>
+        </div>
+        
+        <div v-if="parsedData.length > 0">
+          <h3>表格预览</h3>
+          <div style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th v-for="header in headers" :key="header">{{ header }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, index) in parsedData" :key="index">
+                  <td v-for="header in headers" :key="header">{{ row[header] }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputData = ref('');
+        const outputData = ref('');
+        const inputFormat = ref('csv');
+        const outputFormat = ref('json');
+        
+        const parsedData = ref([]);
+        const headers = ref([]);
+
+        // 解析CSV数据
+        const parseCSV = (csvStr) => {
+          const lines = csvStr.split(/\r?\n/).filter(line => line.trim() !== '');
+          if (lines.length === 0) return [];
+
+          // 获取头部（第一行为列名）
+          const headerRow = lines[0].split(',');
+          const cleanHeaders = headerRow.map(h => h.trim().replace(/^"|"$/g, ''));
+          
+          headers.value = cleanHeaders;
+          const result = [];
+
+          // 处理数据行
+          for (let i = 1; i < lines.length; i++) {
+            const currentLine = lines[i].split(',');
+            const obj = {};
+            
+            for (let j = 0; j < cleanHeaders.length; j++) {
+              // 清除引号并添加到对象
+              obj[cleanHeaders[j]] = currentLine[j] ? currentLine[j].trim().replace(/^"|"$/g, '') : '';
+            }
+            
+            result.push(obj);
+          }
+
+          return result;
+        };
+
+        // 解析TSV数据
+        const parseTSV = (tsvStr) => {
+          const lines = tsvStr.split(/\r?\n/).filter(line => line.trim() !== '');
+          if (lines.length === 0) return [];
+
+          // 获取头部（第一行为列名）
+          const headerRow = lines[0].split('\t');
+          const cleanHeaders = headerRow.map(h => h.trim());
+          
+          headers.value = cleanHeaders;
+          const result = [];
+
+          // 处理数据行
+          for (let i = 1; i < lines.length; i++) {
+            const currentLine = lines[i].split('\t');
+            const obj = {};
+            
+            for (let j = 0; j < cleanHeaders.length; j++) {
+              obj[cleanHeaders[j]] = currentLine[j] ? currentLine[j].trim() : '';
+            }
+            
+            result.push(obj);
+          }
+
+          return result;
+        };
+
+        // 解析JSON数据
+        const parseJSON = (jsonStr) => {
+          try {
+            const data = JSON.parse(jsonStr);
+            if (Array.isArray(data) && data.length > 0) {
+              headers.value = Object.keys(data[0]);
+              return data;
+            }
+            return [];
+          } catch (e) {
+            console.error("Invalid JSON:", e);
+            return [];
+          }
+        };
+
+        // 将数据转换为CSV
+        const toCSV = (data) => {
+          if (data.length === 0) return '';
+
+          const headers = Object.keys(data[0]);
+          const csvRows = [];
+
+          // 添加头部
+          csvRows.push(headers.join(','));
+
+          // 添加数据行
+          for (const row of data) {
+            const values = headers.map(header => {
+              const escaped = ('' + row[header]).replace(/"/g, '""'); // Escape double quotes
+              return `"${escaped}"`;
+            });
+            csvRows.push(values.join(','));
+          }
+
+          return csvRows.join('\n');
+        };
+
+        // 将数据转换为TSV
+        const toTSV = (data) => {
+          if (data.length === 0) return '';
+
+          const headers = Object.keys(data[0]);
+          const tsvRows = [];
+
+          // 添加头部
+          tsvRows.push(headers.join('\t'));
+
+          // 添加数据行
+          for (const row of data) {
+            const values = headers.map(header => {
+              return String(row[header]).replace(/\t/g, ' '); // Replace tabs with spaces
+            });
+            tsvRows.push(values.join('\t'));
+          }
+
+          return tsvRows.join('\n');
+        };
+
+        // 将数据转换为JSON
+        const toJSON = (data) => {
+          return JSON.stringify(data, null, 2);
+        };
+
+        const convertData = () => {
+          if (!inputData.value.trim()) {
+            outputData.value = '';
+            parsedData.value = [];
+            return;
+          }
+
+          let data = [];
+
+          // 解析输入数据
+          if (inputFormat.value === 'csv') {
+            data = parseCSV(inputData.value);
+          } else if (inputFormat.value === 'tsv') {
+            data = parseTSV(inputData.value);
+          } else if (inputFormat.value === 'json') {
+            data = parseJSON(inputData.value);
+          }
+
+          parsedData.value = data;
+
+          // 转换为输出格式
+          if (outputFormat.value === 'csv') {
+            outputData.value = toCSV(data);
+          } else if (outputFormat.value === 'tsv') {
+            outputData.value = toTSV(data);
+          } else if (outputFormat.value === 'json') {
+            outputData.value = toJSON(data);
+          }
+        };
+
+        const copyOutput = () => {
+          navigator.clipboard.writeText(outputData.value)
+            .then(() => alert('已复制到剪贴板'))
+            .catch(err => console.error('复制失败:', err));
+        };
+
+        const downloadOutput = () => {
+          const blob = new Blob([outputData.value], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `converted_data.${outputFormat.value}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+
+        const loadSampleData = () => {
+          inputData.value = `姓名,年龄,城市\n张三,25,北京\n李四,30,上海\n王五,28,广州`;
+          setTimeout(convertData, 100); // 延迟执行转换
+        };
+
+        const clearInput = () => {
+          inputData.value = '';
+          outputData.value = '';
+          parsedData.value = [];
+          headers.value = [];
+        };
+
+        return {
+          inputData,
+          outputData,
+          inputFormat,
+          outputFormat,
+          parsedData,
+          headers,
+          convertData,
+          copyOutput,
+          downloadOutput,
+          loadSampleData,
+          clearInput
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

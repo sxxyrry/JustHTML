@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS转Tailwind工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .conversion-info {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+    }
+    
+    .conversion-item {
+      margin: 8px 0;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--bg-primary);
+    }
+    
+    .mapping {
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .css-prop {
+      color: #ff6b6b;
+      font-family: monospace;
+    }
+    
+    .tailwind-class {
+      color: #51cf66;
+      font-family: monospace;
+    }
+    
+    .preview-container {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>CSS转Tailwind工具</h2>
+        <p>将CSS样式转换为相应的Tailwind CSS类名</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 将常见的CSS样式转换为Tailwind类名</p>
+          <p>• 支持布局、间距、颜色、文本等常用样式转换</p>
+          <p>• 保留无法转换的自定义样式</p>
+        </div>
+        
+        <div class="conversion-info">
+          <h3>支持的转换映射</h3>
+          <div class="conversion-item">
+            <div class="mapping">
+              <span class="css-prop">margin: 10px;</span> → <span class="tailwind-class">m-[10px]</span>
+            </div>
+            <div class="mapping">
+              <span class="css-prop">padding: 20px;</span> → <span class="tailwind-class">p-[20px]</span>
+            </div>
+            <div class="mapping">
+              <span class="css-prop">display: flex;</span> → <span class="tailwind-class">flex</span>
+            </div>
+            <div class="mapping">
+              <span class="css-prop">text-align: center;</span> → <span class="tailwind-class">text-center</span>
+            </div>
+            <div class="mapping">
+              <span class="css-prop">background-color: red;</span> → <span class="tailwind-class">bg-red-500</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始CSS</h3>
+            <textarea 
+              v-model="inputCss" 
+              placeholder="在此输入CSS代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>转换后的HTML</h3>
+            <textarea 
+              v-model="convertedHtml" 
+              placeholder="转换后的HTML（带Tailwind类）将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertCssToTailwind">转换为Tailwind</button>
+          <button @click="clearAll">清空</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="resultMessage">
+          {{ resultMessage }}
+        </div>
+        
+        <div class="preview-container" v-if="previewHtml">
+          <h3>实时预览</h3>
+          <div v-html="previewHtml"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputCss = ref('');
+        const convertedHtml = ref('');
+        const resultMessage = ref('');
+        const previewHtml = ref('');
+        
+        // CSS到Tailwind类的映射
+        const cssToTailwindMap = {
+          'display': {
+            'flex': 'flex',
+            'inline-flex': 'inline-flex',
+            'block': 'block',
+            'inline': 'inline',
+            'inline-block': 'inline-block',
+            'none': 'hidden'
+          },
+          'text-align': {
+            'center': 'text-center',
+            'left': 'text-left',
+            'right': 'text-right',
+            'justify': 'text-justify'
+          },
+          'font-weight': {
+            'bold': 'font-bold',
+            'normal': 'font-normal',
+            '100': 'font-thin',
+            '200': 'font-extralight',
+            '300': 'font-light',
+            '400': 'font-normal',
+            '500': 'font-medium',
+            '600': 'font-semibold',
+            '700': 'font-bold',
+            '800': 'font-extrabold',
+            '900': 'font-black'
+          },
+          'text-transform': {
+            'uppercase': 'uppercase',
+            'lowercase': 'lowercase',
+            'capitalize': 'capitalize'
+          },
+          'text-decoration': {
+            'underline': 'underline',
+            'none': 'no-underline',
+            'line-through': 'line-through'
+          },
+          'font-style': {
+            'italic': 'italic',
+            'normal': 'not-italic'
+          },
+          'vertical-align': {
+            'top': 'align-top',
+            'middle': 'align-middle',
+            'bottom': 'align-bottom',
+            'baseline': 'align-baseline'
+          },
+          'align-items': {
+            'center': 'items-center',
+            'flex-start': 'items-start',
+            'flex-end': 'items-end',
+            'stretch': 'items-stretch',
+            'baseline': 'items-baseline'
+          },
+          'justify-content': {
+            'center': 'justify-center',
+            'flex-start': 'justify-start',
+            'flex-end': 'justify-end',
+            'space-between': 'justify-between',
+            'space-around': 'justify-around',
+            'space-evenly': 'justify-evenly'
+          }
+        };
+        
+        // 转换CSS到Tailwind
+        const convertCssToTailwind = () => {
+          if (!inputCss.value.trim()) {
+            convertedHtml.value = '';
+            resultMessage.value = '请输入CSS代码';
+            return;
+          }
+          
+          try {
+            // 解析CSS
+            const parsedRules = parseCss(inputCss.value);
+            
+            // 转换每个规则
+            let htmlOutput = '';
+            let cssClasses = {};
+            
+            for (const rule of parsedRules) {
+              if (rule.type === 'rule') {
+                const selector = rule.selector;
+                const tailwindClasses = [];
+                
+                // 遍历声明
+                for (const decl of rule.declarations) {
+                  const prop = decl.property;
+                  const value = decl.value;
+                  
+                  // 检查是否在映射中
+                  if (cssToTailwindMap[prop] && cssToTailwindMap[prop][value]) {
+                    tailwindClasses.push(cssToTailwindMap[prop][value]);
+                  } else {
+                    // 尝试处理通用映射
+                    const twClass = mapGenericProperty(prop, value);
+                    if (twClass) {
+                      tailwindClasses.push(twClass);
+                    } else {
+                      console.warn(`未找到 ${prop}: ${value} 的Tailwind映射`);
+                    }
+                  }
+                }
+                
+                // 创建HTML元素
+                let tagName = 'div';
+                if (selector.startsWith('.')) {
+                  tagName = 'div';
+                } else if (selector.startsWith('#')) {
+                  tagName = 'div';
+                } else {
+                  tagName = selector;
+                }
+                
+                const className = tailwindClasses.join(' ');
+                
+                htmlOutput += `<${tagName} class="${className}">
+  <!-- 内容 -->
+</${tagName}>
+`;
+                
+                // 更新CSS类映射
+                cssClasses[selector] = className;
+              }
+            }
+            
+            convertedHtml.value = htmlOutput;
+            
+            if (!htmlOutput) {
+              resultMessage.value = '未能转换CSS规则，请检查格式';
+            } else {
+              resultMessage.value = '转换完成！';
+              // 生成预览
+              previewHtml.value = htmlOutput;
+            }
+          } catch (error) {
+            resultMessage.value = `转换失败: ${error.message}`;
+          }
+        };
+        
+        // 通用属性映射
+        const mapGenericProperty = (property, value) => {
+          // 处理边距和填充
+          if (property.startsWith('margin') || property.startsWith('padding')) {
+            const prefix = property.startsWith('margin') ? 'm' : 'p';
+            
+            // 处理方向后缀
+            let suffix = '';
+            switch(property) {
+              case 'margin-top':
+              case 'padding-top':
+                suffix = 't';
+                break;
+              case 'margin-right':
+              case 'padding-right':
+                suffix = 'r';
+                break;
+              case 'margin-bottom':
+              case 'padding-bottom':
+                suffix = 'b';
+                break;
+              case 'margin-left':
+              case 'padding-left':
+                suffix = 'l';
+                break;
+              default:
+                // 检查是否是简写形式
+                if (property === 'margin' || property === 'padding') {
+                  // 简单处理，实际需要更复杂的逻辑
+                  return `${prefix}-${convertToTailwindSpacing(value)}`;
+                }
+            }
+            
+            return `${prefix}${suffix}-${convertToTailwindSpacing(value)}`;
+          }
+          
+          // 处理宽度和高度
+          if (property === 'width' || property === 'height') {
+            const prefix = property === 'width' ? 'w' : 'h';
+            return `${prefix}-${convertToTailwindDimension(value)}`;
+          }
+          
+          // 处理颜色
+          if (property.includes('color')) {
+            return convertColorToTailwind(property, value);
+          }
+          
+          // 处理背景色
+          if (property === 'background-color') {
+            return `bg-${convertColorToTailwind(property, value)}`;
+          }
+          
+          // 处理字体大小
+          if (property === 'font-size') {
+            return `text-${convertFontSize(value)}`;
+          }
+          
+          // 未知属性，返回自定义类
+          return `[${property}:${value}]`;
+        };
+        
+        // 转换边距/填充值到Tailwind
+        const convertToTailwindSpacing = (value) => {
+          // 简化处理，实际需要更精确的映射
+          if (value === '0') return '0';
+          if (value === '0.25rem') return '1';  // 4px
+          if (value === '0.5rem') return '2';   // 8px
+          if (value === '1rem') return '4';     // 16px
+          if (value === '1.5rem') return '6';   // 24px
+          if (value === '2rem') return '8';     // 32px
+          if (value === '2.5rem') return '10';  // 40px
+          
+          // 如果是像素值，尝试转换
+          if (value.endsWith('px')) {
+            const pxValue = parseInt(value);
+            const remValue = pxValue / 4; // Tailwind使用4px为一个单位
+            return remValue.toString();
+          }
+          
+          // 其他情况返回自定义值
+          return `[${value}]`;
+        };
+        
+        // 转换尺寸值到Tailwind
+        const convertToTailwindDimension = (value) => {
+          if (value === '100%') return 'full';
+          if (value === '50%') return '1/2';
+          if (value === '25%') return '1/4';
+          if (value === '75%') return '3/4';
+          if (value === '33.33%') return '1/3';
+          if (value === '66.66%') return '2/3';
+          
+          if (value.endsWith('px')) {
+            const pxValue = parseInt(value);
+            return `[${pxValue}px]`;
+          }
+          
+          return `[${value}]`;
+        };
+        
+        // 转换颜色到Tailwind
+        const convertColorToTailwind = (property, value) => {
+          // 简单的颜色映射
+          const colorMap = {
+            'red': 'red-500',
+            'blue': 'blue-500',
+            'green': 'green-500',
+            'yellow': 'yellow-500',
+            'purple': 'purple-500',
+            'pink': 'pink-500',
+            'indigo': 'indigo-500',
+            'orange': 'orange-500',
+            'gray': 'gray-500',
+            'black': 'black',
+            'white': 'white'
+          };
+          
+          if (colorMap[value]) {
+            return colorMap[value];
+          }
+          
+          // 处理十六进制颜色
+          if (value.startsWith('#')) {
+            return `[${value}]`;
+          }
+          
+          // 其他情况返回自定义值
+          return `[${value.replace(/\s+/g, '_')}]`;
+        };
+        
+        // 转换字体大小
+        const convertFontSize = (value) => {
+          if (value === '1rem') return 'base';
+          if (value === '0.875rem') return 'sm';
+          if (value === '1.125rem') return 'lg';
+          if (value === '1.25rem') return 'xl';
+          
+          if (value.endsWith('px')) {
+            const pxValue = parseInt(value);
+            return `[${pxValue}px]`;
+          }
+          
+          return `[${value}]`;
+        };
+        
+        // 简单的CSS解析器
+        const parseCss = (cssText) => {
+          const rules = [];
+          // 移除注释
+          cssText = cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+          
+          // 匹配规则
+          const ruleRegex = /([^{]+)\{([^}]*)\}/g;
+          let match;
+          
+          while ((match = ruleRegex.exec(cssText)) !== null) {
+            const selector = match[1].trim();
+            const declarationsText = match[2].trim();
+            
+            const declarations = [];
+            const declRegex = /([\w\-]+)\s*:\s*([^;]+);?/g;
+            let declMatch;
+            
+            while ((declMatch = declRegex.exec(declarationsText)) !== null) {
+              const property = declMatch[1].trim();
+              const value = declMatch[2].trim();
+              declarations.push({ property, value });
+            }
+            
+            rules.push({
+              type: 'rule',
+              selector,
+              declarations
+            });
+          }
+          
+          return rules;
+        };
+        
+        // 清空所有内容
+        const clearAll = () => {
+          inputCss.value = '';
+          convertedHtml.value = '';
+          previewHtml.value = '';
+          resultMessage.value = '';
+        };
+        
+        // 复制结果到剪贴板
+        const copyResult = async () => {
+          if (!convertedHtml.value) {
+            resultMessage.value = '没有可复制的内容';
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(convertedHtml.value);
+            resultMessage.value = '已复制到剪贴板';
+          } catch (error) {
+            resultMessage.value = '复制失败，请手动复制';
+          }
+        };
+        
+        // 加载示例
+        const loadExample = () => {
+          inputCss.value = `.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  margin: 2rem;
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+  width: 20rem;
+  height: 12rem;
+  font-size: 1.125rem;
+  text-align: center;
+}`;
+          convertCssToTailwind(); // 自动转换示例
+        };
+        
+        return {
+          inputCss,
+          convertedHtml,
+          resultMessage,
+          previewHtml,
+          convertCssToTailwind,
+          clearAll,
+          copyResult,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

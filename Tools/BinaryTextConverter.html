@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>二进制转文本 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>二进制转文本</h2>
+        <p>将二进制数据转换为可读文本</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>• 输入格式可以是二进制数字串（如：0100100001100101011011000110110001101111）</p>
+          <p>• 或带空格分隔的二进制（如：01001000 01100101 01101100 01101100 01101111）</p>
+          <p>• 每个字节（8位）代表一个字符</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputBinary" 
+            placeholder="在此输入二进制数据（如：0100100001100101011011000110110001101111 或 01001000 01100101 01101100 01101100 01101111）..."
+            rows="8"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="binaryToText">二进制转文本</button>
+            <button @click="textToBinary">文本转二进制</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>转换结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputBinary = ref('');
+        const result = ref('');
+
+        // 二进制转文本
+        const binaryToText = () => {
+          if (!inputBinary.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 移除多余的空格并分割二进制序列
+            let binaryStr = inputBinary.value.replace(/\s+/g, '');
+            
+            // 验证输入是否只包含0和1
+            if (!/^[01\s]+$/.test(inputBinary.value)) {
+              throw new Error('输入包含非二进制字符');
+            }
+
+            let text = '';
+            
+            // 每8位二进制转换为一个字符
+            for (let i = 0; i < binaryStr.length; i += 8) {
+              const byte = binaryStr.substr(i, 8);
+              
+              // 检查是否为完整的8位
+              if (byte.length < 8) {
+                console.warn(`不完整的字节: ${byte}, 忽略`);
+                continue;
+              }
+              
+              // 将二进制转换为十进制，然后转换为字符
+              const charCode = parseInt(byte, 2);
+              text += String.fromCharCode(charCode);
+            }
+            
+            result.value = text;
+          } catch (error) {
+            result.value = `错误: ${error.message}`;
+          }
+        };
+
+        // 文本转二进制
+        const textToBinary = () => {
+          if (!inputBinary.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            let binary = '';
+            
+            for (let i = 0; i < inputBinary.value.length; i++) {
+              const charCode = inputBinary.value.charCodeAt(i);
+              const binaryChar = charCode.toString(2).padStart(8, '0');
+              binary += binaryChar;
+            }
+            
+            result.value = binary;
+          } catch (error) {
+            result.value = `错误: ${error.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputBinary.value = '';
+          result.value = '';
+        };
+
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputBinary,
+          result,
+          binaryToText,
+          textToBinary,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>行号添加器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .numbering-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .preview {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin-top: 15px;
+      white-space: pre;
+      font-family: 'Courier New', monospace;
+      overflow-x: auto;
+    }
+    
+    .line-number {
+      color: var(--text-secondary);
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>行号添加器</h2>
+        <p>为文本的每一行添加行号</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 为文本的每一行添加数字编号</p>
+          <p>• 支持自定义起始编号和编号格式</p>
+          <p>• 可选择行号位置和对齐方式</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要添加行号的文本..."
+            rows="12"
+          ></textarea>
+          
+          <div class="numbering-options">
+            <div class="option-item">
+              <label for="startingNumber">起始编号</label>
+              <input 
+                type="number" 
+                id="startingNumber" 
+                v-model.number="startingNumber" 
+                min="1"
+                placeholder="起始编号"
+              >
+            </div>
+            
+            <div class="option-item">
+              <label for="numberFormat">编号格式</label>
+              <select id="numberFormat" v-model="numberFormat">
+                <option value="decimal">十进制 (1, 2, 3...)</option>
+                <option value="zero-padded">零填充 (001, 002, 003...)</option>
+                <option value="hexadecimal">十六进制 (1, 2, 3..., A, B...)</option>
+                <option value="roman">罗马数字 (I, II, III...)</option>
+              </select>
+            </div>
+            
+            <div class="option-item">
+              <label for="prefix">行号前缀</label>
+              <input 
+                type="text" 
+                id="prefix" 
+                v-model="prefix" 
+                placeholder="例如: '第' 或 'Line '"
+              >
+            </div>
+            
+            <div class="option-item">
+              <label for="suffix">行号后缀</label>
+              <input 
+                type="text" 
+                id="suffix" 
+                v-model="suffix" 
+                placeholder="例如: '.' 或 ')'"
+              >
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="addLineNumbers">添加行号</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>添加行号后的文本：</h3>
+            <div class="preview"><pre>{{ result }}</pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, watch } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const startingNumber = ref(1);
+        const numberFormat = ref('decimal');
+        const prefix = ref('');
+        const suffix = ref('.');
+
+        // 将数字转换为零填充格式
+        const padNumber = (num, width = 3) => {
+          return num.toString().padStart(width, '0');
+        };
+
+        // 将数字转换为十六进制
+        const toHex = (num) => {
+          return num.toString(16).toUpperCase();
+        };
+
+        // 将数字转换为罗马数字
+        const toRoman = (num) => {
+          if (num < 1 || num > 3999) return num.toString();
+          
+          const romanNumerals = [
+            { value: 1000, numeral: 'M' },
+            { value: 900, numeral: 'CM' },
+            { value: 500, numeral: 'D' },
+            { value: 400, numeral: 'CD' },
+            { value: 100, numeral: 'C' },
+            { value: 90, numeral: 'XC' },
+            { value: 50, numeral: 'L' },
+            { value: 40, numeral: 'XL' },
+            { value: 10, numeral: 'X' },
+            { value: 9, numeral: 'IX' },
+            { value: 5, numeral: 'V' },
+            { value: 4, numeral: 'IV' },
+            { value: 1, numeral: 'I' }
+          ];
+          
+          let roman = '';
+          for (const { value, numeral } of romanNumerals) {
+            while (num >= value) {
+              roman += numeral;
+              num -= value;
+            }
+          }
+          return roman;
+        };
+
+        const addLineNumbers = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          const lines = inputText.value.split('\n');
+          const numberedLines = [];
+
+          lines.forEach((line, index) => {
+            let lineNumber = startingNumber.value + index;
+            let formattedNumber;
+
+            switch(numberFormat.value) {
+              case 'zero-padded':
+                formattedNumber = padNumber(lineNumber);
+                break;
+              case 'hexadecimal':
+                formattedNumber = toHex(lineNumber);
+                break;
+              case 'roman':
+                formattedNumber = toRoman(lineNumber);
+                break;
+              default: // decimal
+                formattedNumber = lineNumber.toString();
+            }
+
+            const linePrefix = prefix.value || '';
+            const lineSuffix = suffix.value || '.';
+            
+            numberedLines.push(`${linePrefix}${formattedNumber}${lineSuffix} ${line}`);
+          });
+
+          result.value = numberedLines.join('\n');
+        };
+
+        // 当参数变化时自动重新添加行号
+        watch([startingNumber, numberFormat, prefix, suffix], () => {
+          if (inputText.value) {
+            addLineNumbers();
+          }
+        });
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          startingNumber,
+          numberFormat,
+          prefix,
+          suffix,
+          addLineNumbers,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

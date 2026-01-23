@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图片压缩工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .compressor-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+    
+    .image-preview {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    
+    .image-container {
+      flex: 1;
+      min-width: 300px;
+      text-align: center;
+    }
+    
+    .image-container img {
+      max-width: 100%;
+      max-height: 300px;
+      object-fit: contain;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+    }
+    
+    .image-info {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .progress-container {
+      margin: 15px 0;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      height: 20px;
+    }
+    
+    .progress-bar {
+      height: 100%;
+      background-color: var(--accent-color);
+      border-radius: var(--border-radius);
+      width: 0%;
+      transition: width 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>图片压缩工具</h2>
+        <p>在线压缩图片大小</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 支持JPG、PNG、WEBP等格式图片压缩</p>
+          <p>• 可调节压缩质量</p>
+          <p>• 压缩过程在浏览器本地完成，保护隐私</p>
+        </div>
+        
+        <div class="controls">
+          <input type="file" id="imageInput" @change="handleImageUpload" accept="image/*">
+        </div>
+        
+        <div class="compressor-options">
+          <div class="option-item">
+            <label for="quality">压缩质量 (1-100)</label>
+            <input 
+              type="range" 
+              id="quality" 
+              v-model.number="quality" 
+              min="1" 
+              max="100" 
+              @input="compressImage"
+            >
+            <span>{{ quality }}%</span>
+          </div>
+          
+          <div class="option-item">
+            <label for="format">输出格式</label>
+            <select id="format" v-model="format" @change="compressImage">
+              <option value="jpeg">JPEG</option>
+              <option value="png">PNG</option>
+              <option value="webp">WEBP</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="progress-container" v-if="showProgress">
+          <div class="progress-bar" :style="{ width: progress + '%' }"></div>
+        </div>
+        
+        <div class="image-preview" v-if="originalImageSrc">
+          <div class="image-container">
+            <h3>原始图片</h3>
+            <img :src="originalImageSrc" alt="Original Image">
+            <div class="image-info">
+              <p>尺寸: {{ originalWidth }} × {{ originalHeight }}</p>
+              <p>大小: {{ originalSize }} KB</p>
+            </div>
+          </div>
+          
+          <div class="image-container">
+            <h3>压缩后图片</h3>
+            <img :src="compressedImageSrc" alt="Compressed Image" v-if="compressedImageSrc">
+            <p v-else>等待压缩...</p>
+            <div class="image-info">
+              <p v-if="compressedImageInfo">
+                尺寸: {{ compressedImageInfo.width }} × {{ compressedImageInfo.height }}
+              </p>
+              <p v-if="compressedImageInfo">
+                大小: {{ compressedImageInfo.size }} KB
+              </p>
+              <p v-if="compressionRatio">
+                压缩率: {{ compressionRatio }}%
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="controls" v-if="compressedImageSrc">
+          <button @click="downloadCompressedImage">下载压缩图片</button>
+          <button @click="reset">重新选择图片</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const originalImageSrc = ref('');
+        const compressedImageSrc = ref('');
+        const quality = ref(80);
+        const format = ref('jpeg');
+        const originalWidth = ref(0);
+        const originalHeight = ref(0);
+        const originalSize = ref(0);
+        const compressedImageInfo = ref(null);
+        const compressionRatio = ref(0);
+        const showProgress = ref(false);
+        const progress = ref(0);
+        
+        const handleImageUpload = (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+          
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            originalImageSrc.value = e.target.result;
+            originalSize.value = Math.round(file.size / 1024);
+            
+            // 创建图片对象以获取尺寸
+            const img = new Image();
+            img.onload = () => {
+              originalWidth.value = img.width;
+              originalHeight.value = img.height;
+              compressImage();
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        };
+        
+        const compressImage = () => {
+          if (!originalImageSrc.value) return;
+          
+          showProgress.value = true;
+          progress.value = 0;
+          
+          // 模拟压缩进度
+          const interval = setInterval(() => {
+            if (progress.value < 90) {
+              progress.value += 10;
+            }
+          }, 100);
+          
+          // 使用Canvas进行压缩
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            ctx.drawImage(img, 0, 0);
+            
+            // 确定输出格式的MIME类型
+            let mimeType = 'image/jpeg';
+            if (format.value === 'png') {
+              mimeType = 'image/png';
+            } else if (format.value === 'webp') {
+              mimeType = 'image/webp';
+            }
+            
+            // 质量值从百分比转换为0-1之间的值
+            const qualityValue = quality.value / 100;
+            
+            // 以指定格式和质量导出图片
+            canvas.toBlob(
+              blob => {
+                clearInterval(interval);
+                progress.value = 100;
+                
+                setTimeout(() => {
+                  showProgress.value = false;
+                }, 500);
+                
+                compressedImageSrc.value = URL.createObjectURL(blob);
+                
+                // 计算压缩后图片信息
+                const compressedSize = Math.round(blob.size / 1024);
+                compressedImageInfo.value = {
+                  width: img.width,
+                  height: img.height,
+                  size: compressedSize
+                };
+                
+                // 计算压缩率
+                compressionRatio.value = Math.round(
+                  ((originalSize.value - compressedSize) / originalSize.value) * 100
+                );
+              },
+              mimeType,
+              qualityValue
+            );
+          };
+          img.src = originalImageSrc.value;
+        };
+        
+        const downloadCompressedImage = () => {
+          if (!compressedImageSrc.value) return;
+          
+          const a = document.createElement('a');
+          a.href = compressedImageSrc.value;
+          a.download = `compressed-image-${Date.now()}.${format.value}`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        };
+        
+        const reset = () => {
+          originalImageSrc.value = '';
+          compressedImageSrc.value = '';
+          compressedImageInfo.value = null;
+          compressionRatio.value = 0;
+          document.getElementById('imageInput').value = '';
+        };
+        
+        return {
+          originalImageSrc,
+          compressedImageSrc,
+          quality,
+          format,
+          originalWidth,
+          originalHeight,
+          originalSize,
+          compressedImageInfo,
+          compressionRatio,
+          showProgress,
+          progress,
+          handleImageUpload,
+          compressImage,
+          downloadCompressedImage,
+          reset
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

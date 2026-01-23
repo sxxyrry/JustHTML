@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emoji清理器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .stat-item {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .emoji-list {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Emoji清理器</h2>
+        <p>从文本中移除或处理Emoji表情符号</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 移除所有Emoji表情符号</p>
+          <p>• 替换Emoji为指定文本</p>
+          <p>• 提取所有Emoji表情符号</p>
+          <p>• 统计文本中的Emoji数量</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入包含Emoji的文本..."
+            rows="10"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="removeEmojis">移除Emoji</button>
+            <button @click="replaceEmojis">替换Emoji</button>
+            <button @click="extractEmojis">提取Emoji</button>
+            <button @click="analyzeEmojis">分析Emoji</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>处理结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+          
+          <div class="emoji-list" v-if="foundEmojis.length > 0">
+            <h3>找到的Emoji：</h3>
+            <p>{{ foundEmojis.join(' ') }}</p>
+          </div>
+          
+          <div class="stats" v-if="emojiStats">
+            <div class="stat-item">
+              <div class="stat-value">{{ emojiStats.count }}</div>
+              <div class="stat-label">Emoji总数</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ emojiStats.uniqueCount }}</div>
+              <div class="stat-label">唯一Emoji数</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ emojiStats.charsRemoved }}</div>
+              <div class="stat-label">字符减少数</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const foundEmojis = ref([]);
+        const emojiStats = ref(null);
+
+        // 正则表达式匹配各种类型的Emoji
+        const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{27FF}]|[\u{2300}-\u{23FF}]/gu;
+
+        const removeEmojis = () => {
+          if (!inputText.value) {
+            result.value = '';
+            foundEmojis.value = [];
+            emojiStats.value = null;
+            return;
+          }
+
+          // 找到所有Emoji
+          const matches = inputText.value.match(emojiRegex) || [];
+          foundEmojis.value = [...new Set(matches)]; // 去重
+
+          // 移除所有Emoji
+          const cleanedText = inputText.value.replace(emojiRegex, '');
+          result.value = cleanedText;
+
+          // 计算统计数据
+          calculateStats(matches, inputText.value.length - cleanedText.length);
+        };
+
+        const replaceEmojis = () => {
+          if (!inputText.value) {
+            result.value = '';
+            foundEmojis.value = [];
+            emojiStats.value = null;
+            return;
+          }
+
+          // 找到所有Emoji
+          const matches = inputText.value.match(emojiRegex) || [];
+          foundEmojis.value = [...new Set(matches)]; // 去重
+
+          // 替换所有Emoji为[EMOJI]占位符
+          const replacedText = inputText.value.replace(emojiRegex, '[EMOJI]');
+          result.value = replacedText;
+
+          // 计算统计数据
+          calculateStats(matches, inputText.value.length - replacedText.length + (matches.length * 7)); // 7是'[EMOJI]'的长度
+        };
+
+        const extractEmojis = () => {
+          if (!inputText.value) {
+            result.value = '';
+            foundEmojis.value = [];
+            emojiStats.value = null;
+            return;
+          }
+
+          // 找到所有Emoji
+          const matches = inputText.value.match(emojiRegex) || [];
+          foundEmojis.value = [...new Set(matches)]; // 去重
+          result.value = matches.join(' ');
+
+          // 计算统计数据
+          calculateStats(matches, inputText.value.length - result.value.length);
+        };
+
+        const analyzeEmojis = () => {
+          if (!inputText.value) {
+            result.value = '';
+            foundEmojis.value = [];
+            emojiStats.value = null;
+            return;
+          }
+
+          // 找到所有Emoji
+          const matches = inputText.value.match(emojiRegex) || [];
+          foundEmojis.value = [...new Set(matches)]; // 去重
+
+          // 创建一个统计对象
+          const emojiCount = {};
+          matches.forEach(emoji => {
+            emojiCount[emoji] = (emojiCount[emoji] || 0) + 1;
+          });
+
+          // 生成分析报告
+          let analysis = "Emoji分析报告:\n";
+          Object.entries(emojiCount).forEach(([emoji, count]) => {
+            analysis += `${emoji}: ${count}次\n`;
+          });
+
+          result.value = analysis;
+
+          // 计算统计数据
+          calculateStats(matches, inputText.value.length - analysis.length);
+        };
+
+        const calculateStats = (emojis, charsRemoved) => {
+          emojiStats.value = {
+            count: emojis.length,
+            uniqueCount: [...new Set(emojis)].length,
+            charsRemoved: charsRemoved
+          };
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          foundEmojis.value = [];
+          emojiStats.value = null;
+        };
+
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          foundEmojis,
+          emojiStats,
+          removeEmojis,
+          replaceEmojis,
+          extractEmojis,
+          analyzeEmojis,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

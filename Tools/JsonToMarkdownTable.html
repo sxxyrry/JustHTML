@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON转Markdown表格 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON转Markdown表格</h2>
+        <p>将JSON数据转换为Markdown表格格式</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>输入JSON数组格式的数据，每项包含相同或相似的字段，将被转换为Markdown表格</p>
+          <p>示例: [{"name": "张三", "age": 25}, {"name": "李四", "age": 30}]</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder='在此输入JSON数据，例如: [{"name": "张三", "age": 25}, {"name": "李四", "age": 30}]'
+            rows="12"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertToMarkdownTable">转换为Markdown表格</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+
+        const convertToMarkdownTable = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            // 解析JSON
+            const jsonData = JSON.parse(inputText.value);
+            
+            // 确保数据是数组
+            if (!Array.isArray(jsonData)) {
+              // 如果不是数组但是个对象，转换为单元素数组
+              if (typeof jsonData === 'object' && jsonData !== null) {
+                // 将单个对象包装在数组中
+                // 这样可以处理单个对象的情况
+              } else {
+                throw new Error('JSON数据必须是数组或对象');
+              }
+            }
+            
+            // 如果是单个对象，转换为数组
+            const dataArray = Array.isArray(jsonData) ? jsonData : [jsonData];
+            
+            if (dataArray.length === 0) {
+              result.value = '| 无数据 |\n| --- |\n| 表格为空 |';
+              return;
+            }
+            
+            // 获取所有唯一的键
+            const allKeys = new Set();
+            dataArray.forEach(item => {
+              if (typeof item === 'object' && item !== null) {
+                Object.keys(item).forEach(key => allKeys.add(key));
+              }
+            });
+            
+            const keys = Array.from(allKeys);
+            
+            if (keys.length === 0) {
+              result.value = '| 无数据 |\n| --- |\n| 对象不包含任何属性 |';
+              return;
+            }
+            
+            // 创建表头
+            let table = '| ' + keys.join(' | ') + ' |\n';
+            
+            // 创建分隔行
+            table += '|' + keys.map(() => ' --- ').join('|') + '|\n';
+            
+            // 创建数据行
+            dataArray.forEach(item => {
+              if (typeof item === 'object' && item !== null) {
+                const row = keys.map(key => {
+                  const value = item[key] !== undefined ? item[key] : '';
+                  // 转义管道符并确保值是字符串
+                  return String(value).replace(/\|/g, '\\|');
+                });
+                table += '| ' + row.join(' | ') + ' |\n';
+              } else {
+                // 如果数组项不是对象而是基本类型
+                const row = keys.map((_, index) => index === 0 ? String(item) : '');
+                table += '| ' + row.join(' | ') + ' |\n';
+              }
+            });
+            
+            result.value = table;
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            JSON.parse(inputText.value);
+            result.value = '✓ JSON格式有效';
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          convertToMarkdownTable,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

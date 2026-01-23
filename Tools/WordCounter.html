@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>单词计数器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .counter-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .stat-card {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 2em;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin: 10px 0;
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .analysis-details {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .detail-item {
+      margin: 10px 0;
+      padding: 8px;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+    }
+    
+    .lang-selector {
+      margin: 15px 0;
+    }
+    
+    .lang-selector label {
+      display: inline-block;
+      margin-right: 10px;
+      color: var(--accent-color);
+    }
+    
+    .lang-selector select {
+      padding: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>单词计数器</h2>
+        <p>统计文本中的字符、单词、行数等信息</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 统计字符数（含/不含空格）</p>
+          <p>• 统计单词数、行数</p>
+          <p>• 统计段落数、句子数</p>
+          <p>• 支持中文和英文文本统计</p>
+        </div>
+        
+        <div class="lang-selector">
+          <label for="language">文本类型</label>
+          <select id="language" v-model="language" @change="analyzeText">
+            <option value="auto">自动检测</option>
+            <option value="english">英文</option>
+            <option value="chinese">中文</option>
+          </select>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要统计的文本..."
+            rows="12"
+            @input="analyzeText"
+          ></textarea>
+          
+          <div class="counter-stats">
+            <div class="stat-card">
+              <div class="stat-label">字符数 (含空格)</div>
+              <div class="stat-value">{{ stats.charsWithSpaces }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">字符数 (不含空格)</div>
+              <div class="stat-value">{{ stats.charsWithoutSpaces }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">单词数</div>
+              <div class="stat-value">{{ stats.words }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">行数</div>
+              <div class="stat-value">{{ stats.lines }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">段落数</div>
+              <div class="stat-value">{{ stats.paragraphs }}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">句子数</div>
+              <div class="stat-value">{{ stats.sentences }}</div>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="clearText">清空</button>
+            <button @click="sampleText">示例文本</button>
+            <button @click="copyStats">复制统计信息</button>
+          </div>
+          
+          <div class="analysis-details">
+            <h3>详细分析</h3>
+            <div class="detail-item">
+              <p><strong>字符密度:</strong> 平均每行 {{ stats.lines > 0 ? (stats.charsWithSpaces / stats.lines).toFixed(2) : 0 }} 个字符</p>
+            </div>
+            <div class="detail-item">
+              <p><strong>单词密度:</strong> 平均每行 {{ stats.lines > 0 ? (stats.words / stats.lines).toFixed(2) : 0 }} 个单词</p>
+            </div>
+            <div class="detail-item" v-if="language === 'chinese' || (language === 'auto' && detectedLanguage === 'chinese')">
+              <p><strong>汉字数量:</strong> {{ stats.chineseChars }} 个</p>
+            </div>
+            <div class="detail-item">
+              <p><strong>可读性等级:</strong> {{ readabilityLevel }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const language = ref('auto');
+        const detectedLanguage = ref('english');
+        
+        // 统计信息
+        const stats = computed(() => {
+          const text = inputText.value || '';
+          
+          // 字符数（含空格）
+          const charsWithSpaces = text.length;
+          
+          // 字符数（不含空格）
+          const charsWithoutSpaces = text.replace(/\s/g, '').length;
+          
+          // 行数
+          const lines = text ? text.split('\n').length : 0;
+          
+          // 段落数
+          const paragraphs = text ? text.split(/\n\s*\n/).filter(p => p.trim() !== '').length : 0;
+          
+          // 根据语言类型统计单词数
+          let words = 0;
+          let sentences = 0;
+          let chineseChars = 0;
+          
+          if (language.value === 'chinese' || (language.value === 'auto' && detectLanguage(text) === 'chinese')) {
+            detectedLanguage.value = 'chinese';
+            // 中文文本：按词语和标点符号统计
+            // 统计汉字数量
+            chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+            
+            // 使用中文分词方法统计词语数量
+            // 这里简单地将中文文本按标点符号和空格分开，再统计词语
+            const chineseWords = text.replace(/[，。！？；：、\s]/g, ' ').trim().split(/\s+/).filter(w => w !== '');
+            words = chineseWords.length;
+            
+            // 统计句子数（按中文标点符号）
+            sentences = (text.match(/[。！？]/g) || []).length;
+          } else {
+            detectedLanguage.value = 'english';
+            // 英文文本：按空格和标点符号统计
+            const englishWords = text.trim().split(/\s+/).filter(w => w !== '');
+            words = englishWords.length;
+            
+            // 统计句子数（按英文标点符号）
+            sentences = (text.match(/[.!?]+/g) || []).length;
+          }
+          
+          return {
+            charsWithSpaces,
+            charsWithoutSpaces,
+            words,
+            lines,
+            paragraphs,
+            sentences,
+            chineseChars
+          };
+        });
+        
+        // 可读性等级
+        const readabilityLevel = computed(() => {
+          if (!inputText.value) return '无文本';
+          
+          // 简化的可读性评估
+          const avgWordLength = stats.value.charsWithoutSpaces / (stats.value.words || 1);
+          const avgSentenceLength = stats.value.words / (stats.value.sentences || 1);
+          
+          if (avgWordLength < 4 && avgSentenceLength < 10) {
+            return '小学水平';
+          } else if (avgWordLength < 5 && avgSentenceLength < 15) {
+            return '初中水平';
+          } else if (avgWordLength < 6 && avgSentenceLength < 20) {
+            return '高中水平';
+          } else {
+            return '大学及以上水平';
+          }
+        });
+
+        // 检测语言
+        function detectLanguage(text) {
+          // 简单的语言检测：如果中文字符占比超过20%，则认为是中文
+          const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+          const totalChars = text.length;
+          
+          if (totalChars > 0 && chineseChars / totalChars > 0.2) {
+            return 'chinese';
+          }
+          return 'english';
+        }
+
+        // 分析文本
+        const analyzeText = () => {
+          // 当语言设置为自动检测时，检测文本语言
+          if (language.value === 'auto' && inputText.value) {
+            detectedLanguage.value = detectLanguage(inputText.value);
+          }
+        };
+
+        // 清空文本
+        const clearText = () => {
+          inputText.value = '';
+        };
+
+        // 示例文本
+        const sampleText = () => {
+          if (language.value === 'chinese' || (language.value === 'auto' && detectedLanguage.value === 'chinese')) {
+            inputText.value = `这是一个示例文本，用来演示单词计数器的功能。这个工具可以帮助您统计文本中的字符数、单词数、行数等信息。它支持中文和英文文本的统计，还提供了详细的分析功能。`;
+          } else {
+            inputText.value = `This is a sample text to demonstrate the word counter functionality. This tool can help you count characters, words, lines, and other information in your text. It supports both Chinese and English text statistics, and provides detailed analysis features.`;
+          }
+        };
+
+        // 复制统计信息
+        const copyStats = () => {
+          const info = `
+字符数（含空格）: ${stats.value.charsWithSpaces}
+字符数（不含空格）: ${stats.value.charsWithoutSpaces}
+单词数: ${stats.value.words}
+行数: ${stats.value.lines}
+段落数: ${stats.value.paragraphs}
+句子数: ${stats.value.sentences}
+汉字数: ${stats.value.chineseChars}
+可读性等级: ${readabilityLevel.value}
+          `.trim();
+          
+          navigator.clipboard.writeText(info)
+            .then(() => {
+              alert('统计信息已复制到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+              alert('复制失败');
+            });
+        };
+
+        return {
+          inputText,
+          language,
+          detectedLanguage,
+          stats,
+          readabilityLevel,
+          analyzeText,
+          clearText,
+          sampleText,
+          copyStats
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

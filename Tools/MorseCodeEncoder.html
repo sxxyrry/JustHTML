@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>摩斯电码编码 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>摩斯电码编码</h2>
+        <p>将文本转换为摩斯电码</p>
+        
+        <div class="info-box">
+          <p><strong>摩斯电码说明：</strong></p>
+          <p>摩尔斯电码是一种早期的数字化通信形式，通过点（.）和划（-）的不同排列顺序来表达不同的英文字母、数字和标点符号。</p>
+          <p>示例: A = .-, B = -..., SOS = ...---...</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要转换为摩斯电码的文本..."
+            rows="8"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="encodeToMorse">文本转摩斯电码</button>
+            <button @click="clearText">清空</button>
+            <button @click="copyResult">复制结果</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <h3>摩斯电码结果：</h3>
+            <p>{{ result }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+
+        // 摩尔斯电码对照表
+        const morseCodeMap = {
+          'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 
+          'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 
+          'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.', 
+          'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 
+          'Y': '-.--', 'Z': '--..',
+          
+          '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-', 
+          '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.',
+          
+          '.': '.-.-.-', ',': '--..--', '?': '..--..', "'": '.----.', '!': '-.-.--', 
+          '/': '-..-.', '(': '-.--.', ')': '-.--.-', '&': '.-...', ':': '---...', 
+          ';': '-.-.-.', '=': '-...-', '+': '.-.-.', '-': '-....-', '_': '..--.-', 
+          '"': '.-..-.', '$': '...-..-', '@': '.--.-.',
+          
+          ' ': '/' // 空格表示单词间的间隔
+        };
+
+        // 文本转摩尔斯电码
+        const encodeToMorse = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const text = inputText.value.toUpperCase();
+            const morseArray = [];
+
+            for (const char of text) {
+              if (morseCodeMap[char]) {
+                morseArray.push(morseCodeMap[char]);
+              } else {
+                // 如果字符不在对照表中，跳过或添加一个特殊标记
+                morseArray.push('?');
+              }
+            }
+
+            result.value = morseArray.join(' ');
+          } catch (error) {
+            result.value = `编码错误: ${error.message}`;
+          }
+        };
+
+        // 清空文本
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        // 复制结果
+        const copyResult = () => {
+          if (result.value) {
+            navigator.clipboard.writeText(result.value)
+              .then(() => {
+                alert('已复制到剪贴板！');
+              })
+              .catch(err => {
+                console.error('复制失败: ', err);
+                alert('复制失败');
+              });
+          }
+        };
+
+        return {
+          inputText,
+          result,
+          encodeToMorse,
+          clearText,
+          copyResult
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

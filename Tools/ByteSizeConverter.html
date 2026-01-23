@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>字节大小转换器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .unit-converter {
+      margin: 20px 0;
+    }
+    
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 15px;
+    }
+    
+    .input-group label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .input-group input, .input-group select {
+      padding: 8px;
+    }
+    
+    .result-display {
+      background-color: var(--bg-tertiary);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin-top: 15px;
+    }
+    
+    .conversion-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+    
+    .conversion-row:last-child {
+      border-bottom: none;
+    }
+    
+    .common-units {
+      margin: 15px 0;
+      padding: 10px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+    }
+    
+    .common-units h3 {
+      margin-bottom: 10px;
+      color: var(--accent-color);
+    }
+    
+    .unit-pair {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>字节大小转换器</h2>
+        <p>在不同存储单位之间转换字节大小</p>
+        
+        <div class="info-box">
+          <p><strong>字节单位说明：</strong></p>
+          <p>• 1 KB (Kilobyte) = 1024 Bytes (二进制) 或 1000 Bytes (十进制)</p>
+          <p>• 1 MB (Megabyte) = 1024 KB 或 1000 KB</p>
+          <p>• 1 GB (Gigabyte) = 1024 MB 或 1000 MB</p>
+          <p>• 1 TB (Terabyte) = 1024 GB 或 1000 GB</p>
+          <p>• 1 PB (Petabyte) = 1024 TB 或 1000 TB</p>
+        </div>
+        
+        <div class="unit-converter">
+          <div class="input-group">
+            <label for="inputValue">输入值</label>
+            <input 
+              type="number" 
+              id="inputValue" 
+              v-model.number="inputValue" 
+              placeholder="请输入数值"
+              @input="convertUnits"
+            />
+          </div>
+          
+          <div class="input-group">
+            <label for="inputUnit">输入单位</label>
+            <select id="inputUnit" v-model="inputUnit" @change="convertUnits">
+              <option v-for="unit in units" :value="unit.symbol">{{ unit.name }} ({{ unit.symbol }})</option>
+            </select>
+          </div>
+          
+          <div class="input-group">
+            <label for="outputUnit">输出单位</label>
+            <select id="outputUnit" v-model="outputUnit" @change="convertUnits">
+              <option v-for="unit in units" :value="unit.symbol">{{ unit.name }} ({{ unit.symbol }})</option>
+            </select>
+          </div>
+          
+          <div class="result-display">
+            <h3>转换结果</h3>
+            <p v-if="result !== null">
+              <strong>{{ inputValue || 0 }} {{ inputUnit }} = {{ result }} {{ outputUnit }}</strong>
+            </p>
+            <p v-else>请输入有效数值</p>
+          </div>
+        </div>
+        
+        <div class="common-units">
+          <h3>所有单位转换结果</h3>
+          <div v-for="unit in units" :key="unit.symbol" class="conversion-row">
+            <span>{{ unit.name }} ({{ unit.symbol }})</span>
+            <span>{{ convertToUnit(unit.symbol) }}</span>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertUnits">转换</button>
+          <button @click="resetForm">重置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputValue = ref(1);
+        const inputUnit = ref('B');
+        const outputUnit = ref('KB');
+        const result = ref(null);
+        
+        // 定义字节单位，以字节(B)为基准
+        const units = [
+          { symbol: 'B', name: 'Bytes', factor: 1 },
+          { symbol: 'KB', name: 'Kilobytes', factor: 1024 },
+          { symbol: 'MB', name: 'Megabytes', factor: 1024 * 1024 },
+          { symbol: 'GB', name: 'Gigabytes', factor: 1024 * 1024 * 1024 },
+          { symbol: 'TB', name: 'Terabytes', factor: 1024 * 1024 * 1024 * 1024 },
+          { symbol: 'PB', name: 'Petabytes', factor: 1024 * 1024 * 1024 * 1024 * 1024 },
+          { symbol: 'EB', name: 'Exabytes', factor: 1024 * 1024 * 1024 * 1024 * 1024 * 1024 }
+        ];
+        
+        // 计算转换结果
+        const convertUnits = () => {
+          if (isNaN(inputValue.value) || inputValue.value === null || inputValue.value === undefined) {
+            result.value = null;
+            return;
+          }
+          
+          // 将输入值转换为字节
+          const baseValue = inputValue.value * getUnitFactor(inputUnit.value);
+          
+          // 从字节转换为目标单位
+          const targetFactor = getUnitFactor(outputUnit.value);
+          const convertedValue = baseValue / targetFactor;
+          
+          // 格式化结果
+          result.value = formatNumber(convertedValue);
+        };
+        
+        // 获取单位的因子
+        const getUnitFactor = (unitSymbol) => {
+          const unit = units.find(u => u.symbol === unitSymbol);
+          return unit ? unit.factor : 1;
+        };
+        
+        // 将值转换为指定单位
+        const convertToUnit = (unitSymbol) => {
+          if (isNaN(inputValue.value) || inputValue.value === null || inputValue.value === undefined) {
+            return '0';
+          }
+          
+          const baseValue = inputValue.value * getUnitFactor(inputUnit.value);
+          const targetFactor = getUnitFactor(unitSymbol);
+          const convertedValue = baseValue / targetFactor;
+          
+          return formatNumber(convertedValue) + ' ' + unitSymbol;
+        };
+        
+        // 格式化数字，避免浮点数精度问题
+        const formatNumber = (num) => {
+          // 如果数字很大或很小，使用指数形式
+          if (Math.abs(num) > 1e10 || (Math.abs(num) < 1e-5 && num !== 0)) {
+            return num.toExponential(6);
+          }
+          
+          // 如果是整数，直接返回
+          if (Number.isInteger(num)) {
+            return num.toString();
+          }
+          
+          // 对于小数，限制最多10位小数，去除末尾的0
+          return parseFloat(num.toFixed(10)).toString();
+        };
+        
+        const resetForm = () => {
+          inputValue.value = 1;
+          inputUnit.value = 'B';
+          outputUnit.value = 'KB';
+          result.value = null;
+        };
+        
+        // 初始转换
+        convertUnits();
+
+        return {
+          inputValue,
+          inputUnit,
+          outputUnit,
+          result,
+          units,
+          convertUnits,
+          convertToUnit,
+          resetForm
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON扁平化工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON扁平化工具</h2>
+        <p>将嵌套的JSON对象扁平化为单层结构</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 将嵌套的JSON对象转换为单层键值对</p>
+          <p>• 支持多种分隔符格式</p>
+          <p>• 可选择扁平化或反扁平化</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder='在此输入JSON数据，例如: {"user": {"name": "张三", "age": 30}, "location": {"city": "北京"}}'
+            rows="12"
+          ></textarea>
+          
+          <div class="converter-options">
+            <div class="option-item">
+              <label for="separator">分隔符</label>
+              <select id="separator" v-model="separator">
+                <option value=".">点号 (.)</option>
+                <option value="/">斜杠 (/)</option>
+                <option value="-">短横线 (-)</option>
+                <option value="_">下划线 (_)</option>
+              </select>
+            </div>
+            
+            <div class="option-item">
+              <label for="operation">操作</label>
+              <select id="operation" v-model="operation">
+                <option value="flatten">扁平化</option>
+                <option value="unflatten">反扁平化</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="performOperation">执行操作</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const separator = ref('.');
+        const operation = ref('flatten');
+
+        const performOperation = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(inputText.value);
+            
+            if (operation.value === 'flatten') {
+              const flattened = flattenObject(jsonData);
+              result.value = JSON.stringify(flattened, null, 2);
+            } else {
+              const unflattened = unflattenObject(jsonData);
+              result.value = JSON.stringify(unflattened, null, 2);
+            }
+          } catch (e) {
+            error.value = `操作错误: ${e.message}`;
+          }
+        };
+
+        // 扁平化对象
+        const flattenObject = (obj, prefix = '', result = {}) => {
+          for (let key in obj) {
+            if (obj.hasOwnProperty(key)) {
+              const value = obj[key];
+              const newKey = prefix ? `${prefix}${separator.value}${key}` : key;
+
+              if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+                flattenObject(value, newKey, result);
+              } else {
+                result[newKey] = value;
+              }
+            }
+          }
+          return result;
+        };
+
+        // 反扁平化对象
+        const unflattenObject = (data) => {
+          const result = {};
+
+          for (let key in data) {
+            if (data.hasOwnProperty(key)) {
+              const value = data[key];
+              setNestedProperty(result, key.split(separator.value), value);
+            }
+          }
+
+          return result;
+        };
+
+        // 设置嵌套属性
+        const setNestedProperty = (obj, keys, value) => {
+          let current = obj;
+          
+          for (let i = 0; i < keys.length - 1; i++) {
+            const key = keys[i];
+            
+            if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+              current[key] = {};
+            }
+            
+            current = current[key];
+          }
+          
+          current[keys[keys.length - 1]] = value;
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            JSON.parse(inputText.value);
+            result.value = '✓ JSON格式有效';
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          separator,
+          operation,
+          performOperation,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

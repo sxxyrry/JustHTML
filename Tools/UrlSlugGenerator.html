@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URL Slug生成器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .generator-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .result-container {
+      position: relative;
+      margin-top: 20px;
+    }
+    
+    .copy-button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    
+    .slug-examples {
+      margin-top: 20px;
+    }
+    
+    .example-item {
+      padding: 8px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .example-original {
+      color: var(--text-secondary);
+    }
+    
+    .example-slug {
+      color: var(--accent-color);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>URL Slug生成器</h2>
+        <p>将标题文本转换为URL友好的slug格式</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 将标题转换为URL友好的格式</p>
+          <p>• 移除特殊字符和空格</p>
+          <p>• 支持多种分隔符选择</p>
+          <p>• 可限制slug长度</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputTitle" 
+            placeholder="在此输入标题或文本..."
+            rows="4"
+          ></textarea>
+          
+          <div class="generator-options">
+            <div class="option-item">
+              <label for="separator">分隔符</label>
+              <select id="separator" v-model="separator">
+                <option value="-">连字符 (-)</option>
+                <option value="_">下划线 (_)</option>
+                <option value="">无分隔符</option>
+              </select>
+            </div>
+            
+            <div class="option-item">
+              <label for="maxLength">最大长度</label>
+              <input 
+                type="number" 
+                id="maxLength" 
+                v-model.number="maxLength" 
+                min="1" 
+                max="200"
+              >
+            </div>
+            
+            <div class="option-item">
+              <label for="caseType">大小写</label>
+              <select id="caseType" v-model="caseType">
+                <option value="lower">小写</option>
+                <option value="upper">大写</option>
+                <option value="none">保持不变</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="generateSlug">生成Slug</button>
+            <button @click="copySlug">复制Slug</button>
+            <button @click="clearAll">清空</button>
+          </div>
+          
+          <div class="result-container">
+            <button class="copy-button" @click="copySlug" v-if="generatedSlug">复制</button>
+            <textarea 
+              v-model="generatedSlug" 
+              placeholder="生成的Slug将显示在这里..."
+              rows="2"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="slug-examples">
+          <h3>Slug示例</h3>
+          <div class="example-item">
+            <span class="example-original">如何制作美味的蛋糕</span>
+            <span class="example-slug">ru-he-zhi-zuo-mei-wei-de-dan-gao</span>
+          </div>
+          <div class="example-item">
+            <span class="example-original">Top 10 JavaScript Frameworks in 2023</span>
+            <span class="example-slug">top-10-javascript-frameworks-in-2023</span>
+          </div>
+          <div class="example-item">
+            <span class="example-original">Hello World! #Programming @Developer</span>
+            <span class="example-slug">hello-world-programming-developer</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, watch } = Vue;
+
+    createApp({
+      setup() {
+        const inputTitle = ref('');
+        const separator = ref('-');
+        const maxLength = ref(100);
+        const caseType = ref('lower');
+        const generatedSlug = ref('');
+        
+        // 生成slug的核心函数
+        const createSlug = (title) => {
+          if (!title) return '';
+          
+          // 移除HTML标签
+          let cleanTitle = title.replace(/(<([^>]+)>)|(&nbsp;)/gi, ' ');
+          
+          // 处理中文字符和英文字符
+          // 使用正则表达式保留字母、数字、空格以及中文字符
+          cleanTitle = cleanTitle.replace(/[^\w\u4e00-\u9fff\s-]/g, ' ');
+          
+          // 替换空格和多个连续空格为分隔符
+          let slug = cleanTitle.replace(/\s+/g, separator.value);
+          
+          // 如果分隔符不为空，还需要处理重复的分隔符
+          if (separator.value) {
+            const escapedSeparator = separator.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const doubleSepRegex = new RegExp(`${escapedSeparator}{2,}`, 'g');
+            slug = slug.replace(doubleSepRegex, separator.value);
+          }
+          
+          // 去除开头和结尾的分隔符
+          if (separator.value) {
+            const escapedSeparator = separator.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const trimRegex = new RegExp(`^${escapedSeparator}+|${escapedSeparator}+$`, 'g');
+            slug = slug.replace(trimRegex, '');
+          }
+          
+          // 应用大小写规则
+          if (caseType.value === 'lower') {
+            slug = slug.toLowerCase();
+          } else if (caseType.value === 'upper') {
+            slug = slug.toUpperCase();
+          }
+          
+          // 限制长度
+          if (maxLength.value > 0 && slug.length > maxLength.value) {
+            slug = slug.substring(0, maxLength.value);
+            
+            // 确保不在单词中间截断
+            if (separator.value) {
+              const lastSepIndex = slug.lastIndexOf(separator.value);
+              if (lastSepIndex > maxLength.value * 0.7) { // 如果截断点在后30%内
+                slug = slug.substring(0, lastSepIndex);
+              }
+            }
+          }
+          
+          return slug;
+        };
+        
+        // 监听输入变化并自动生成slug
+        watch([inputTitle, separator, maxLength, caseType], () => {
+          generatedSlug.value = createSlug(inputTitle.value);
+        });
+        
+        const generateSlug = () => {
+          generatedSlug.value = createSlug(inputTitle.value);
+        };
+        
+        const copySlug = async () => {
+          if (!generatedSlug.value) {
+            alert('没有可复制的slug');
+            return;
+          }
+          
+          try {
+            await navigator.clipboard.writeText(generatedSlug.value);
+            alert('Slug已复制到剪贴板！');
+          } catch (err) {
+            console.error('复制失败:', err);
+            alert('复制失败');
+          }
+        };
+        
+        const clearAll = () => {
+          inputTitle.value = '';
+          generatedSlug.value = '';
+        };
+        
+        return {
+          inputTitle,
+          separator,
+          maxLength,
+          caseType,
+          generatedSlug,
+          generateSlug,
+          copySlug,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

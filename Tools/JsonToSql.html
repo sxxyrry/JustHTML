@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到SQL转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到SQL转换工具</h2>
+        <p>将JSON数据转换为SQL INSERT语句</p>
+        
+        <div class="info-box">
+          <p><strong>使用说明：</strong></p>
+          <p>将JSON数组转换为对应的SQL INSERT语句</p>
+          <p>支持自定义表名和字段名</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder='在此输入JSON数组，例如: [{"id": 1, "name": "张三", "age": 30}, {"id": 2, "name": "李四", "age": 25}]'
+            rows="12"
+          ></textarea>
+          
+          <div style="margin: 15px 0;">
+            <label for="tableName" style="display: block; margin-bottom: 5px; color: var(--accent-color);">表名:</label>
+            <input 
+              type="text" 
+              id="tableName" 
+              v-model="tableName" 
+              placeholder="输入表名，默认为 'table'"
+              style="width: 100%; padding: 10px; border-radius: var(--border-radius); border: 1px solid var(--bg-tertiary); background-color: var(--bg-primary); color: var(--text-primary);"
+            >
+          </div>
+          
+          <div class="controls">
+            <button @click="convertJsonToSql">JSON → SQL</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const tableName = ref('table');
+
+        const convertJsonToSql = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            const jsonData = JSON.parse(inputText.value);
+            
+            if (!Array.isArray(jsonData)) {
+              throw new Error('JSON数据必须是数组格式');
+            }
+
+            if (jsonData.length === 0) {
+              result.value = '-- 输入数组为空';
+              return;
+            }
+
+            // 获取所有可能的键（用于列名）
+            const allKeys = new Set();
+            jsonData.forEach(item => {
+              if (typeof item === 'object' && item !== null) {
+                Object.keys(item).forEach(key => allKeys.add(key));
+              }
+            });
+
+            const keys = Array.from(allKeys);
+
+            // 生成INSERT语句
+            const table = tableName.value || 'table';
+            const columns = keys.map(k => `\`${k}\``).join(', ');
+            
+            const valueRows = jsonData.map(obj => {
+              const values = keys.map(key => {
+                const val = obj[key] !== undefined ? obj[key] : null;
+                
+                if (val === null) {
+                  return 'NULL';
+                } else if (typeof val === 'string') {
+                  // 转义字符串中的单引号
+                  return `'${val.replace(/'/g, "''")}'`;
+                } else if (typeof val === 'boolean') {
+                  return val ? 'TRUE' : 'FALSE';
+                } else if (typeof val === 'number') {
+                  return String(val);
+                } else {
+                  // 其他类型（如对象、数组）转换为JSON字符串
+                  return `'${JSON.stringify(val)}'`;
+                }
+              });
+              
+              return `(${values.join(', ')})`;
+            });
+            
+            // 每100行为一组，以避免单条SQL语句过长
+            const batchSize = 100;
+            const batches = [];
+            
+            for (let i = 0; i < valueRows.length; i += batchSize) {
+              const batch = valueRows.slice(i, i + batchSize);
+              const sql = `INSERT INTO \`${table}\` (${columns}) VALUES\n${batch.join(',\n')};`;
+              batches.push(sql);
+            }
+            
+            result.value = batches.join('\n\n');
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(inputText.value);
+            if (Array.isArray(parsed)) {
+              result.value = `✓ JSON格式有效，数组包含 ${parsed.length} 个项目`;
+            } else {
+              result.value = '✓ JSON格式有效，但数据不是数组';
+            }
+          } catch (e) {
+            error.value = `JSON格式错误: ${e.message}`;
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+          tableName.value = 'table';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          tableName,
+          convertJsonToSql,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

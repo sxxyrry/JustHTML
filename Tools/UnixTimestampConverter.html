@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unix时间戳转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .option-item input, .option-item select {
+      padding: 8px;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .conversion-result {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      border-left: 4px solid var(--accent-color);
+    }
+    
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--bg-secondary);
+    }
+    
+    .result-label {
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .result-value {
+      flex: 1;
+      text-align: right;
+      margin-left: 15px;
+      word-break: break-all;
+    }
+    
+    .current-timestamp {
+      background-color: var(--bg-secondary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 15px 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>Unix时间戳转换工具</h2>
+        <p>Unix时间戳与日期时间相互转换</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• Unix时间戳是从1970年1月1日00:00:00 UTC开始经过的秒数</p>
+          <p>• 支持时间戳与各种日期格式的相互转换</p>
+          <p>• 显示当前时间戳</p>
+        </div>
+        
+        <div class="current-timestamp">
+          <p><strong>当前时间戳:</strong> {{ currentTimestamp }}</p>
+          <p><strong>当前时间:</strong> {{ currentTimeString }}</p>
+        </div>
+        
+        <div class="converter-options">
+          <div class="option-item">
+            <label for="timestampInput">时间戳 (秒)</label>
+            <input 
+              type="number" 
+              id="timestampInput" 
+              v-model.number="timestampInput" 
+              placeholder="输入Unix时间戳"
+              @input="convertFromTimestamp"
+            >
+          </div>
+          
+          <div class="option-item">
+            <label for="dateInput">日期时间</label>
+            <input 
+              type="datetime-local" 
+              id="dateInput" 
+              v-model="dateInput" 
+              @change="convertFromDate"
+            >
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="setNowTimestamp">设为当前时间</button>
+          <button @click="copyTimestamp">复制时间戳</button>
+          <button @click="copyDateString">复制日期字符串</button>
+          <button @click="clearAll">清空</button>
+        </div>
+        
+        <div class="conversion-result" v-if="conversionResult.timestamp">
+          <h3>转换结果</h3>
+          
+          <div class="result-row">
+            <span class="result-label">Unix时间戳:</span>
+            <span class="result-value">{{ conversionResult.timestamp }}</span>
+          </div>
+          
+          <div class="result-row">
+            <span class="result-label">ISO 8601格式:</span>
+            <span class="result-value">{{ conversionResult.isoString }}</span>
+          </div>
+          
+          <div class="result-row">
+            <span class="result-label">本地日期时间:</span>
+            <span class="result-value">{{ conversionResult.localDateTime }}</span>
+          </div>
+          
+          <div class="result-row">
+            <span class="result-label">本地日期:</span>
+            <span class="result-value">{{ conversionResult.localDate }}</span>
+          </div>
+          
+          <div class="result-row">
+            <span class="result-label">本地时间:</span>
+            <span class="result-value">{{ conversionResult.localTime }}</span>
+          </div>
+          
+          <div class="result-row">
+            <span class="result-label">UTC格式:</span>
+            <span class="result-value">{{ conversionResult.utcString }}</span>
+          </div>
+          
+          <div class="result-row">
+            <span class="result-label">详细信息:</span>
+            <span class="result-value">{{ conversionResult.readableString }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, onMounted, onUnmounted } = Vue;
+
+    createApp({
+      setup() {
+        const timestampInput = ref(Math.floor(Date.now() / 1000));
+        const dateInput = ref('');
+        const currentTimestamp = ref(Math.floor(Date.now() / 1000));
+        const currentTimeString = ref(new Date().toLocaleString());
+        const conversionResult = ref({});
+        
+        // 更新当前时间
+        const updateCurrentTime = () => {
+          currentTimestamp.value = Math.floor(Date.now() / 1000);
+          currentTimeString.value = new Date().toLocaleString();
+        };
+        
+        // 从时间戳转换
+        const convertFromTimestamp = () => {
+          if (isNaN(timestampInput.value) || timestampInput.value === '') {
+            return;
+          }
+          
+          const date = new Date(timestampInput.value * 1000);
+          updateConversionResult(date);
+        };
+        
+        // 从日期转换
+        const convertFromDate = () => {
+          if (!dateInput.value) {
+            return;
+          }
+          
+          const date = new Date(dateInput.value);
+          timestampInput.value = Math.floor(date.getTime() / 1000);
+          updateConversionResult(date);
+        };
+        
+        // 更新转换结果
+        const updateConversionResult = (date) => {
+          if (!(date instanceof Date) || isNaN(date)) {
+            return;
+          }
+          
+          conversionResult.value = {
+            timestamp: Math.floor(date.getTime() / 1000),
+            isoString: date.toISOString(),
+            localDateTime: date.toLocaleString(),
+            localDate: date.toLocaleDateString(),
+            localTime: date.toLocaleTimeString(),
+            utcString: date.toUTCString(),
+            readableString: date.toString()
+          };
+        };
+        
+        // 设置当前时间为时间戳
+        const setNowTimestamp = () => {
+          timestampInput.value = Math.floor(Date.now() / 1000);
+          convertFromTimestamp();
+        };
+        
+        // 复制时间戳到剪贴板
+        const copyTimestamp = async () => {
+          if (conversionResult.value.timestamp) {
+            try {
+              await navigator.clipboard.writeText(conversionResult.value.timestamp.toString());
+              alert('时间戳已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              alert('复制失败');
+            }
+          }
+        };
+        
+        // 复制日期字符串到剪贴板
+        const copyDateString = async () => {
+          if (conversionResult.value.isoString) {
+            try {
+              await navigator.clipboard.writeText(conversionResult.value.isoString);
+              alert('日期字符串已复制到剪贴板！');
+            } catch (err) {
+              console.error('复制失败:', err);
+              alert('复制失败');
+            }
+          }
+        };
+        
+        // 清空所有
+        const clearAll = () => {
+          timestampInput.value = '';
+          dateInput.value = '';
+          conversionResult.value = {};
+        };
+        
+        onMounted(() => {
+          // 更新当前时间
+          updateCurrentTime();
+          // 每秒更新一次当前时间
+          setInterval(updateCurrentTime, 1000);
+          
+          // 初始化转换结果
+          convertFromTimestamp();
+        });
+        
+        return {
+          timestampInput,
+          dateInput,
+          currentTimestamp,
+          currentTimeString,
+          conversionResult,
+          convertFromTimestamp,
+          convertFromDate,
+          setNowTimestamp,
+          copyTimestamp,
+          copyDateString,
+          clearAll
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JavaScript压缩/格式化工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .options-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+    
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .stat-item {
+      padding: 10px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+    
+    .stat-label {
+      font-size: 0.9em;
+      color: var(--text-secondary);
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JavaScript压缩/格式化工具</h2>
+        <p>格式化或压缩JavaScript代码，使其更易读或更紧凑</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• 格式化：使JavaScript代码结构清晰，易于阅读和编辑</p>
+          <p>• 压缩：移除不必要的空白、注释和换行，减少文件大小</p>
+          <p>• 语法检查：检查JavaScript代码的基本语法</p>
+        </div>
+        
+        <div class="stats-container">
+          <div class="stat-item">
+            <div class="stat-value">{{ inputSize }}</div>
+            <div class="stat-label">输入大小 (字符)</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ outputSize }}</div>
+            <div class="stat-label">输出大小 (字符)</div>
+          </div>
+          
+          <div class="stat-item">
+            <div class="stat-value">{{ reductionPercent }}%</div>
+            <div class="stat-label">压缩率</div>
+          </div>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>原始JavaScript</h3>
+            <textarea 
+              v-model="inputJs" 
+              placeholder="在此输入JavaScript代码..."
+              rows="15"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>处理后的JavaScript</h3>
+            <textarea 
+              v-model="formattedJs" 
+              placeholder="格式化/压缩后的JavaScript代码将在这里显示"
+              rows="15"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="options-container">
+          <div class="option-item">
+            <input type="checkbox" id="preserveComments" v-model="options.preserveComments">
+            <label for="preserveComments">保留注释</label>
+          </div>
+          
+          <div class="option-item">
+            <input type="checkbox" id="preserveSemicolons" v-model="options.preserveSemicolons">
+            <label for="preserveSemicolons">保留分号</label>
+          </div>
+          
+          <div class="option-item">
+            <input type="checkbox" id="beautify" v-model="options.beautify">
+            <label for="beautify">美化输出</label>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="formatJs">格式化JavaScript</button>
+          <button @click="minifyJs">压缩JavaScript</button>
+          <button @click="validateJs">验证语法</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="validationResult">
+          <h3>验证结果：</h3>
+          <p>{{ validationResult }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const inputJs = ref('');
+        const options = ref({
+          preserveComments: false,
+          preserveSemicolons: true,
+          beautify: true
+        });
+        
+        // 计算属性：输入大小
+        const inputSize = computed(() => inputJs.value ? inputJs.value.length : 0);
+        
+        // 计算属性：输出大小
+        const outputSize = computed(() => formattedJs.value ? formattedJs.value.length : 0);
+        
+        // 计算属性：压缩百分比
+        const reductionPercent = computed(() => {
+          if (inputSize.value === 0) return 0;
+          return Math.round(((inputSize.value - outputSize.value) / inputSize.value) * 100);
+        });
+        
+        // 简单的JavaScript格式化/压缩函数
+        const processJs = (js, minify = false) => {
+          if (!js) return '';
+          
+          let result = js;
+          
+          if (minify) {
+            // 压缩模式 - 移除注释和多余的空白
+            if (!options.value.preserveComments) {
+              // 移除单行注释
+              result = result.replace(/\/\/.*$/gm, '');
+              // 移除多行注释
+              result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+            }
+            
+            // 移除多余的空白
+            result = result.replace(/\s+/g, ' ');
+            
+            // 移除不必要的空格（在括号、操作符等周围）
+            result = result.replace(/\s*([{}();:+*\/\-])\s*/g, '$1');
+            
+            // 恢复分号（如果需要）
+            if (options.value.preserveSemicolons) {
+              result = result.replace(/;/g, ';');
+            }
+            
+            result = result.trim();
+          } else {
+            // 格式化模式 - 添加适当的缩进和换行
+            result = formatJsBeautify(result);
+          }
+          
+          return result;
+        };
+        
+        // JavaScript美化函数
+        const formatJsBeautify = (js) => {
+          if (!options.value.beautify) return js;
+          
+          let result = js;
+          let indentLevel = 0;
+          const indent = '  '; // 两个空格作为一个缩进
+          
+          // 简单的美化算法
+          result = result
+            .replace(/{/g, '{\n')
+            .replace(/}/g, '\n}\n')
+            .replace(/;/g, ';\n')
+            .replace(/\n+/g, '\n') // 合并多个换行符
+            .split('\n')
+            .map(line => {
+              const trimmedLine = line.trim();
+              
+              if (!trimmedLine) return '';
+              
+              // 处理缩进
+              if (trimmedLine.endsWith('}') || trimmedLine.endsWith('};')) {
+                indentLevel--;
+              }
+              
+              const indentedLine = indent.repeat(Math.max(0, indentLevel)) + trimmedLine;
+              
+              if (trimmedLine.endsWith('{') || 
+                  trimmedLine.endsWith('if') || 
+                  trimmedLine.endsWith('else') || 
+                  trimmedLine.endsWith('for') || 
+                  trimmedLine.endsWith('while')) {
+                indentLevel++;
+              }
+              
+              return indentedLine;
+            })
+            .filter(line => line.trim() !== '')
+            .join('\n');
+            
+          return result;
+        };
+        
+        // 格式化的JavaScript
+        const formattedJs = computed(() => {
+          return processJs(inputJs.value, false);
+        });
+        
+        // 验证结果
+        const validationResult = ref('');
+        
+        // 格式化JavaScript
+        const formatJs = () => {
+          inputJs.value = processJs(inputJs.value, false);
+        };
+        
+        // 压缩JavaScript
+        const minifyJs = () => {
+          inputJs.value = processJs(inputJs.value, true);
+        };
+        
+        // 验证JavaScript语法
+        const validateJs = () => {
+          if (!inputJs.value) {
+            validationResult.value = '请输入JavaScript代码';
+            return;
+          }
+          
+          try {
+            // 尝试创建一个Function来验证语法
+            new Function(inputJs.value);
+            validationResult.value = 'JavaScript语法有效！';
+          } catch (e) {
+            validationResult.value = `语法错误: ${e.message}`;
+          }
+        };
+        
+        // 清空所有
+        const clearAll = () => {
+          inputJs.value = '';
+          validationResult.value = '';
+        };
+        
+        // 加载示例
+        const loadExample = () => {
+          inputJs.value = `function calculateArea(width,height){if(width<=0||height<=0){console.log("宽度和高度必须大于0");return null;}var area=width*height;return area;}var result=calculateArea(10,5);console.log("面积是: "+result);`;
+        };
+        
+        return {
+          inputJs,
+          formattedJs,
+          options,
+          validationResult,
+          inputSize,
+          outputSize,
+          reductionPercent,
+          formatJs,
+          minifyJs,
+          validateJs,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

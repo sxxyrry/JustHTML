@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本去重工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .dedup-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+    }
+    
+    .option-item input[type="checkbox"] {
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>文本去重工具</h2>
+        <p>移除文本中的重复行或单词</p>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入要去重的文本，每行一条记录或用空格分隔的单词..."
+            rows="12"
+          ></textarea>
+          
+          <div class="dedup-options">
+            <div class="option-item">
+              <input type="checkbox" id="caseSensitive" v-model="options.caseSensitive">
+              <label for="caseSensitive">区分大小写</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="trimWhitespace" v-model="options.trimWhitespace">
+              <label for="trimWhitespace">去除首尾空白</label>
+            </div>
+            
+            <div class="option-item">
+              <input type="checkbox" id="preserveOrder" v-model="options.preserveOrder">
+              <label for="preserveOrder">保持原有顺序</label>
+            </div>
+          </div>
+          
+          <button @click="deduplicateByLines">按行去重</button>
+          <button @click="deduplicateByWords">按单词去重</button>
+          <button @click="deduplicateGlobal">全文去重</button>
+          <button @click="copyResult">复制结果</button>
+          <button @click="clearText">清空</button>
+          
+          <div class="result" v-if="result">
+            <p><strong>去重结果 (原: {{ originalCount }}, 现: {{ resultCount }}, 删除: {{ removedCount }}):</strong></p>
+            <pre style="white-space: pre-wrap; word-break: break-word;">{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const originalCount = ref(0);
+        const resultCount = ref(0);
+        const removedCount = ref(0);
+        
+        const options = reactive({
+          caseSensitive: false,
+          trimWhitespace: true,
+          preserveOrder: true
+        });
+
+        const deduplicateByLines = () => {
+          error.value = '';
+          result.value = '';
+          originalCount.value = 0;
+          resultCount.value = 0;
+          removedCount.value = 0;
+          
+          if (!inputText.value) {
+            error.value = '请输入要处理的文本';
+            return;
+          }
+          
+          try {
+            let lines = inputText.value.split('\n');
+            originalCount.value = lines.length;
+            
+            // 根据选项预处理每一行
+            let processedLines = lines.map(line => {
+              let processed = line;
+              if (options.trimWhitespace) {
+                processed = processed.trim();
+              }
+              if (!options.caseSensitive) {
+                processed = processed.toLowerCase();
+              }
+              return processed;
+            });
+            
+            // 去重
+            let uniqueLines;
+            if (options.preserveOrder) {
+              uniqueLines = [];
+              const seen = new Set();
+              
+              for (let i = 0; i < processedLines.length; i++) {
+                const line = processedLines[i];
+                if (!seen.has(line)) {
+                  seen.add(line);
+                  uniqueLines.push(lines[i]); // 使用原始行
+                }
+              }
+            } else {
+              // 不保持顺序的去重
+              const uniqueSet = new Set(processedLines);
+              uniqueLines = Array.from(uniqueSet);
+            }
+            
+            result.value = uniqueLines.join('\n');
+            resultCount.value = uniqueLines.length;
+            removedCount.value = originalCount.value - resultCount.value;
+          } catch (e) {
+            error.value = `按行去重时出错: ${e.message}`;
+          }
+        };
+
+        const deduplicateByWords = () => {
+          error.value = '';
+          result.value = '';
+          originalCount.value = 0;
+          resultCount.value = 0;
+          removedCount.value = 0;
+          
+          if (!inputText.value) {
+            error.value = '请输入要处理的文本';
+            return;
+          }
+          
+          try {
+            // 使用正则表达式分割单词（包括标点符号）
+            const words = inputText.value.split(/\s+/).filter(word => word.length > 0);
+            originalCount.value = words.length;
+            
+            // 根据选项预处理每一个单词
+            let processedWords = words.map(word => {
+              let processed = word;
+              if (!options.caseSensitive) {
+                processed = processed.toLowerCase();
+              }
+              return processed;
+            });
+            
+            // 去重
+            let uniqueWords;
+            if (options.preserveOrder) {
+              uniqueWords = [];
+              const seen = new Set();
+              
+              for (let i = 0; i < processedWords.length; i++) {
+                const word = processedWords[i];
+                if (!seen.has(word)) {
+                  seen.add(word);
+                  uniqueWords.push(words[i]); // 使用原始单词
+                }
+              }
+            } else {
+              const uniqueSet = new Set(processedWords);
+              uniqueWords = Array.from(uniqueSet);
+            }
+            
+            result.value = uniqueWords.join(' ');
+            resultCount.value = uniqueWords.length;
+            removedCount.value = originalCount.value - resultCount.value;
+          } catch (e) {
+            error.value = `按单词去重时出错: ${e.message}`;
+          }
+        };
+
+        const deduplicateGlobal = () => {
+          error.value = '';
+          result.value = '';
+          originalCount.value = 0;
+          resultCount.value = 0;
+          removedCount.value = 0;
+          
+          if (!inputText.value) {
+            error.value = '请输入要处理的文本';
+            return;
+          }
+          
+          try {
+            // 将整个文本作为一个单元处理
+            const text = options.trimWhitespace ? inputText.value.trim() : inputText.value;
+            const processedText = options.caseSensitive ? text : text.toLowerCase();
+            
+            // 分割成字符并去重
+            const chars = processedText.split('');
+            originalCount.value = chars.length;
+            
+            let uniqueChars;
+            if (options.preserveOrder) {
+              uniqueChars = [];
+              const seen = new Set();
+              
+              for (let i = 0; i < chars.length; i++) {
+                const char = chars[i];
+                if (!seen.has(char)) {
+                  seen.add(char);
+                  uniqueChars.push(char);
+                }
+              }
+            } else {
+              uniqueChars = Array.from(new Set(chars));
+            }
+            
+            result.value = uniqueChars.join('');
+            resultCount.value = uniqueChars.length;
+            removedCount.value = originalCount.value - resultCount.value;
+          } catch (e) {
+            error.value = `全文去重时出错: ${e.message}`;
+          }
+        };
+
+        const copyResult = () => {
+          if (!result.value) {
+            error.value = '没有可复制的结果';
+            return;
+          }
+          
+          navigator.clipboard.writeText(result.value)
+            .then(() => {
+              alert('去重结果已复制到剪贴板！');
+            })
+            .catch(err => {
+              console.error('复制失败: ', err);
+              error.value = '复制失败';
+            });
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+          originalCount.value = 0;
+          resultCount.value = 0;
+          removedCount.value = 0;
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          originalCount,
+          resultCount,
+          removedCount,
+          options,
+          deduplicateByLines,
+          deduplicateByWords,
+          deduplicateGlobal,
+          copyResult,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
+

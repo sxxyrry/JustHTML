@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到BSON转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .stats-container {
+      display: flex;
+      justify-content: space-around;
+      margin: 15px 0;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .stat-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px 15px;
+      border-radius: var(--border-radius);
+      min-width: 120px;
+      text-align: center;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到BSON转换工具</h2>
+        <p>JSON与BSON格式之间的转换（模拟，实际转换需后端支持）</p>
+        
+        <div class="info-box">
+          <p><strong>说明：</strong></p>
+          <p>BSON是Binary JSON的缩写，是JSON的一种二进制形式。此工具模拟转换过程并计算大小对比。</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>JSON数据</h3>
+            <textarea 
+              v-model="jsonData" 
+              placeholder='输入JSON数据，例如: {"name": "张三", "age": 30, "email": "zhangsan@example.com"}'
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>BSON（十六进制表示）</h3>
+            <textarea 
+              v-model="bsonHex" 
+              placeholder="BSON的十六进制表示将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="stats-container">
+          <div class="stat-box">
+            <div>JSON大小</div>
+            <div>{{ jsonSize }} 字节</div>
+          </div>
+          <div class="stat-box">
+            <div>BSON大小</div>
+            <div>{{ bsonSize }} 字节</div>
+          </div>
+          <div class="stat-box">
+            <div>大小差异</div>
+            <div>{{ sizeDifference }}</div>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertJsonToBson">JSON → BSON</button>
+          <button @click="convertBsonToJson">BSON → JSON</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const jsonData = ref('');
+        const bsonHex = ref('');
+        const result = ref('');
+
+        // 计算JSON大小
+        const jsonSize = computed(() => {
+          return jsonData.value ? new Blob([jsonData.value]).size : 0;
+        });
+
+        // 计算BSON大小（估算）
+        const bsonSize = computed(() => {
+          if (!bsonHex.value) return 0;
+          return bsonHex.value.length / 2; // 每两个十六进制字符代表一个字节
+        });
+
+        // 计算大小差异
+        const sizeDifference = computed(() => {
+          if (jsonSize.value === 0) return '0 字节';
+          const diff = bsonSize.value - jsonSize.value;
+          if (diff > 0) {
+            return `+${diff} 字节`;
+          } else if (diff < 0) {
+            return `${diff} 字节`;
+          } else {
+            return '0 字节';
+          }
+        });
+
+        const convertJsonToBson = () => {
+          if (!jsonData.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            // 解析JSON数据
+            const parsed = JSON.parse(jsonData.value);
+            
+            // 模拟BSON转换（实际上需要专门的库）
+            bsonHex.value = simulateBsonEncoding(parsed);
+            result.value = 'JSON已转换为BSON格式（十六进制表示）';
+          } catch (e) {
+            result.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const convertBsonToJson = () => {
+          if (!bsonHex.value) {
+            result.value = '请输入BSON数据';
+            return;
+          }
+
+          try {
+            // 模拟BSON解码
+            const decoded = simulateBsonDecoding(bsonHex.value);
+            jsonData.value = JSON.stringify(decoded, null, 2);
+            result.value = 'BSON已转换为JSON格式';
+          } catch (e) {
+            result.value = `BSON解码错误: ${e.message}`;
+          }
+        };
+
+        // 模拟BSON编码
+        const simulateBsonEncoding = (data) => {
+          // 实际的BSON编码需要专门的库
+          // 这里只是模拟一个简单的编码过程来展示概念
+          try {
+            // 将数据转换为JSON字符串，再转换为字节数组，最后转为十六进制
+            const jsonString = JSON.stringify(data);
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(jsonString);
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+          } catch (e) {
+            throw new Error(`模拟编码失败: ${e.message}`);
+          }
+        };
+
+        // 模拟BSON解码
+        const simulateBsonDecoding = (hexString) => {
+          // 实际的BSON解码需要专门的库
+          // 这里只是模拟一个简单的解码过程来展示概念
+          try {
+            // 将十六进制字符串转换为字节数组，再转换为字符串，最后解析为JSON
+            const bytes = new Uint8Array(
+              hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+            );
+            const decoder = new TextDecoder();
+            const jsonString = decoder.decode(bytes);
+            return JSON.parse(jsonString);
+          } catch (e) {
+            throw new Error(`模拟解码失败: ${e.message}`);
+          }
+        };
+
+        const loadExample = () => {
+          jsonData.value = JSON.stringify({
+            _id: "507f1f77bcf86cd799439011",
+            name: "张三",
+            age: 30,
+            email: "zhangsan@example.com",
+            address: {
+              street: "中山路123号",
+              city: "北京",
+              zipCode: "100000"
+            },
+            hobbies: ["读书", "游泳", "编程"],
+            isActive: true,
+            registrationDate: new Date().toISOString(),
+            tags: ["premium", "verified"]
+          }, null, 2);
+          convertJsonToBson();
+        };
+
+        const clearAll = () => {
+          jsonData.value = '';
+          bsonHex.value = '';
+          result.value = '';
+        };
+
+        return {
+          jsonData,
+          bsonHex,
+          result,
+          jsonSize,
+          bsonSize,
+          sizeDifference,
+          convertJsonToBson,
+          convertBsonToJson,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

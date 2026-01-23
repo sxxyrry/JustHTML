@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTML转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>HTML转换工具</h2>
+        <p>将HTML转换为Markdown或纯文本</p>
+        
+        <div class="info-box">
+          <p><strong>HTML到Markdown转换：</strong></p>
+          <p>支持常见的HTML标签转换为Markdown语法</p>
+          <p>如: &lt;h1&gt; → #, &lt;strong&gt; → **, &lt;em&gt; → *, &lt;a&gt; → [], &lt;code&gt; → `</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入HTML内容..."
+            rows="12"
+          ></textarea>
+          
+          <div class="controls">
+            <button @click="convertToMarkdown">转换为Markdown</button>
+            <button @click="convertToPlainText">转换为纯文本</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+
+        const convertToMarkdown = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          
+          let html = inputText.value;
+          
+          // 简化的HTML到Markdown转换器
+          // 标题转换
+          html = html.replace(/<h1\b[^>]*>(.*?)<\/h1>/gi, '# $1');
+          html = html.replace(/<h2\b[^>]*>(.*?)<\/h2>/gi, '## $1');
+          html = html.replace(/<h3\b[^>]*>(.*?)<\/h3>/gi, '### $1');
+          html = html.replace(/<h4\b[^>]*>(.*?)<\/h4>/gi, '#### $1');
+          html = html.replace(/<h5\b[^>]*>(.*?)<\/h5>/gi, '##### $1');
+          html = html.replace(/<h6\b[^>]*>(.*?)<\/h6>/gi, '###### $1');
+          
+          // 粗体和斜体转换
+          html = html.replace(/<strong\b[^>]*>(.*?)<\/strong>/gi, '**$1**');
+          html = html.replace(/<b\b[^>]*>(.*?)<\/b>/gi, '**$1**');
+          html = html.replace(/<em\b[^>]*>(.*?)<\/em>/gi, '*$1*');
+          html = html.replace(/<i\b[^>]*>(.*?)<\/i>/gi, '*$1*');
+          
+          // 链接转换
+          html = html.replace(/<a\s+href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi, '[$2]($1)');
+          
+          // 图片转换
+          html = html.replace(/<img\s+src=["']([^"']*)["'][^>]*alt=["']([^"']*)["'][^>]*\/?>/gi, '![$2]($1)');
+          html = html.replace(/<img\s+alt=["']([^"']*)["']\s+src=["']([^"']*)["'][^>]*\/?>/gi, '![$1]($2)');
+          
+          // 代码块转换
+          html = html.replace(/<pre\b[^>]*><code\b[^>]*>(.*?)<\/code><\/pre>/gis, (match, p1) => {
+            return '```\n' + p1.replace(/(<([^>]+)>)|(&nbsp;)/gi, (tag) => {
+              if (tag === '&nbsp;') return ' ';
+              return '';
+            }) + '\n```';
+          });
+          
+          // 行内代码转换
+          html = html.replace(/<code\b[^>]*>(.*?)<\/code>/gi, '`$1`');
+          
+          // 引用转换
+          html = html.replace(/<blockquote\b[^>]*>(.*?)<\/blockquote>/gis, (match, p1) => {
+            return '> ' + p1.replace(/\n/g, '\n> ');
+          });
+          
+          // 有序列表转换
+          html = html.replace(/<ol\b[^>]*>(.*?)<\/ol>/gis, (match, p1) => {
+            return p1.replace(/<li\b[^>]*>(.*?)<\/li>/gi, (liMatch, liContent) => {
+              return '1. ' + stripTags(liContent.trim());
+            });
+          });
+          
+          // 无序列表转换
+          html = html.replace(/<ul\b[^>]*>(.*?)<\/ul>/gis, (match, p1) => {
+            return p1.replace(/<li\b[^>]*>(.*?)<\/li>/gi, (liMatch, liContent) => {
+              return '* ' + stripTags(liContent.trim());
+            });
+          });
+          
+          // 段落转换
+          html = html.replace(/<p\b[^>]*>(.*?)<\/p>/gi, '$1\n\n');
+          
+          // 换行转换
+          html = html.replace(/<br\b[^>]*>/gi, '  \n');
+          
+          // 移除其余的HTML标签
+          html = html.replace(/<[^>]*>/g, '');
+          
+          // 清理多余的空行
+          html = html.replace(/\n{3,}/g, '\n\n');
+          
+          result.value = html.trim();
+        };
+
+        const convertToPlainText = () => {
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+          
+          // 移除所有HTML标签，只保留文本内容
+          let text = inputText.value.replace(/<[^>]*>/g, '');
+          
+          // 解码常见的HTML实体
+          text = text.replace(/&nbsp;/g, ' ')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#x27;/g, "'");
+          
+          // 清理多余的空白
+          text = text.replace(/\s+/g, ' ').trim();
+          
+          result.value = text;
+        };
+
+        // 辅助函数：移除HTML标签
+        const stripTags = (html) => {
+          return html.replace(/<[^>]*>/g, '');
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          convertToMarkdown,
+          convertToPlainText,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON到MessagePack转换工具 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .converter-section {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .converter-section textarea {
+      flex: 1;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .stats-container {
+      display: flex;
+      justify-content: space-around;
+      margin: 15px 0;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    
+    .stat-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px 15px;
+      border-radius: var(--border-radius);
+      min-width: 120px;
+      text-align: center;
+    }
+    
+    @media (max-width: 768px) {
+      .converter-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSON到MessagePack转换工具</h2>
+        <p>JSON与MessagePack格式之间的转换（模拟，实际转换需后端支持）</p>
+        
+        <div class="info-box">
+          <p><strong>说明：</strong></p>
+          <p>MessagePack是一种高效的二进制序列化格式。此工具模拟转换过程并计算大小对比。</p>
+        </div>
+        
+        <div class="converter-container">
+          <div class="converter-section">
+            <h3>JSON数据</h3>
+            <textarea 
+              v-model="jsonData" 
+              placeholder='输入JSON数据，例如: {"name": "张三", "age": 30, "email": "zhangsan@example.com"}'
+              rows="12"
+            ></textarea>
+          </div>
+          
+          <div class="converter-section">
+            <h3>MessagePack（十六进制表示）</h3>
+            <textarea 
+              v-model="msgpackHex" 
+              placeholder="MessagePack的十六进制表示将在这里显示"
+              rows="12"
+              readonly
+            ></textarea>
+          </div>
+        </div>
+        
+        <div class="stats-container">
+          <div class="stat-box">
+            <div>JSON大小</div>
+            <div>{{ jsonSize }} 字节</div>
+          </div>
+          <div class="stat-box">
+            <div>MessagePack大小</div>
+            <div>{{ msgpackSize }} 字节</div>
+          </div>
+          <div class="stat-box">
+            <div>压缩率</div>
+            <div>{{ compressionRate }}%</div>
+          </div>
+        </div>
+        
+        <div class="controls">
+          <button @click="convertJsonToMsgpack">JSON → MessagePack</button>
+          <button @click="convertMsgpackToJson">MessagePack → JSON</button>
+          <button @click="clearAll">清空</button>
+          <button @click="loadExample">加载示例</button>
+        </div>
+        
+        <div class="result" v-if="result">
+          <p><strong>转换结果:</strong></p>
+          <pre>{{ result }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const jsonData = ref('');
+        const msgpackHex = ref('');
+        const result = ref('');
+
+        // 计算JSON大小
+        const jsonSize = computed(() => {
+          return jsonData.value ? new Blob([jsonData.value]).size : 0;
+        });
+
+        // 计算MessagePack大小（估算）
+        const msgpackSize = computed(() => {
+          if (!msgpackHex.value) return 0;
+          return msgpackHex.value.length / 2; // 每两个十六进制字符代表一个字节
+        });
+
+        // 计算压缩率
+        const compressionRate = computed(() => {
+          if (jsonSize.value === 0) return 0;
+          return ((1 - msgpackSize.value / jsonSize.value) * 100).toFixed(2);
+        });
+
+        const convertJsonToMsgpack = () => {
+          if (!jsonData.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            // 解析JSON数据
+            const parsed = JSON.parse(jsonData.value);
+            
+            // 模拟MessagePack转换（实际上需要专门的库）
+            msgpackHex.value = simulateMsgpackEncoding(parsed);
+            result.value = 'JSON已转换为MessagePack格式（十六进制表示）';
+          } catch (e) {
+            result.value = `JSON解析错误: ${e.message}`;
+          }
+        };
+
+        const convertMsgpackToJson = () => {
+          if (!msgpackHex.value) {
+            result.value = '请输入MessagePack数据';
+            return;
+          }
+
+          try {
+            // 模拟MessagePack解码
+            const decoded = simulateMsgpackDecoding(msgpackHex.value);
+            jsonData.value = JSON.stringify(decoded, null, 2);
+            result.value = 'MessagePack已转换为JSON格式';
+          } catch (e) {
+            result.value = `MessagePack解码错误: ${e.message}`;
+          }
+        };
+
+        // 模拟MessagePack编码
+        const simulateMsgpackEncoding = (data) => {
+          // 实际的MessagePack编码需要专门的库
+          // 这里只是模拟一个简单的编码过程来展示概念
+          try {
+            // 将数据转换为JSON字符串，再转换为字节数组，最后转为十六进制
+            const jsonString = JSON.stringify(data);
+            const encoder = new TextEncoder();
+            const bytes = encoder.encode(jsonString);
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+          } catch (e) {
+            throw new Error(`模拟编码失败: ${e.message}`);
+          }
+        };
+
+        // 模拟MessagePack解码
+        const simulateMsgpackDecoding = (hexString) => {
+          // 实际的MessagePack解码需要专门的库
+          // 这里只是模拟一个简单的解码过程来展示概念
+          try {
+            // 将十六进制字符串转换为字节数组，再转换为字符串，最后解析为JSON
+            const bytes = new Uint8Array(
+              hexString.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+            );
+            const decoder = new TextDecoder();
+            const jsonString = decoder.decode(bytes);
+            return JSON.parse(jsonString);
+          } catch (e) {
+            throw new Error(`模拟解码失败: ${e.message}`);
+          }
+        };
+
+        const loadExample = () => {
+          jsonData.value = JSON.stringify({
+            name: "张三",
+            age: 30,
+            email: "zhangsan@example.com",
+            address: {
+              street: "中山路123号",
+              city: "北京",
+              zipCode: "100000"
+            },
+            hobbies: ["读书", "游泳", "编程"],
+            isActive: true
+          }, null, 2);
+          convertJsonToMsgpack();
+        };
+
+        const clearAll = () => {
+          jsonData.value = '';
+          msgpackHex.value = '';
+          result.value = '';
+        };
+
+        return {
+          jsonData,
+          msgpackHex,
+          result,
+          jsonSize,
+          msgpackSize,
+          compressionRate,
+          convertJsonToMsgpack,
+          convertMsgpackToJson,
+          clearAll,
+          loadExample
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

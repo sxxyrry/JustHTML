@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HTTP状态码查询 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+    
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    
+    .status-card {
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 15px;
+      border-left: 4px solid var(--accent-color);
+      transition: var(--transition);
+    }
+    
+    .status-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .status-code {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: var(--accent-color);
+      margin-bottom: 5px;
+    }
+    
+    .status-message {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .status-description {
+      color: var(--text-secondary);
+      font-size: 0.9em;
+      margin-top: 8px;
+    }
+    
+    .status-category {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.8em;
+      margin-bottom: 8px;
+    }
+    
+    .category-1xx { background-color: #6c757d; color: white; }
+    .category-2xx { background-color: #28a745; color: white; }
+    .category-3xx { background-color: #17a2b8; color: white; }
+    .category-4xx { background-color: #ffc107; color: black; }
+    .category-5xx { background-color: #dc3545; color: white; }
+    
+    .search-container {
+      margin: 20px 0;
+    }
+    
+    .search-box {
+      width: 100%;
+      padding: 10px 15px;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--bg-tertiary);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>HTTP状态码查询</h2>
+        <p>查询HTTP状态码的含义和用途</p>
+        
+        <div class="info-box">
+          <p><strong>功能说明：</strong></p>
+          <p>• HTTP状态码是服务器响应客户端请求时返回的三位数字代码</p>
+          <p>• 状态码分为五类：1xx（信息响应）、2xx（成功）、3xx（重定向）、4xx（客户端错误）、5xx（服务器错误）</p>
+          <p>• 通过搜索框可以快速查找特定状态码</p>
+        </div>
+        
+        <div class="search-container">
+          <input 
+            type="text" 
+            class="search-box" 
+            v-model="searchQuery" 
+            placeholder="搜索HTTP状态码或关键词...">
+        </div>
+        
+        <div class="status-grid">
+          <div 
+            v-for="status in filteredStatusCodes" 
+            :key="status.code" 
+            class="status-card"
+          >
+            <div :class="['status-category', 'category-' + status.code.toString()[0] + 'xx']">
+              {{ getCategoryName(status.code) }}
+            </div>
+            <div class="status-code">{{ status.code }}</div>
+            <div class="status-message">{{ status.message }}</div>
+            <div class="status-description">{{ status.description }}</div>
+          </div>
+        </div>
+        
+        <div v-if="filteredStatusCodes.length === 0" class="result">
+          <p>没有找到匹配的状态码</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+
+    createApp({
+      setup() {
+        const searchQuery = ref('');
+        
+        // HTTP状态码数据
+        const statusCodes = [
+          { code: 100, message: "Continue", description: "继续。客户端应继续其请求" },
+          { code: 101, message: "Switching Protocols", description: "切换协议。服务器根据客户端的请求切换协议" },
+          { code: 102, message: "Processing", description: "处理中。服务器正在处理请求" },
+          { code: 103, message: "Early Hints", description: "早提示。服务器返回某些响应头以期客户端能够预加载资源" },
+          
+          { code: 200, message: "OK", description: "请求成功。一般用于GET与POST请求" },
+          { code: 201, message: "Created", description: "已创建。成功请求并创建了新的资源" },
+          { code: 202, message: "Accepted", description: "已接受。请求已被接受，但尚未处理完成" },
+          { code: 203, message: "Non-Authoritative Information", description: "非授权信息。服务器成功处理了请求，但返回的信息可能来自另一来源" },
+          { code: 204, message: "No Content", description: "无内容。服务器成功处理了请求，但没有返回任何内容" },
+          { code: 205, message: "Reset Content", description: "重置内容。服务器成功处理了请求，但没有返回任何内容，要求客户端重置视图" },
+          { code: 206, message: "Partial Content", description: "部分内容。服务器成功处理了部分GET请求" },
+          { code: 207, message: "Multi-Status", description: "多状态。代表之后的消息体将是一个XML消息，并可能依照之前子请求的数量包含多条独立的响应信息" },
+          { code: 208, message: "Already Reported", description: "已报告。DAV绑定的成员已经在之前的请求中被通报过" },
+          { code: 226, message: "IM Used", description: "IM使用。服务器已经完成了对资源的GET请求，并且响应表示的是由请求的源资源确定的一个或多个实例" },
+          
+          { code: 300, message: "Multiple Choices", description: "多种选择。针对请求，服务器可执行多种操作" },
+          { code: 301, message: "Moved Permanently", description: "永久移动。请求的资源已被永久移动到新URI" },
+          { code: 302, message: "Found", description: "临时移动。资源只是临时移动，客户端应继续使用原有URI" },
+          { code: 303, message: "See Other", description: "查看其他地址。响应的资源可以在另一个URI上被找到，并且应当使用GET方法检索" },
+          { code: 304, message: "Not Modified", description: "未修改。资源未修改，客户端可以使用缓存的版本" },
+          { code: 305, message: "Use Proxy", description: "使用代理。所请求的资源必须通过指定的代理才能被访问" },
+          { code: 306, message: "Unused", description: "已废弃。在最新版HTTP协议中已不再使用" },
+          { code: 307, message: "Temporary Redirect", description: "临时重定向。资源只是临时移动，客户端应继续使用原有URI" },
+          { code: 308, message: "Permanent Redirect", description: "永久重定向。资源永久移动到新位置，且将来任何对此资源的新访问都应使用本Response返回的那些URI之一" },
+          
+          { code: 400, message: "Bad Request", description: "错误请求。服务器不理解客户端的请求" },
+          { code: 401, message: "Unauthorized", description: "未授权。请求需要身份验证" },
+          { code: 402, message: "Payment Required", description: "需要付款。预留状态码，以备将来使用" },
+          { code: 403, message: "Forbidden", description: "禁止。服务器拒绝执行此请求" },
+          { code: 404, message: "Not Found", description: "未找到。服务器找不到请求的资源" },
+          { code: 405, message: "Method Not Allowed", description: "方法禁用。请求方法对于指定的资源不被允许" },
+          { code: 406, message: "Not Acceptable", description: "不可接受。服务器无法基于客户端请求的内容特性完成请求" },
+          { code: 407, message: "Proxy Authentication Required", description: "需要代理身份验证。客户端必须先使用代理服务器进行身份验证" },
+          { code: 408, message: "Request Timeout", description: "请求超时。服务器等待客户端请求时超时" },
+          { code: 409, message: "Conflict", description: "冲突。请求存在冲突无法处理" },
+          { code: 410, message: "Gone", description: "已删除。请求的资源永久性删除" },
+          { code: 411, message: "Length Required", description: "需要请求长度。服务器拒绝处理请求，除非客户端指定了Content-Length头字段" },
+          { code: 412, message: "Precondition Failed", description: "先决条件失败。服务器不满足客户端请求中指定的先决条件" },
+          { code: 413, message: "Payload Too Large", description: "请求实体过大。服务器拒绝处理请求，因为请求实体大于服务器能够处理的范围" },
+          { code: 414, message: "URI Too Long", description: "请求URI过长。服务器拒绝处理请求，因为请求URI比服务器能够解释的要长" },
+          { code: 415, message: "Unsupported Media Type", description: "不支持的媒体类型。请求的格式不被请求的资源支持" },
+          { code: 416, message: "Range Not Satisfiable", description: "请求范围不符合要求。客户端请求的范围无效" },
+          { code: 417, message: "Expectation Failed", description: "期望失败。服务器无法满足Expect请求头字段中指定的期望值" },
+          { code: 418, message: "I'm a teapot", description: "我是茶壶。RFC 2324中定义的恶搞状态码" },
+          { code: 421, message: "Misdirected Request", description: "错误导向的请求。请求被指向了无法生成响应的服务器" },
+          { code: 422, message: "Unprocessable Entity", description: "无法处理的实体。请求格式正确，但是由于语义错误而无法遵循" },
+          { code: 423, message: "Locked", description: "锁定。被请求的资源被锁定" },
+          { code: 424, message: "Failed Dependency", description: "请求失败，因为请求依赖于另一个请求，而那个请求失败了" },
+          { code: 425, message: "Too Early", description: "过早。服务器不愿意冒险处理可能被重播的请求" },
+          { code: 426, message: "Upgrade Required", description: "需要升级。客户端应该切换到不同的协议进行请求" },
+          { code: 428, message: "Precondition Required", description: "需要先决条件。原始请求需要提供条件" },
+          { code: 429, message: "Too Many Requests", description: "请求过多。用户在给定时间内发送了太多请求" },
+          { code: 431, message: "Request Header Fields Too Large", description: "请求头字段太大。请求头字段太大，服务器不愿意处理" },
+          { code: 451, message: "Unavailable For Legal Reasons", description: "因法律原因不可用。请求不可用，因为法律原因被删除" },
+          
+          { code: 500, message: "Internal Server Error", description: "内部服务器错误。服务器遇到了一个未曾预料的状况" },
+          { code: 501, message: "Not Implemented", description: "未实现。服务器不支持当前请求所需的功能" },
+          { code: 502, message: "Bad Gateway", description: "错误网关。服务器作为网关或代理，从上游服务器收到无效响应" },
+          { code: 503, message: "Service Unavailable", description: "服务不可用。服务器目前无法使用（由于超载或停机维护）" },
+          { code: 504, message: "Gateway Timeout", description: "网关超时。服务器作为网关或代理，未能及时从上游服务器接收请求" },
+          { code: 505, message: "HTTP Version Not Supported", description: "HTTP版本不支持。服务器不支持请求中所使用的HTTP协议版本" },
+          { code: 506, message: "Variant Also Negotiates", description: "变体也协商。服务器存在内部配置错误" },
+          { code: 507, message: "Insufficient Storage", description: "存储不足。服务器无法存储完成请求所必需的表示" },
+          { code: 508, message: "Loop Detected", description: "检测到循环。服务器在处理请求期间检测到无限循环" },
+          { code: 510, message: "Not Extended", description: "未扩展。服务器需要进一步扩展才能完成请求" },
+          { code: 511, message: "Network Authentication Required", description: "需要网络认证。客户端需要进行身份验证才能获得网络访问权限" }
+        ];
+        
+        const getCategoryName = (code) => {
+          const firstDigit = code.toString()[0];
+          switch(firstDigit) {
+            case '1':
+              return '信息响应';
+            case '2':
+              return '成功';
+            case '3':
+              return '重定向';
+            case '4':
+              return '客户端错误';
+            case '5':
+              return '服务器错误';
+            default:
+              return '未知';
+          }
+        };
+        
+        const filteredStatusCodes = computed(() => {
+          if (!searchQuery.value.trim()) {
+            return statusCodes;
+          }
+          
+          const query = searchQuery.value.toLowerCase();
+          return statusCodes.filter(status => 
+            status.code.toString().includes(query) ||
+            status.message.toLowerCase().includes(query) ||
+            status.description.toLowerCase().includes(query)
+          );
+        });
+
+        return {
+          searchQuery,
+          statusCodes,
+          filteredStatusCodes,
+          getCategoryName
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

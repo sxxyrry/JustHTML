@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSONL转换器 - JustHTML 只需网页</title>
+  <link rel="stylesheet" href="../assets/style.css">
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+  <style>
+    .converter-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+    
+    .option-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .option-item label {
+      margin-bottom: 5px;
+      color: var(--accent-color);
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .info-box {
+      background-color: var(--bg-tertiary);
+      padding: 10px;
+      border-radius: var(--border-radius);
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-section">
+        <h2>JSONL转换器</h2>
+        <p>JSONL（JSON Lines）与JSON数组之间的转换</p>
+        
+        <div class="info-box">
+          <p><strong>JSONL格式说明：</strong></p>
+          <p>• 每行一个JSON对象</p>
+          <p>• 适用于大数据流处理</p>
+          <p>• JSONL示例：<br>{ "name": "张三", "age": 25 }<br>{ "name": "李四", "age": 30 }</p>
+        </div>
+        
+        <div>
+          <textarea 
+            v-model="inputText" 
+            placeholder="在此输入JSON或JSONL数据..."
+            rows="12"
+          ></textarea>
+          
+          <div class="converter-options">
+            <div class="option-item">
+              <label for="convertTo">转换方向</label>
+              <select id="convertTo" v-model="convertTo">
+                <option value="jsonl">JSON → JSONL</option>
+                <option value="json">JSONL → JSON</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="controls">
+            <button @click="convertData">转换数据</button>
+            <button @click="validateJson">验证JSON</button>
+            <button @click="clearText">清空</button>
+          </div>
+          
+          <div class="result" v-if="result">
+            <p><strong>结果:</strong></p>
+            <pre>{{ result }}</pre>
+          </div>
+          
+          <div class="result" v-if="error" style="color: #ff6b6b;">
+            <p><strong>错误:</strong></p>
+            <p>{{ error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+      setup() {
+        const inputText = ref('');
+        const result = ref('');
+        const error = ref('');
+        const convertTo = ref('jsonl');
+
+        const convertData = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '';
+            return;
+          }
+
+          try {
+            if (convertTo.value === 'jsonl') {
+              // JSON to JSONL
+              const jsonData = JSON.parse(inputText.value);
+              if (Array.isArray(jsonData)) {
+                result.value = jsonData.map(obj => JSON.stringify(obj)).join('\n');
+              } else {
+                // 如果是单个对象，直接转为一行
+                result.value = JSON.stringify(jsonData);
+              }
+            } else {
+              // JSONL to JSON
+              const lines = inputText.value.split('\n').filter(line => line.trim() !== '');
+              const jsonArray = lines.map(line => JSON.parse(line.trim()));
+              result.value = JSON.stringify(jsonArray, null, 2);
+            }
+          } catch (e) {
+            error.value = `转换错误: ${e.message}`;
+          }
+        };
+
+        const validateJson = () => {
+          error.value = '';
+          if (!inputText.value) {
+            result.value = '请输入JSON数据';
+            return;
+          }
+
+          try {
+            // 尝试解析为普通JSON
+            JSON.parse(inputText.value);
+            result.value = '✓ 数据是有效的JSON';
+          } catch (e) {
+            try {
+              // 尝试解析为JSONL
+              const lines = inputText.value.split('\n').filter(line => line.trim() !== '');
+              lines.forEach((line, index) => {
+                JSON.parse(line.trim());
+              });
+              result.value = `✓ 数据是有效的JSONL格式 (${lines.length} 行)`;
+            } catch (e2) {
+              error.value = `数据格式错误: ${e.message} 或 ${e2.message}`;
+            }
+          }
+        };
+
+        const clearText = () => {
+          inputText.value = '';
+          result.value = '';
+          error.value = '';
+        };
+
+        return {
+          inputText,
+          result,
+          error,
+          convertTo,
+          convertData,
+          validateJson,
+          clearText
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
