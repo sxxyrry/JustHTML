@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     // 创建header元素
     const header = document.createElement('header');
-    header.innerHTML = '<h1>全能工具箱 - JustHTML</h1><p>一个集合了多种实用工具的工具箱，基于HTML、CSS和JavaScript</p>';
+    header.innerHTML = '<h1>JustHTML 只需网页！ - 全能工具箱</h1><p>一个集合了多种实用工具的工具箱，基于HTML、CSS和JavaScript</p>';
     
     // 将header添加到body的最前
     document.body.insertBefore(header, document.body.firstChild);
