@@ -253,7 +253,7 @@ function urlSafeBase64Decode(input) {
 
       if (e.target.nodeName === 'A') {
         if (e.target.href.startsWith(window.location.origin)) {
-          const relativePath = '.' + e.target.href.substring(window.location.origin.length + window.location.pathname.length);
+          const relativePath = './' + e.target.href.substring(window.location.origin.length + '/JustHTML'.length);
 
           console.log(relativePath)
 
