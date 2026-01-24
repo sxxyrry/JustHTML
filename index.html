@@ -255,8 +255,8 @@ function urlSafeBase64Decode(input) {
         if (e.target.href.startsWith(window.location.origin)) {
           const relativePath = '.' + e.target.href.substring(window.location.origin.length + window.location.pathname.length);
 
-          
-          
+          console.log(relativePath)
+
           if (window.Tools.includes(relativePath)) {
             window.open(e.target.href, '_self');
             return
