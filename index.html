@@ -267,7 +267,7 @@ function urlSafeBase64Decode(input) {
               .then(response => response.text())
               .then(text => {
                 const encodedURL = urlSafeBase64Encode(text)
-                const url_ = `/showMD.html?content=${encodedURL}`
+                const url_ = `${window.location.origin}/JustHTML/showMD.html?content=${encodedURL}`
                 window.open(url_)
               })
           } else if (url.endsWith('/package/Marked/LICENSE')) {
@@ -275,7 +275,7 @@ function urlSafeBase64Decode(input) {
               .then(response => response.text())
               .then(text => {
                 const encodedURL = urlSafeBase64Encode(text)
-                const url_ = `/showMD.html?content=${encodedURL}`
+                const url_ = `${window.location.origin}/JustHTML/showMD.html?content=${encodedURL}`
                 window.open(url_)
               })
           } else {
@@ -283,7 +283,7 @@ function urlSafeBase64Decode(input) {
               .then(response => response.text())
               .then(text => {
                 const encodedURL = urlSafeBase64Encode(text)
-                const url_ = `/showFile.html?content=${encodedURL}`
+                const url_ = `${window.location.origin}/JustHTML/showFile.html?content=${encodedURL}`
                 window.open(url_)
               })
           }
@@ -292,7 +292,7 @@ function urlSafeBase64Decode(input) {
               .then(response => response.text())
               .then(text => {
                 const encodedURL = urlSafeBase64Encode(text)
-                const url_ = `/showMD.html?content=${encodedURL}`
+                const url_ = `${window.location.origin}/JustHTML/showMD.html?content=${encodedURL}`
                 window.open(url_)
               })
         } else {

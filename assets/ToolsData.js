@@ -546,7 +546,7 @@ const ToolsData = [
         "items": [
           {
             "link": "./BackendTools/AIChat.html",
-            "content": "AIChat - AI 聊天（ Free QWQ 提供后端支持 ）-未实现"
+            "content": "AIChat - AI 聊天"
           }
         ]
       }

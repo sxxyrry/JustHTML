@@ -151,4 +151,4 @@
 
 ## 要后端（非官方提供）的工具
 - **🤖 AI 工具**
-  - [AIChat](./BackendTools/AIChat.html) - AI 聊天（ Free QWQ 提供后端支持 ）-未实现
+  - [AIChat](./BackendTools/AIChat.html) - AI 聊天
