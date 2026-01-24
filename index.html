@@ -255,7 +255,7 @@ function urlSafeBase64Decode(input) {
         if (e.target.href.startsWith(window.location.origin)) {
           const relativePath = './' + e.target.href.substring(window.location.origin.length + '/JustHTML/'.length);
 
-          console.log(relativePath)
+          // console.log(relativePath)
 
           if (window.Tools.includes(relativePath)) {
             window.open(e.target.href, '_self');
@@ -330,20 +330,14 @@ function urlSafeBase64Decode(input) {
       
       // 添加打开对话框的方法到 全局 中
       showREDialog = function() {
+        const dialog_info = document.getElementById('infoDialog');
+        if (dialog_info) {
+          dialog_info.close();
+        }
         dialog.showModal();
       };
+
       window.showREDialog = showREDialog
-      
-      // 添加打开对话框的方法到 Vue 应用中
-      if (window.vueApp) {
-        window.vueApp.showREDialog = function() {
-          const dialog_info = document.getElementById('infoDialog');
-          if (dialog_info) {
-            dialog_info.close();
-          }
-          dialog.showModal();
-        };
-      }
       
       // 关闭对话框事件
       closeDialogBtn.addEventListener('click', () => {
