@@ -11,11 +11,73 @@
   <script src="./package/Marked/code/marked.umd.js"></script>
   <script type="module" src="./package/Sober/code/main.js"></script>
 
-  <script src="./assets/Tools.js"></script>
-  <script src="./assets/ToolsData.js"></script>
   <script>
+/**
+ * 动态加载（强制去除缓存） JS 的函数
+ * @param {string} src - 要加载的 JS 的 src 链接
+ * @returns {Promise} 返回一个 Promise 对象，用于处理异步加载
+ */
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src + '?v=' + new Date().getTime(); // 使用时间戳避免缓存
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * URL安全的Base64编码器
+ * 将输入字符串转换为URL安全的Base64编码格式
+ * @param {string} input - 要编码的字符串
+ * @returns {string} URL安全的Base64编码字符串
+ */
+function urlSafeBase64Encode(input) {
+    // 首先使用标准btoa进行Base64编码
+    const base64 = btoa(encodeURIComponent(input).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+        return String.fromCharCode('0x' + p1);
+    }));
+    
+    // 替换不安全的字符为URL安全的字符
+    return base64
+        .replace(/\+/g, '-')  // 将 '+' 替换为 '-'
+        .replace(/\//g, '_')  // 将 '/' 替换为 '_'
+        .replace(/=/g, '');   // 移除填充字符 '='
+}
+
+/**
+ * URL安全的Base64解码器
+ * 将URL安全的Base64编码字符串解码回原始字符串
+ * @param {string} input - URL安全的Base64编码字符串
+ * @returns {string} 解码后的原始字符串
+ */
+function urlSafeBase64Decode(input) {
+    // 先将URL安全的字符转换回标准Base64字符
+    let base64 = input
+        .replace(/-/g, '+')  // 将 '-' 替换为 '+'
+        .replace(/_/g, '/'); // 将 '_' 替换为 '/'
+    
+    // 根据需要添加填充字符
+    const padding = base64.length % 4;
+    if (padding !== 0) {
+        base64 += '='.repeat(4 - padding);
+    }
+    
+    // 使用atob解码
+    return decodeURIComponent(Array.prototype.map.call(atob(base64), function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+}
+</script>
+  
+  <script src="./assets/AddHeader.js"></script>
+  <script src="./assets/AddFooter.js"></script>
+
+  <!-- <script>
     window.ToolsData = deepcopy(ToolsData);
-  </script>
+  </script> -->
   <style>
     .search-container {
       margin: 20px auto;
@@ -79,14 +141,6 @@
       color: var(--accent-color);
     }
 
-    footer {
-      text-align: center;
-      margin-top: 40px;
-      padding: 20px;
-      color: var(--text-secondary);
-      border-top: 1px solid var(--bg-tertiary);
-    }
-
     .highlight {
       background-color: rgba(74, 158, 255, 0.2);
     }
@@ -112,10 +166,9 @@
 <body>
   <div id="app">
     <div class="container">
-      <header>
-        <h1>全能工具箱 - JustHTML</h1>
-        <p>一个集合了多种实用工具的工具箱，基于HTML、CSS和JavaScript</p>
-      </header>
+      <button onclick="showVHDialog()"> 版本历史记录 </button>
+
+      <button onclick="showREDialog()"> README 文件 </button>
 
       <div class="search-container">
         <input type="text" id="searchBox" v-model="searchQuery" class="search-box" placeholder="搜索工具...">
@@ -166,13 +219,143 @@
         </div>
       </div>
 
-      <footer>
-        <p>全能工具箱 - JustHTML &copy; 2023 - 包含多种实用工具</p>
-      </footer>
+      <script>
+        
+      </script>
+
     </div>
   </div>
 
+  <dialog id="VersionHistoryDialog">
+    <div class="dialog-content">
+      <h2>版本历史</h2>
+      <pre id="VersionHistory"></pre>
+      <div class="dialog-actions">
+        <button class="btn" id="closeDialog_VerHis">关闭</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog id="READMEDialog">
+    <div class="dialog-content">
+      <h2>README</h2>
+      <pre id="README"></pre>
+      <div class="dialog-actions">
+        <button class="btn" id="closeDialog_README">关闭</button>
+      </div>
+    </div>
+  </dialog>
+
+  <h1 id="wait">请等待</h1>
+
   <script>
+    window.addEventListener('click', (e) => {
+      e.preventDefault()
+
+      if (e.target.nodeName === 'A') {
+        if (e.target.href.startsWith(window.location.origin)) {
+          const relativePath = '.' + e.target.href.substring(window.location.origin.length);
+          console.log(relativePath, window.Tools.includes(relativePath))
+          
+          if (window.Tools.includes(relativePath)) {
+            window.open(e.target.href, '_self');
+            return
+          }
+          const url = e.target.href
+          if (url.endsWith('.md') || url.endsWith('.Md') || url.endsWith('.mD') || url.endsWith('.MD')) {
+            fetch(url)
+              .then(response => response.text())
+              .then(text => {
+                const encodedURL = urlSafeBase64Encode(text)
+                const url_ = `/showMD.html?content=${encodedURL}`
+                window.open(url_)
+              })
+          } else if (url.endsWith('/package/Marked/LICENSE')) {
+            fetch(url)
+              .then(response => response.text())
+              .then(text => {
+                const encodedURL = urlSafeBase64Encode(text)
+                const url_ = `/showMD.html?content=${encodedURL}`
+                window.open(url_)
+              })
+          } else {
+            fetch(url)
+              .then(response => response.text())
+              .then(text => {
+                const encodedURL = urlSafeBase64Encode(text)
+                const url_ = `/showFile.html?content=${encodedURL}`
+                window.open(url_)
+              })
+          }
+        } else if (e.target.href.endsWith('.md') || e.target.href.endsWith('.Md') || e.target.href.endsWith('.mD') || e.target.href.endsWith('.MD')) {
+            fetch(url)
+              .then(response => response.text())
+              .then(text => {
+                const encodedURL = urlSafeBase64Encode(text)
+                const url_ = `/showMD.html?content=${encodedURL}`
+                window.open(url_)
+              })
+        } else {
+          window.open(e.target.href);
+        }
+      }
+    })
+
+    document.addEventListener('DOMContentLoaded', () => {
+      var dialog = document.getElementById('VersionHistoryDialog');
+      var closeDialogBtn = document.getElementById('closeDialog_VerHis');
+      
+      // 添加打开对话框的方法到 全局 中
+      showVHDialog = function() {
+        dialog.showModal();
+      };
+
+      window.showVHDialog = showVHDialog
+      
+      // 关闭对话框事件
+      closeDialogBtn.addEventListener('click', () => {
+        dialog.close();
+      });
+      
+      // 点击对话框外部关闭对话框
+      dialog.addEventListener('click', (event) => {
+        if (event.target === dialog) {
+          dialog.close();
+        }
+      });
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      var dialog = document.getElementById('READMEDialog');
+      var closeDialogBtn = document.getElementById('closeDialog_README');
+      
+      // 添加打开对话框的方法到 全局 中
+      showREDialog = function() {
+        dialog.showModal();
+      };
+      window.showREDialog = showREDialog
+      
+      // 添加打开对话框的方法到 Vue 应用中
+      if (window.vueApp) {
+        window.vueApp.showREDialog = function() {
+          const dialog_info = document.getElementById('infoDialog');
+          if (dialog_info) {
+            dialog_info.close();
+          }
+          dialog.showModal();
+        };
+      }
+      
+      // 关闭对话框事件
+      closeDialogBtn.addEventListener('click', () => {
+        dialog.close();
+      });
+      
+      // 点击对话框外部关闭对话框
+      dialog.addEventListener('click', (event) => {
+        if (event.target === dialog) {
+          dialog.close();
+        }
+      });
+    });
     const { onMounted, createApp, ref, computed } = Vue;
 
     const cate = ref()
@@ -244,8 +427,7 @@
                 if (item.items) {
                   // 处理分组项目
                   const filteredSubItems = item.items.filter(subItem =>
-                    subItem.content.toLowerCase().includes(query) ||
-                    subItem.link.toLowerCase().includes(query)
+                    subItem.content.toLowerCase().includes(query)
                   );
 
                   if (filteredSubItems.length > 0) {
@@ -259,8 +441,7 @@
                 } else {
                   // 处理单个项目
                   if (
-                    item.content.toLowerCase().includes(query) ||
-                    item.link.toLowerCase().includes(query)
+                    item.content.toLowerCase().includes(query)
                   ) {
                     totalTools++;
                     return [item];
@@ -299,10 +480,71 @@
           };
         }
       })
+      window.vueApp = App
       App.mount('#app');
     }
 
-    initApp();
+    document.getElementById('app').style.opacity = '0';
+    document.getElementById('wait').style.opacity = '1';
+
+    // 等待所有脚本加载完成后初始化应用
+    Promise.all([
+      loadScript('./assets/Tools.js'),
+      loadScript('./assets/ToolsData.js')
+    ])
+    .then(() => {
+      // 复制数据
+      window.ToolsData = deepcopy(ToolsData);
+      window.Tools = [];
+
+      function extractLinks(data) {
+        data.forEach(category => {
+          if (category.items && Array.isArray(category.items)) {
+            category.items.forEach(item => {
+              if (item.items && Array.isArray(item.items)) {
+                // 存在嵌套的items，遍历内部items
+                item.items.forEach(subItem => {
+                  if (subItem.link) {
+                    window.Tools.push(subItem.link);
+                  }
+                });
+              } else {
+                // 直接在items中有link
+                if (item.link) {
+                  window.Tools.push(item.link);
+                }
+              }
+            });
+          }
+        });
+      }
+
+      extractLinks(window.ToolsData);
+
+      // 等待README和VersionHistory加载完成
+      return Promise.all([
+        fetch('./README.md?timestamp=' + Date.now())
+          .then(rep => rep.text())
+          .then(text => {
+            document.getElementById('README').innerHTML = marked.parse(text);
+          }),
+        fetch('./VersionHistory.txt?timestamp=' + Date.now())
+          .then(rep => rep.text())
+          .then(text => {
+            document.getElementById('VersionHistory').innerHTML = text;
+          })
+      ]);
+    })
+    .then(() => {
+      document.getElementById('app').style.opacity = '1';
+      document.getElementById('wait').style.display = 'none';
+      // 初始化应用
+      setTimeout(initApp, 0); // 稍微延时确保数据可用
+    })
+    .catch(error => {
+      console.error('脚本加载失败:', error);
+    });
+    // initApp();
   </script>
 </body>
 
