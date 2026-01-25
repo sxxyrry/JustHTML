@@ -11,8 +11,7 @@
     --transition: all 0.3s ease;
 }
 
-* {
-    /* margin: 0; */
+*:not(ul, li) {
     padding: 0;
     box-sizing: border-box;
     font-family: 'SarasaMonoSC-ExtraLightItalic';
