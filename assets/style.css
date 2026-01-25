@@ -11,11 +11,17 @@
     --transition: all 0.3s ease;
 }
 
-*:not(ul):not(li) {
+/* 应用于所有元素的基础样式 */
+* {
     padding: 0;
     box-sizing: border-box;
     font-family: 'SarasaMonoSC-ExtraLightItalic';
     color: var(--text-primary);
+}
+
+/* 为ul和li元素提供特定样式，覆盖上述样式 */
+ol, ul, li {
+    padding: revert !important;
 }
 
 body {
