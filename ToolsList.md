@@ -108,7 +108,7 @@
 
 - **格式转换**
   - [ImageToBase64](./Tools/ImageToBase64.html) - 图片转 Base64
-  - [ImageToWebP](./Tools/ImageToWebP.html) - 图片转 WebP
+  - [ImageConvert](./Tools/ImageConvert.html) - 图像格式转换
 
 ## 📊 实用计算工具
 - **数学计算**

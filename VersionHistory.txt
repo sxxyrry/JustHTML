@@ -13,3 +13,14 @@
 0.4.0 V:
     增加 图标
     更新 Header 和 Footer
+0.5.0 V:
+    增加 收藏
+    增加工具
+     - [ImageConvert](./Tools/ImageConvert.html) - 图像格式转换
+    删除工具
+     - ImageToWebP - 图像转WebP
+    为 图像格式转换 工具增加库：
+     - IcoJS
+     - JSZIP
+     - Pica
+    更新图标显示使其正常显示

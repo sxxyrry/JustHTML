@@ -9,12 +9,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const link1 = document.createElement('link');
     link1.rel = "icon";
     link1.type = "image/svg+xml";
-    link1.href = "./icon_2.svg";
+    link1.href = "/JustHTML/icon_2.svg";
 
     const link2 = document.createElement('link');
     link2.rel = "icon";
     link2.type = "image/x-icon";
-    link2.href = "./icon_2_.ico";
+    link2.href = "/JustHTML/icon_2.ico";
     
     // 将favicon链接添加到<head>中
     document.head.appendChild(link1);

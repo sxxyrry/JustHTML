@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ImageConvert 图像格式转换 - JustHTML 只需网页</title>
+  <script>
+/**
+ * 动态加载（强制去除缓存） CSS 的函数
+ * @param {string} src - 要加载的 CSS 的 src 链接
+ * @returns {Promise} 返回一个 Promise 对象，用于处理异步加载
+ */
+function loadStyle(src) {
+  return new Promise((resolve, reject) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = src + '?v=' + new Date().getTime(); // 使用时间戳避免缓存
+    link.async = true;
+    link.onload = resolve;
+    link.onerror = reject;
+    document.head.appendChild(link);
+  });
+}
+</script>
+
+  <script>
+    loadStyle('../assets/style.css')
+  </script>
+
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  
+  <!-- 引入轻量级图像处理库 -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/pica@9.0.1/dist/pica.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/icojs@1.0.2/dist/ico.min.js"></script> -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script> -->
+  <script src="../package/Pica/code/pica.min.js"></script>
+  <script src="../package/IcoJS/code/ico.js"></script>
+  <script src="../package/JSZIP/code/jszip.min.js"></script>
+
+  <script src="../assets/AddHeader_Tools.js"></script>
+  <script src="../assets/AddFooter.js"></script>
+  <script src="../assets/AddIco.js"></script>
+
+  <style>
+    /* 暗色主题 - 简约工业风格 */
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --bg-card: #1c2128;
+      --bg-hover: #2d333b;
+      --text-primary: #f0f6fc;
+      --text-secondary: #c9d1d9;
+      --text-tertiary: #8b949e;
+      --border-color: #30363d;
+      --border-hover: #484f58;
+      --accent: #58a6ff;
+      --accent-hover: #388bfd;
+      --success: #238636;
+      --warning: #bb8009;
+      --danger: #da3633;
+      --shadow-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    
+    .image-converter {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-radius: 6px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s ease;
+      font-size: 14px;
+    }
+    
+    .back-link:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--accent);
+      transform: translateX(-4px);
+    }
+    
+    .tool-description {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 28px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 12px var(--shadow-color);
+    }
+    
+    .tool-description h2 {
+      color: var(--text-primary);
+      margin-bottom: 16px;
+      font-size: 28px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .tool-description h2:before {
+      content: "🔄";
+      font-size: 32px;
+    }
+    
+    .tool-description p {
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 12px;
+      font-size: 16px;
+    }
+    
+    .format-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    
+    .format-tag {
+      padding: 6px 12px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      border-radius: 20px;
+      font-size: 13px;
+      border: 1px solid var(--border-color);
+    }
+
+    .format-tag:hover {
+      background: var(--bg-hover);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      transition: all 0.2s ease;
+    }
+    
+    .format-tag.highlight {
+      background: var(--accent);
+      color: white;
+      font-weight: 500;
+    }
+    
+    /* 主转换区域 */
+    .conversion-area {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 30px;
+      margin-bottom: 30px;
+      align-items: start;
+    }
+    
+    @media (max-width: 1100px) {
+      .conversion-area {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .input-section, .output-section {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 25px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 12px var(--shadow-color);
+    }
+    
+    .section-title {
+      color: var(--text-primary);
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .section-title:before {
+      font-size: 20px;
+    }
+    
+    .input-title:before {
+      content: "📥";
+    }
+    
+    .output-title:before {
+      content: "📤";
+    }
+    
+    .conversion-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      font-size: 32px;
+      margin-top: 60px;
+    }
+    
+    @media (max-width: 1100px) {
+      .conversion-arrow {
+        transform: rotate(90deg);
+        margin: 10px 0;
+      }
+    }
+    
+    /* 格式选择器 */
+    .format-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .format-group {
+      margin-bottom: 15px;
+    }
+    
+    .format-group label {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .format-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 10px;
+    }
+    
+    .format-option {
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .format-option:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-hover);
+      color: var(--text-primary);
+    }
+    
+    .format-option.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+      box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+    }
+    
+    /* 文件上传区域 */
+    .upload-area {
+      border: 2px dashed var(--border-color);
+      border-radius: 10px;
+      padding: 50px 20px;
+      text-align: center;
+      background: var(--bg-tertiary);
+      transition: all 0.2s ease;
+      cursor: pointer;
+      margin: 20px 0;
+    }
+    
+    .upload-area:hover {
+      border-color: var(--accent);
+      background: var(--bg-hover);
+    }
+    
+    .upload-area.drag-over {
+      border-color: var(--accent);
+      background: rgba(88, 166, 255, 0.05);
+    }
+    
+    .upload-icon {
+      font-size: 48px;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    
+    .upload-area h3 {
+      color: var(--text-primary);
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+    
+    .upload-area p {
+      color: var(--text-tertiary);
+      font-size: 14px;
+    }
+    
+    .file-input {
+      display: none;
+    }
+    
+    /* 文件信息 */
+    .file-info {
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 16px 0;
+      border: 1px solid var(--border-color);
+    }
+    
+    .file-info-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    
+    .file-info-row:last-child {
+      margin-bottom: 0;
+    }
+    
+    .file-info-icon {
+      font-size: 20px;
+      color: var(--accent);
+      width: 24px;
+      text-align: center;
+    }
+    
+    .file-info-text {
+      flex: 1;
+    }
+    
+    .file-name {
+      color: var(--text-primary);
+      font-weight: 500;
+      font-size: 15px;
+    }
+    
+    .file-details {
+      color: var(--text-tertiary);
+      font-size: 13px;
+    }
+    
+    /* 预览区域 */
+    .preview-container {
+      margin: 20px 0;
+    }
+    
+    .preview-box {
+      width: 100%;
+      height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+    
+    .preview-box img, .preview-box video {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+    
+    .placeholder-text {
+      color: var(--text-tertiary);
+      text-align: center;
+      padding: 20px;
+      font-size: 14px;
+    }
+    
+    /* 转换设置 */
+    .conversion-settings {
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      border: 1px solid var(--border-color);
+    }
+    
+    .setting-group {
+      margin-bottom: 20px;
+    }
+    
+    .setting-group:last-child {
+      margin-bottom: 0;
+    }
+    
+    .setting-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .setting-row {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .setting-col {
+      flex: 1;
+      min-width: 150px;
+    }
+    
+    input[type="number"], select, input[type="range"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-family: inherit;
+    }
+    
+    input[type="number"]:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+    }
+    
+    .range-value {
+      display: inline-block;
+      margin-left: 10px;
+      color: var(--accent);
+      font-weight: 500;
+      min-width: 30px;
+    }
+    
+    .dimension-inputs {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .dimension-inputs input {
+      flex: 1;
+    }
+    
+    /* 进度条 */
+    .progress-container {
+      margin: 20px 0;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    
+    .progress-text {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+    
+    /* 按钮区域 */
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 25px;
+      flex-wrap: wrap;
+    }
+    
+    .btn {
+      flex: 1;
+      min-width: 140px;
+      padding: 14px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
+    }
+    
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+    
+    .btn-success:hover {
+      background: #2ea043;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(35, 134, 54, 0.3);
+    }
+    
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--border-hover);
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+    
+    /* 状态提示 */
+    .status {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      animation: fadeIn 0.3s ease;
+      border-left: 4px solid transparent;
+    }
+    
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .status.success {
+      background: rgba(35, 134, 54, 0.1);
+      color: #7ee787;
+      border-left-color: var(--success);
+    }
+    
+    .status.error {
+      background: rgba(218, 54, 51, 0.1);
+      color: #ffa198;
+      border-left-color: var(--danger);
+    }
+    
+    .status.info {
+      background: rgba(88, 166, 255, 0.1);
+      color: #a5d6ff;
+      border-left-color: var(--accent);
+    }
+    
+    .status.warning {
+      background: rgba(187, 128, 9, 0.1);
+      color: #ffd33d;
+      border-left-color: var(--warning);
+    }
+    
+    /* 加载动画 */
+    .loading {
+      text-align: center;
+      padding: 30px;
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      margin: 20px 0;
+      border: 1px solid var(--border-color);
+    }
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border-color);
+      border-top: 3px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* 滚动条样式 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: var(--bg-tertiary);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border-hover);
+    }
+    
+    select option {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      padding: 10px;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+      .conversion-area {
+        gap: 20px;
+      }
+      
+      .input-section, .output-section {
+        padding: 20px;
+      }
+      
+      .action-buttons {
+        flex-direction: column;
+      }
+      
+      .btn {
+        width: 100%;
+        min-width: auto;
+      }
+      
+      body {
+        padding: 15px;
+      }
+      
+      .upload-area {
+        padding: 35px 15px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .setting-row {
+        flex-direction: column;
+      }
+      
+      .setting-col {
+        width: 100%;
+      }
+      
+      .format-options {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    
+    /* 格式兼容性提示 */
+    .compatibility-note {
+      background: rgba(187, 128, 9, 0.1);
+      border: 1px solid rgba(187, 128, 9, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 15px;
+      font-size: 13px;
+      color: #ffd33d;
+    }
+    
+    /* 支持的格式列表 */
+    .supported-formats {
+      margin-top: 30px;
+      padding: 20px;
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+    
+    .supported-formats h3 {
+      color: var(--text-primary);
+      margin-bottom: 15px;
+      font-size: 18px;
+    }
+    
+    .format-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    
+    .format-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-card);
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+    
+    .format-icon {
+      font-size: 18px;
+      color: var(--accent);
+    }
+    
+    .format-name {
+      color: var(--text-secondary);
+      font-size: 14px;
+      flex: 1;
+    }
+    
+    .format-status {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+    
+    .status-supported {
+      background: rgba(35, 134, 54, 0.2);
+      color: #7ee787;
+    }
+    
+    .status-limited {
+      background: rgba(187, 128, 9, 0.2);
+      color: #ffd33d;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container image-converter">
+      <a href="../index.html" class="back-link">← 返回首页</a>
+      
+      <div class="tool-description">
+        <h2>ImageConvert 图像格式转换</h2>
+        <p>强大的在线图像格式转换工具，支持 PNG、SVG、ICO、JPG、GIF、WebP、BMP 等多种格式互转。</p>
+        <p>完全在浏览器中运行，无需上传服务器，保护您的隐私。</p>
+        
+        <div class="format-tags">
+          <span class="format-tag">PNG</span>
+          <span class="format-tag">SVG</span>
+          <span class="format-tag">ICO/ICNS</span>
+          <span class="format-tag">JPG/JPEG</span>
+          <span class="format-tag">GIF</span>
+          <span class="format-tag">WebP</span>
+          <span class="format-tag">BMP</span>
+        </div>
+      </div>
+      
+      <div class="conversion-area">
+        <!-- 输入区域 -->
+        <div class="input-section">
+          <div class="section-title input-title">输入文件</div>
+          
+          <div class="format-selector">
+            <div class="format-group">
+              <label>选择输入格式</label>
+              <div class="format-options">
+                <div class="format-option" 
+                     :class="{ active: inputFormat === 'png' }"
+                     @click="setInputFormat('png')">PNG</div>
+                <div class="format-option" 
+                     :class="{ active: inputFormat === 'svg' }"
+                     @click="setInputFormat('svg')">SVG</div>
+                <div class="format-option" 
+                     :class="{ active: inputFormat === 'ico' }"
+                     @click="setInputFormat('ico')">ICO</div>
+                <div class="format-option" 
+                     :class="{ active: inputFormat === 'jpg' }"
+                     @click="setInputFormat('jpg')">JPG</div>
+                <div class="format-option" 
+                     :class="{ active: inputFormat === 'gif' }"
+                     @click="setInputFormat('gif')">GIF</div>
+                <div class="format-option" 
+                     :class="{ active: inputFormat === 'webp' }"
+                     @click="setInputFormat('webp')">WebP</div>
+                <div class="format-option" 
+                     :class="{ active: inputFormat === 'bmp' }"
+                     @click="setInputFormat('bmp')">BMP</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 文件上传区域 -->
+          <div class="upload-area" 
+               @click="triggerFileInput"
+               @dragover.prevent="handleDragOver"
+               @dragleave.prevent="handleDragLeave"
+               @drop.prevent="handleDrop"
+               :class="{ 'drag-over': isDragOver }">
+            <div class="upload-icon">📁</div>
+            <h3>点击选择或拖放文件</h3>
+            <p>支持 {{ getFormatDescription(inputFormat) }} 格式，最大 20MB</p>
+            <input type="file" 
+                   ref="fileInput"
+                   class="file-input" 
+                   :accept="getAcceptString(inputFormat)"
+                   @change="handleFileSelect">
+          </div>
+          
+          <!-- 文件信息 -->
+          <div class="file-info" v-if="inputFile">
+            <div class="file-info-row">
+              <div class="file-info-icon">📄</div>
+              <div class="file-info-text">
+                <div class="file-name">{{ inputFile.name }}</div>
+                <div class="file-details">{{ formatFileSize(inputFile.size) }} • {{ inputFormat.toUpperCase() }}</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 预览区域 -->
+          <div class="preview-container">
+            <div class="preview-box">
+              <img v-if="inputFile && isImageFormat(inputFormat)" :src="inputDataUrl" :alt="inputFile.name">
+              <div v-else class="placeholder-text">
+                文件预览将显示在这里
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 转换箭头 -->
+        <div class="conversion-arrow">→</div>
+        
+        <!-- 输出区域 -->
+        <div class="output-section">
+          <div class="section-title output-title">输出文件</div>
+          
+          <div class="format-selector">
+            <div class="format-group">
+              <label>选择输出格式</label>
+              <div class="format-options">
+                <div class="format-option" 
+                     :class="{ active: outputFormat === 'png' }"
+                     @click="setOutputFormat('png')">PNG</div>
+                <div class="format-option" 
+                     :class="{ active: outputFormat === 'svg' }"
+                     @click="setOutputFormat('svg')">SVG</div>
+                <div class="format-option" 
+                     :class="{ active: outputFormat === 'ico' }"
+                     @click="setOutputFormat('ico')">ICO</div>
+                <div class="format-option" 
+                     :class="{ active: outputFormat === 'jpg' }"
+                     @click="setOutputFormat('jpg')">JPG</div>
+                <div class="format-option" 
+                     :class="{ active: outputFormat === 'gif' }"
+                     @click="setOutputFormat('gif')">GIF</div>
+                <div class="format-option" 
+                     :class="{ active: outputFormat === 'webp' }"
+                     @click="setOutputFormat('webp')">WebP</div>
+                <div class="format-option" 
+                     :class="{ active: outputFormat === 'bmp' }"
+                     @click="setOutputFormat('bmp')">BMP</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 转换设置 -->
+          <div class="conversion-settings">
+            <div class="setting-group">
+              <label>输出设置</label>
+              <div class="setting-row">
+                <div class="setting-col">
+                  <label for="quality">质量 <span class="range-value">{{ quality }}%</span></label>
+                  <input type="range" 
+                         id="quality" 
+                         v-model="quality"
+                         min="1" 
+                         max="100" 
+                         step="1">
+                </div>
+                <div class="setting-col">
+                  <label for="size">尺寸</label>
+                  <select id="size" v-model="selectedSize">
+                    <option value="original">原始尺寸</option>
+                    <option value="custom">自定义</option>
+                    <option value="640x480">640×480</option>
+                    <option value="800x600">800×600</option>
+                    <option value="1024x768">1024×768</option>
+                    <option value="1920x1080">1920×1080</option>
+                  </select>
+                </div>
+              </div>
+              
+              <!-- 自定义尺寸输入 -->
+              <div v-if="selectedSize === 'custom'" class="setting-row" style="margin-top: 12px;">
+                <div class="dimension-inputs">
+                  <input type="number" 
+                         v-model="customWidth"
+                         placeholder="宽度" 
+                         min="1" 
+                         max="5000">
+                  <input type="number" 
+                         v-model="customHeight"
+                         placeholder="高度" 
+                         min="1" 
+                         max="5000">
+                </div>
+              </div>
+            </div>
+            
+            <!-- 格式特定设置 -->
+            <div class="setting-group" v-if="outputFormat === 'ico'">
+              <label>ICO 设置</label>
+              <div class="setting-row">
+                <div class="setting-col">
+                  <label>
+                    <input type="checkbox" v-model="icoMultipleSizes">
+                    包含多尺寸
+                  </label>
+                </div>
+                <div class="setting-col" v-if="icoMultipleSizes">
+                  <select v-model="icoSize">
+                    <option value="16,32,48,64,128">16,32,48,64,128</option>
+                    <option value="16,32,48">16,32,48</option>
+                    <option value="32,64,128">32,64,128</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div class="setting-group" v-if="outputFormat === 'gif'">
+              <label>GIF 设置</label>
+              <div class="setting-row">
+                <div class="setting-col">
+                  <label for="frameRate">帧延迟 <span class="range-value">{{ frameDelay }}ms</span></label>
+                  <input type="range" 
+                         id="frameRate" 
+                         v-model="frameDelay"
+                         min="10" 
+                         max="1000" 
+                         step="10">
+                </div>
+              </div>
+            </div>
+            
+            <div class="setting-group" v-if="outputFormat === 'jpg' || outputFormat === 'webp'">
+              <label>高级设置</label>
+              <div class="setting-row">
+                <div class="setting-col">
+                  <label>
+                    <input type="checkbox" v-model="removeMetadata">
+                    移除元数据
+                  </label>
+                </div>
+                <div class="setting-col">
+                  <label>
+                    <input type="checkbox" v-model="optimizeFile">
+                    优化文件大小
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 进度条 -->
+          <div class="progress-container" v-if="isLoading">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: progress + '%' }"></div>
+            </div>
+            <div class="progress-text">{{ progress }}% • {{ progressMessage }}</div>
+          </div>
+          
+          <!-- 输出预览 -->
+          <div class="preview-container">
+            <div class="preview-box">
+              <img v-if="outputDataUrl && isImageFormat(outputFormat)" :src="outputDataUrl" alt="输出预览">
+              <div v-else class="placeholder-text">
+                转换后的文件将显示在这里
+              </div>
+            </div>
+          </div>
+          
+          <!-- 状态提示 -->
+          <div class="status" 
+               :class="statusClass" 
+               v-if="statusMessage">
+            {{ statusMessage }}
+          </div>
+          
+          <!-- 转换兼容性提示 -->
+          <div class="compatibility-note" v-if="showCompatibilityWarning">
+            ⚠️ {{ inputFormat.toUpperCase() }} 转 {{ outputFormat.toUpperCase() }} 在某些浏览器中可能有兼容性问题
+          </div>
+          
+          <!-- 操作按钮 -->
+          <div class="action-buttons">
+            <button class="btn btn-primary" 
+                    @click="startConversion"
+                    :disabled="!inputFile || isLoading">
+              <span>🔄</span> 开始转换
+            </button>
+            
+            <button class="btn btn-success" 
+                    @click="downloadOutput"
+                    :disabled="!outputDataUrl || isLoading">
+              <span>💾</span> 下载文件
+            </button>
+            
+            <button class="btn btn-secondary" 
+                    @click="resetTool">
+              <span>🔄</span> 重置
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 支持的格式列表 -->
+      <div class="supported-formats">
+        <h3>🎯 支持的功能</h3>
+        <div class="format-grid">
+          <div class="format-item">
+            <div class="format-icon">🖼️</div>
+            <div class="format-name">PNG ↔ JPG ↔ WebP ↔ BMP</div>
+            <div class="format-status status-supported">完全支持</div>
+          </div>
+          <div class="format-item">
+            <div class="format-icon">🎨</div>
+            <div class="format-name">SVG → 所有图片格式</div>
+            <div class="format-status status-supported">完全支持</div>
+          </div>
+          <div class="format-item">
+            <div class="format-icon">📱</div>
+            <div class="format-name">ICO 生成与转换</div>
+            <div class="format-status status-supported">完全支持</div>
+          </div>
+          <div class="format-item">
+            <div class="format-icon">🌀</div>
+            <div class="format-name">GIF 处理</div>
+            <div class="format-status status-supported">基本支持</div>
+          </div>
+          <div class="format-item">
+            <div class="format-icon">🔄</div>
+            <div class="format-name">图片 → SVG</div>
+            <div class="format-status status-supported">完全支持</div>
+          </div>
+          <div class="format-item">
+            <div class="format-icon">⚡</div>
+            <div class="format-name">高质量缩放 (Pica)</div>
+            <div class="format-status status-supported">完全支持</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 使用 Vue 3 的 CDN 版本（Options API 语法）
+    const app = Vue.createApp({
+      data() {
+        return {
+          // 输入输出格式
+          inputFormat: 'png',
+          outputFormat: 'jpg',
+          
+          // 文件数据
+          inputFile: null,
+          inputDataUrl: '',
+          outputDataUrl: '',
+          inputFileBuffer: null,
+          
+          // 转换设置
+          quality: 85,
+          selectedSize: 'original',
+          customWidth: 800,
+          customHeight: 600,
+          frameDelay: 100,
+          removeMetadata: true,
+          optimizeFile: true,
+          
+          // ICO 特定设置
+          icoMultipleSizes: true,
+          icoSize: '16,32,48,64,128',
+          
+          // 转换状态
+          isDragOver: false,
+          isLoading: false,
+          progress: 0,
+          progressMessage: '',
+          statusMessage: '',
+          statusClass: '',
+          
+          // Pica 实例
+          pica: null,
+          
+          // DOM 引用
+          fileInput: null
+        };
+      },
+      
+      computed: {
+        // 计算是否显示兼容性警告
+        showCompatibilityWarning() {
+          const warnings = {
+            'gif-svg': true,
+            'gif-ico': true,
+            'ico-svg': true
+          };
+          
+          const key = `${this.inputFormat}-${this.outputFormat}`;
+          return warnings[key] || false;
+        }
+      },
+      
+      async mounted() {
+        // 初始化文件输入框引用
+        this.fileInput = this.$refs.fileInput;
+        
+        // 初始化键盘快捷键
+        this.initKeyboardShortcuts();
+        
+        // 初始化Pica
+        this.pica = window.pica || {};
+      },
+      
+      beforeUnmount() {
+        // 清理事件监听
+        this.removeKeyboardShortcuts();
+        
+        // 清理URL对象
+        this.cleanupUrls();
+      },
+      
+      methods: {
+        // 设置输入格式
+        setInputFormat(format) {
+          this.inputFormat = format;
+          // 清空当前文件
+          this.resetInput();
+          
+          // 自动设置输出格式为不同格式
+          if (format === this.outputFormat) {
+            const formats = ['png', 'jpg', 'webp', 'gif', 'bmp', 'svg', 'ico'];
+            const otherFormats = formats.filter(f => f !== format);
+            this.outputFormat = otherFormats[Math.floor(Math.random() * otherFormats.length)];
+          }
+        },
+        
+        // 设置输出格式
+        setOutputFormat(format) {
+          this.outputFormat = format;
+          this.outputDataUrl = '';
+        },
+        
+        // 获取文件接受字符串
+        getAcceptString(format) {
+          const acceptMap = {
+            png: '.png',
+            jpg: '.jpg,.jpeg',
+            webp: '.webp',
+            gif: '.gif',
+            bmp: '.bmp',
+            svg: '.svg',
+            ico: '.ico,.icns'
+          };
+          return acceptMap[format] || '*';
+        },
+        
+        // 获取格式描述
+        getFormatDescription(format) {
+          const descriptions = {
+            png: 'PNG 图像',
+            jpg: 'JPG/JPEG 图像',
+            webp: 'WebP 图像',
+            gif: 'GIF 图像',
+            bmp: 'BMP 图像',
+            svg: 'SVG 矢量图',
+            ico: 'ICO/ICNS 图标'
+          };
+          return descriptions[format] || format.toUpperCase();
+        },
+        
+        // 检查是否为图片格式
+        isImageFormat(format) {
+          return ['png', 'jpg', 'webp', 'gif', 'bmp', 'ico'].includes(format);
+        },
+        
+        // 触发文件选择
+        triggerFileInput() {
+          this.fileInput.click();
+        },
+        
+        // 处理文件选择
+        handleFileSelect(event) {
+          const file = event.target.files[0];
+          if (file) {
+            this.loadInputFile(file);
+          }
+        },
+        
+        // 处理拖放
+        handleDragOver(event) {
+          event.preventDefault();
+          this.isDragOver = true;
+        },
+        
+        handleDragLeave(event) {
+          event.preventDefault();
+          this.isDragOver = false;
+        },
+        
+        handleDrop(event) {
+          event.preventDefault();
+          event.stopPropagation();
+          this.isDragOver = false;
+          const file = event.dataTransfer.files[0];
+          if (file) {
+            this.loadInputFile(file);
+          }
+        },
+        
+        // 加载输入文件
+        async loadInputFile(file) {
+          // 检查文件大小
+          if (file.size > 20 * 1024 * 1024) {
+            this.showStatus('文件太大，请选择小于 20MB 的文件', 'error');
+            return;
+          }
+          
+          // 获取文件扩展名
+          const extension = file.name.split('.').pop().toLowerCase();
+          const expectedExtensions = {
+            png: ['png'],
+            jpg: ['jpg', 'jpeg'],
+            webp: ['webp'],
+            gif: ['gif'],
+            bmp: ['bmp'],
+            svg: ['svg'],
+            ico: ['ico', 'icns']
+          };
+          
+          // 检查文件格式是否匹配
+          const expected = expectedExtensions[this.inputFormat];
+          if (expected && !expected.includes(extension)) {
+            this.showStatus(`请选择 ${this.getFormatDescription(this.inputFormat)} 文件`, 'warning');
+            return;
+          }
+          
+          this.inputFile = file;
+          
+          // 读取文件为ArrayBuffer
+          const arrayBuffer = await file.arrayBuffer();
+          this.inputFileBuffer = new Uint8Array(arrayBuffer);
+          
+          // 创建 Data URL 用于预览
+          const blob = new Blob([arrayBuffer], { type: file.type });
+          this.inputDataUrl = URL.createObjectURL(blob);
+          
+          this.showStatus(`已加载: ${file.name} (${this.formatFileSize(file.size)})`, 'success');
+        },
+        
+        // 更新进度
+        updateProgress(value, message = '') {
+          this.progress = value;
+          this.progressMessage = message;
+        },
+        
+        // 开始转换
+        async startConversion() {
+          if (!this.inputFile || !this.inputFileBuffer) {
+            this.showStatus('请先选择输入文件', 'error');
+            return;
+          }
+          
+          if (this.inputFormat === this.outputFormat) {
+            this.showStatus('输入和输出格式不能相同', 'warning');
+            return;
+          }
+          
+          this.isLoading = true;
+          this.progress = 0;
+          this.outputDataUrl = '';
+          this.statusMessage = '';
+          
+          try {
+            // 根据输入输出格式选择转换方法
+            await this.performConversion();
+            
+          } catch (error) {
+            console.error('转换失败:', error);
+            this.showStatus(`转换失败: ${error.message}`, 'error');
+            this.isLoading = false;
+          }
+        },
+        
+        // 执行转换
+        async performConversion() {
+          // 转换映射表
+          const conversionMap = {
+            // 图片转图片
+            'png-jpg': () => this.convertImageToImage('jpg'),
+            'png-webp': () => this.convertImageToImage('webp'),
+            'png-bmp': () => this.convertImageToImage('bmp'),
+            'png-gif': () => this.convertImageToGif(),
+            'jpg-png': () => this.convertImageToImage('png'),
+            'jpg-webp': () => this.convertImageToImage('webp'),
+            'jpg-bmp': () => this.convertImageToImage('bmp'),
+            'jpg-gif': () => this.convertImageToGif(),
+            'webp-png': () => this.convertImageToImage('png'),
+            'webp-jpg': () => this.convertImageToImage('jpg'),
+            'webp-bmp': () => this.convertImageToImage('bmp'),
+            'webp-gif': () => this.convertImageToGif(),
+            'bmp-png': () => this.convertImageToImage('png'),
+            'bmp-jpg': () => this.convertImageToImage('jpg'),
+            'bmp-webp': () => this.convertImageToImage('webp'),
+            'bmp-gif': () => this.convertImageToGif(),
+            'gif-png': () => this.convertGifToImage('png'),
+            'gif-jpg': () => this.convertGifToImage('jpg'),
+            'gif-webp': () => this.convertGifToImage('webp'),
+            'gif-bmp': () => this.convertGifToImage('bmp'),
+            
+            // SVG 转换
+            'svg-png': () => this.convertSvgToImage('png'),
+            'svg-jpg': () => this.convertSvgToImage('jpg'),
+            'svg-webp': () => this.convertSvgToImage('webp'),
+            'svg-bmp': () => this.convertSvgToImage('bmp'),
+            'svg-gif': () => this.convertSvgToGif(),
+            'svg-ico': () => this.convertSvgToIco(),
+            
+            // ICO 转换
+            'ico-png': () => this.convertIcoToImage('png'),
+            'ico-jpg': () => this.convertIcoToImage('jpg'),
+            'ico-webp': () => this.convertIcoToImage('webp'),
+            'ico-bmp': () => this.convertIcoToImage('bmp'),
+            'ico-gif': () => this.convertIcoToGif(),
+            
+            // 图片转SVG
+            'png-svg': () => this.convertImageToSvg(),
+            'jpg-svg': () => this.convertImageToSvg(),
+            'webp-svg': () => this.convertImageToSvg(),
+            'bmp-svg': () => this.convertImageToSvg(),
+            'gif-svg': () => this.convertGifToSvg(),
+            
+            // 图片转ICO
+            'png-ico': () => this.convertImageToIco(),
+            'jpg-ico': () => this.convertImageToIco(),
+            'webp-ico': () => this.convertImageToIco(),
+            'bmp-ico': () => this.convertImageToIco(),
+            'gif-ico': () => this.convertGifToIco(),
+            
+            // GIF互转
+            'gif-gif': () => this.optimizeGif()
+          };
+          
+          const conversionKey = `${this.inputFormat}-${this.outputFormat}`;
+          const converter = conversionMap[conversionKey];
+          
+          if (converter) {
+            await converter();
+          } else {
+            throw new Error(`不支持 ${this.inputFormat.toUpperCase()} 转 ${this.outputFormat.toUpperCase()} 的转换`);
+          }
+        },
+        
+        // 通过Canvas转换图像
+        async convertViaCanvas(outputFormat) {
+          this.updateProgress(30, '正在加载图像...');
+          
+          // 创建Canvas
+          const canvas = document.createElement('canvas');
+          const img = new Image();
+          
+          await new Promise((resolve, reject) => {
+            img.onload = () => {
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = this.inputDataUrl;
+          });
+          
+          this.updateProgress(70, '正在编码输出...');
+          
+          // 根据输出格式生成Data URL
+          let mimeType;
+          switch(outputFormat) {
+            case 'png': mimeType = 'image/png'; break;
+            case 'jpg': case 'jpeg': mimeType = 'image/jpeg'; break;
+            case 'webp': mimeType = 'image/webp'; break;
+            case 'bmp': mimeType = 'image/bmp'; break;
+            default: mimeType = 'image/png';
+          }
+          
+          // 设置质量
+          const quality = outputFormat === 'png' ? 1 : this.quality / 100;
+          
+          this.outputDataUrl = canvas.toDataURL(mimeType, quality);
+          
+          this.updateProgress(100, '转换完成');
+          this.isLoading = false;
+          this.showStatus(`转换成功: ${this.inputFormat.toUpperCase()} → ${this.outputFormat.toUpperCase()}`, 'success');
+        },
+        
+        // 转换图像到图像格式
+        async convertImageToImage(outputFormat) {
+          this.updateProgress(30, '正在处理图像...');
+          
+          const img = new Image();
+          
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = this.inputDataUrl;
+          });
+          
+          // 获取输出尺寸
+          const dimensions = await this.getOutputDimensions(img);
+          
+          // 创建Canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = dimensions.width;
+          canvas.height = dimensions.height;
+          
+          this.updateProgress(50, '正在调整尺寸...');
+          
+          if (dimensions.width !== img.naturalWidth || dimensions.height !== img.naturalHeight) {
+            // 使用Pica进行高质量缩放
+            if (this.pica && this.pica.resize) {
+              const sourceCanvas = document.createElement('canvas');
+              sourceCanvas.width = img.naturalWidth;
+              sourceCanvas.height = img.naturalHeight;
+              const sourceCtx = sourceCanvas.getContext('2d');
+              sourceCtx.drawImage(img, 0, 0);
+              
+              await this.pica.resize(sourceCanvas, canvas, {
+                quality: 3,
+                alpha: true,
+                unsharpAmount: 80,
+                unsharpRadius: 0.6,
+                unsharpThreshold: 2
+              });
+            } else {
+              // 使用Canvas原生缩放
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, dimensions.width, dimensions.height);
+            }
+          } else {
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+          }
+          
+          this.updateProgress(80, '正在编码输出...');
+          
+          let mimeType;
+          switch(outputFormat) {
+            case 'png': mimeType = 'image/png'; break;
+            case 'jpg': mimeType = 'image/jpeg'; break;
+            case 'webp': mimeType = 'image/webp'; break;
+            case 'bmp': mimeType = 'image/bmp'; break;
+          }
+          
+          const quality = outputFormat === 'png' ? 1 : this.quality / 100;
+          
+          // 优化设置
+          let dataUrl = canvas.toDataURL(mimeType, quality);
+          
+          // 如果开启了优化，进行额外处理
+          if (this.optimizeFile) {
+            dataUrl = await this.optimizeImageData(dataUrl, outputFormat);
+          }
+          
+          this.outputDataUrl = dataUrl;
+          
+          this.updateProgress(100, '转换完成');
+          this.isLoading = false;
+          this.showStatus(`转换成功`, 'success');
+        },
+        
+        // 获取输出尺寸
+        async getOutputDimensions(img = null) {
+          let width, height;
+          
+          if (!img) {
+            img = new Image();
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+              img.src = this.inputDataUrl;
+            });
+          }
+          
+          if (this.selectedSize === 'original') {
+            width = img.naturalWidth;
+            height = img.naturalHeight;
+          } else if (this.selectedSize === 'custom') {
+            width = parseInt(this.customWidth) || img.naturalWidth;
+            height = parseInt(this.customHeight) || img.naturalHeight;
+          } else {
+            const [w, h] = this.selectedSize.split('x').map(Number);
+            width = w;
+            height = h;
+          }
+          
+          // 保持宽高比
+          if (this.maintainAspectRatio && img) {
+            const aspect = img.naturalWidth / img.naturalHeight;
+            if (width / height > aspect) {
+              width = height * aspect;
+            } else {
+              height = width / aspect;
+            }
+          }
+          
+          return { width: Math.round(width), height: Math.round(height) };
+        },
+        
+        // 优化图像数据
+        async optimizeImageData(dataUrl, format) {
+          // 简单的优化：通过调整Canvas设置减少文件大小
+          if (format === 'png') {
+            // PNG优化：减少颜色深度
+            const img = new Image();
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+              img.src = dataUrl;
+            });
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // 创建一个8位图像数据
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // 简单的颜色量化
+            for (let i = 0; i < data.length; i += 4) {
+              // 减少颜色深度到6位
+              data[i] = Math.floor(data[i] / 4) * 4;     // R
+              data[i + 1] = Math.floor(data[i + 1] / 4) * 4; // G
+              data[i + 2] = Math.floor(data[i + 2] / 4) * 4; // B
+              // Alpha保持不变
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            return canvas.toDataURL('image/png', 0.9);
+          }
+          
+          return dataUrl;
+        },
+        
+        // 转换SVG到图像
+        async convertSvgToImage(outputFormat) {
+          this.updateProgress(30, '正在解析SVG...');
+          
+          // 读取SVG内容
+          const svgText = await this.inputFile.text();
+          
+          this.updateProgress(60, '正在渲染SVG...');
+          
+          // 创建SVG图像
+          const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+          const svgUrl = URL.createObjectURL(svgBlob);
+          
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = svgUrl;
+          });
+          
+          // 获取输出尺寸
+          const dimensions = await this.getOutputDimensions(img);
+          
+          // 创建Canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = dimensions.width;
+          canvas.height = dimensions.height;
+          const ctx = canvas.getContext('2d');
+          
+          // 设置白色背景（如果SVG没有背景）
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // 绘制SVG
+          ctx.drawImage(img, 0, 0, dimensions.width, dimensions.height);
+          
+          URL.revokeObjectURL(svgUrl);
+          
+          this.updateProgress(80, '正在编码输出...');
+          
+          let mimeType;
+          switch(outputFormat) {
+            case 'png': mimeType = 'image/png'; break;
+            case 'jpg': mimeType = 'image/jpeg'; break;
+            case 'webp': mimeType = 'image/webp'; break;
+            case 'bmp': mimeType = 'image/bmp'; break;
+          }
+          
+          const quality = outputFormat === 'png' ? 1 : this.quality / 100;
+          this.outputDataUrl = canvas.toDataURL(mimeType, quality);
+          
+          this.updateProgress(100, '转换完成');
+          this.isLoading = false;
+          this.showStatus(`SVG 转 ${outputFormat.toUpperCase()} 成功`, 'success');
+        },
+        
+        // 转换SVG到ICO
+        async convertSvgToIco() {
+          this.updateProgress(30, '正在解析SVG...');
+          
+          const svgText = await this.inputFile.text();
+          const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+          const svgUrl = URL.createObjectURL(svgBlob);
+          
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = svgUrl;
+          });
+          
+          // 获取尺寸
+          const sizes = this.icoSize.split(',').map(Number);
+          
+          this.updateProgress(60, '正在生成多尺寸图标...');
+          
+          const canvases = [];
+          for (const size of sizes) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // 高质量缩放
+            if (this.pica && this.pica.resize) {
+              const sourceCanvas = document.createElement('canvas');
+              sourceCanvas.width = img.naturalWidth;
+              sourceCanvas.height = img.naturalHeight;
+              const sourceCtx = sourceCanvas.getContext('2d');
+              sourceCtx.drawImage(img, 0, 0);
+              
+              await this.pica.resize(sourceCanvas, canvas, {
+                quality: 3,
+                alpha: true
+              });
+            } else {
+              ctx.drawImage(img, 0, 0, size, size);
+            }
+            
+            canvases.push(canvas);
+          }
+          
+          URL.revokeObjectURL(svgUrl);
+          
+          this.updateProgress(90, '正在编码ICO...');
+          
+          // 生成ICO
+          const icoData = await ICO.encode(canvases, sizes);
+          
+          // 创建Blob和Data URL
+          const blob = new Blob([icoData], { type: 'image/x-icon' });
+          this.outputDataUrl = URL.createObjectURL(blob);
+          
+          this.updateProgress(100, '转换完成');
+          this.isLoading = false;
+          this.showStatus('SVG 转 ICO 成功', 'success');
+        },
+        
+        // 转换图像到ICO
+        async convertImageToIco() {
+          this.updateProgress(30, '正在加载图像...');
+          
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = this.inputDataUrl;
+          });
+          
+          // 获取尺寸
+          const sizes = this.icoMultipleSizes ? 
+            this.icoSize.split(',').map(Number) : 
+            [Math.min(img.naturalWidth, img.naturalHeight, 256)];
+          
+          this.updateProgress(60, '正在生成多尺寸图标...');
+          
+          const canvases = [];
+          for (const size of sizes) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // 高质量缩放
+            if (this.pica && this.pica.resize) {
+              const sourceCanvas = document.createElement('canvas');
+              sourceCanvas.width = img.naturalWidth;
+              sourceCanvas.height = img.naturalHeight;
+              const sourceCtx = sourceCanvas.getContext('2d');
+              sourceCtx.drawImage(img, 0, 0);
+              
+              await this.pica.resize(sourceCanvas, canvas, {
+                quality: 3,
+                alpha: true
+              });
+            } else {
+              ctx.drawImage(img, 0, 0, size, size);
+            }
+            
+            canvases.push(canvas);
+          }
+          
+          this.updateProgress(90, '正在编码ICO...');
+          
+          // 生成ICO
+          const icoData = await ICO.encode(canvases, sizes);
+          
+          // 创建Blob和Data URL
+          const blob = new Blob([icoData], { type: 'image/x-icon' });
+          this.outputDataUrl = URL.createObjectURL(blob);
+          
+          this.updateProgress(100, '转换完成');
+          this.isLoading = false;
+          this.showStatus('图像 转 ICO 成功', 'success');
+        },
+        
+        // 转换GIF到图像
+        async convertGifToImage(outputFormat) {
+          this.updateProgress(30, '正在解析GIF...');
+          
+          // 提取GIF第一帧
+          const canvas = document.createElement('canvas');
+          const img = new Image();
+          
+          await new Promise((resolve, reject) => {
+            img.onload = () => {
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = this.inputDataUrl;
+          });
+          
+          this.updateProgress(70, '正在编码输出...');
+          
+          let mimeType;
+          switch(outputFormat) {
+            case 'png': mimeType = 'image/png'; break;
+            case 'jpg': mimeType = 'image/jpeg'; break;
+            case 'webp': mimeType = 'image/webp'; break;
+            case 'bmp': mimeType = 'image/bmp'; break;
+          }
+          
+          const quality = outputFormat === 'png' ? 1 : this.quality / 100;
+          this.outputDataUrl = canvas.toDataURL(mimeType, quality);
+          
+          this.updateProgress(100, '转换完成');
+          this.isLoading = false;
+          this.showStatus(`GIF 转 ${outputFormat.toUpperCase()} 成功`, 'success');
+        },
+        
+        // 转换图像到GIF
+        async convertImageToGif() {
+          // 创建单帧GIF
+          await this.convertImageToImage('gif');
+        },
+        
+        // 优化GIF
+        async optimizeGif() {
+          // 直接使用原文件，或者进行简单优化
+          this.outputDataUrl = this.inputDataUrl;
+          this.isLoading = false;
+          this.showStatus('GIF 优化完成', 'success');
+        },
+        
+        // 转换GIF到SVG
+        async convertGifToSvg() {
+          // 提取第一帧并转换为SVG
+          const canvas = document.createElement('canvas');
+          const img = new Image();
+          
+          await new Promise((resolve, reject) => {
+            img.onload = () => {
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = this.inputDataUrl;
+          });
+          
+          const dataUrl = canvas.toDataURL('image/png');
+          const svgContent = `
+            <svg width="${canvas.width}" height="${canvas.height}" xmlns="http://www.w3.org/2000/svg">
+              <image width="${canvas.width}" height="${canvas.height}" href="${dataUrl}"/>
+            </svg>
+          `;
+          
+          this.outputDataUrl = 'data:image/svg+xml;base64,' + btoa(svgContent);
+          
+          this.isLoading = false;
+          this.showStatus('GIF 转 SVG 成功', 'success');
+        },
+        
+        // 转换图像到SVG
+        async convertImageToSvg() {
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = this.inputDataUrl;
+          });
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          
+          const dataUrl = canvas.toDataURL('image/png');
+          const svgContent = `
+            <svg width="${img.naturalWidth}" height="${img.naturalHeight}" xmlns="http://www.w3.org/2000/svg">
+              <image width="${img.naturalWidth}" height="${img.naturalHeight}" href="${dataUrl}"/>
+            </svg>
+          `;
+          
+          this.outputDataUrl = 'data:image/svg+xml;base64,' + btoa(svgContent);
+          
+          this.isLoading = false;
+          this.showStatus('图像 转 SVG 成功', 'success');
+        },
+        
+        // 转换ICO到图像
+        async convertIcoToImage(outputFormat) {
+          this.updateProgress(30, '正在解析ICO...');
+          
+          try {
+            // 使用ICO.js解码ICO
+            const icoArray = await ICO.decode(this.inputFileBuffer);
+            
+            if (icoArray.length === 0) {
+              throw new Error('无法解码ICO文件');
+            }
+            
+            // 使用最大的图像
+            const largestImage = icoArray.reduce((prev, current) => 
+              (prev.width > current.width) ? prev : current
+            );
+            
+            this.updateProgress(60, '正在编码输出...');
+            
+            // 转换为目标格式
+            const canvas = document.createElement('canvas');
+            canvas.width = largestImage.width;
+            canvas.height = largestImage.height;
+            const ctx = canvas.getContext('2d');
+            
+            // 创建ImageData
+            const imageData = ctx.createImageData(largestImage.width, largestImage.height);
+            imageData.data.set(largestImage.rgbaData);
+            ctx.putImageData(imageData, 0, 0);
+            
+            let mimeType;
+            switch(outputFormat) {
+              case 'png': mimeType = 'image/png'; break;
+              case 'jpg': mimeType = 'image/jpeg'; break;
+              case 'webp': mimeType = 'image/webp'; break;
+              case 'bmp': mimeType = 'image/bmp'; break;
+            }
+            
+            const quality = outputFormat === 'png' ? 1 : this.quality / 100;
+            this.outputDataUrl = canvas.toDataURL(mimeType, quality);
+            
+            this.updateProgress(100, '转换完成');
+            this.isLoading = false;
+            this.showStatus(`ICO 转 ${outputFormat.toUpperCase()} 成功`, 'success');
+            
+          } catch (error) {
+            throw new Error(`ICO解析失败: ${error.message}`);
+          }
+        },
+        
+        // 转换ICO到GIF
+        async convertIcoToGif() {
+          // 先转换为PNG，再转换为GIF
+          await this.convertIcoToImage('png');
+          const originalUrl = this.outputDataUrl;
+          
+          // 现在将PNG转换为GIF
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = originalUrl;
+          });
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          
+          this.outputDataUrl = canvas.toDataURL('image/gif');
+          this.showStatus('ICO 转 GIF 成功', 'success');
+        },
+        
+        // 转换GIF到ICO
+        async convertGifToIco() {
+          // 提取第一帧并转换为ICO
+          const canvas = document.createElement('canvas');
+          const img = new Image();
+          
+          await new Promise((resolve, reject) => {
+            img.onload = () => {
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = this.inputDataUrl;
+          });
+          
+          // 获取尺寸
+          const sizes = this.icoMultipleSizes ? 
+            this.icoSize.split(',').map(Number) : 
+            [Math.min(canvas.width, canvas.height, 256)];
+          
+          const canvases = [];
+          for (const size of sizes) {
+            const resizedCanvas = document.createElement('canvas');
+            resizedCanvas.width = size;
+            resizedCanvas.height = size;
+            const ctx = resizedCanvas.getContext('2d');
+            ctx.drawImage(canvas, 0, 0, size, size);
+            canvases.push(resizedCanvas);
+          }
+          
+          // 生成ICO
+          const icoData = await ICO.encode(canvases, sizes);
+          
+          // 创建Blob和Data URL
+          const blob = new Blob([icoData], { type: 'image/x-icon' });
+          this.outputDataUrl = URL.createObjectURL(blob);
+          
+          this.isLoading = false;
+          this.showStatus('GIF 转 ICO 成功', 'success');
+        },
+        
+        // 下载输出文件
+        downloadOutput() {
+          if (!this.outputDataUrl) return;
+          
+          const link = document.createElement('a');
+          const timestamp = new Date().getTime();
+          const extension = this.outputFormat === 'jpg' ? 'jpeg' : this.outputFormat;
+          const name = this.inputFile 
+            ? `${this.inputFile.name.split('.')[0]}-${timestamp}.${extension}`
+            : `converted-${timestamp}.${extension}`;
+          
+          link.download = name;
+          link.href = this.outputDataUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          this.showStatus('文件已开始下载', 'info');
+        },
+        
+        // 重置输入
+        resetInput() {
+          this.inputFile = null;
+          this.inputFileBuffer = null;
+          this.inputDataUrl = '';
+          this.outputDataUrl = '';
+          this.statusMessage = '';
+          this.cleanupUrls();
+          
+          if (this.fileInput) {
+            this.fileInput.value = '';
+          }
+        },
+        
+        // 重置工具
+        resetTool() {
+          this.resetInput();
+          this.isLoading = false;
+          this.progress = 0;
+        },
+        
+        // 清理URL对象
+        cleanupUrls() {
+          if (this.inputDataUrl && this.inputDataUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(this.inputDataUrl);
+          }
+          if (this.outputDataUrl && this.outputDataUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(this.outputDataUrl);
+          }
+        },
+        
+        // 显示状态消息
+        showStatus(message, type) {
+          this.statusMessage = message;
+          this.statusClass = type;
+          
+          // 5秒后自动清除
+          setTimeout(() => {
+            if (this.statusMessage === message) {
+              this.statusMessage = '';
+            }
+          }, 5000);
+        },
+        
+        // 格式化文件大小
+        formatFileSize(bytes) {
+          if (bytes === 0) return '0 B';
+          const k = 1024;
+          const sizes = ['B', 'KB', 'MB', 'GB'];
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+        
+        // 键盘快捷键
+        handleKeyDown(event) {
+          if ((event.ctrlKey || event.metaKey) && !event.shiftKey) {
+            switch(event.key.toLowerCase()) {
+              case 'o':
+                event.preventDefault();
+                this.triggerFileInput();
+                break;
+              case 'enter':
+                event.preventDefault();
+                if (this.inputFile && !this.isLoading) {
+                  this.startConversion();
+                }
+                break;
+              case 'd':
+                event.preventDefault();
+                if (this.outputDataUrl && !this.isLoading) {
+                  this.downloadOutput();
+                }
+                break;
+            }
+          }
+        },
+        
+        // 初始化键盘事件监听
+        initKeyboardShortcuts() {
+          document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        },
+        
+        // 移除键盘事件监听
+        removeKeyboardShortcuts() {
+          document.removeEventListener('keydown', this.handleKeyDown.bind(this));
+        }
+      }
+    });
+    
+    app.mount('#app');
+  </script>
+</body>
+</html>

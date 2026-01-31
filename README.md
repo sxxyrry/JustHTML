@@ -27,6 +27,15 @@ JustHTML 是一个完全基于前端技术的多功能工具箱，集合了大�
 - [Sober](https://soberjs.com/)
 
   - 附件：[LICENSE](./package/Sober/LICENSE)
+- [Pica](https://github.com/nodeca/pica)
+
+  - 附件：[LICENSE](./package/Pica/LICENSE)
+- [JSZIP](https://github.com/Stuk/jszip)
+
+  - 附件：[LICENSE](./package/JSZIP/LICENSE)
+- [IcoJS](https://github.com/egy186/icojs/tree/main)
+
+  - 附件：[LICENSE](./package/IcoJS/LICENSE)
 
 ## 具体功能
 

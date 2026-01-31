@@ -396,8 +396,8 @@ const ToolsData = [
             "content": "ImageToBase64 - 图片转 Base64"
           },
           {
-            "link": "./Tools/ImageToWebP.html",
-            "content": "ImageToWebP - 图片转 WebP"
+            "link": "./Tools/ImageConvert.html",
+            "content": "ImageConvert - 图像格式转换"
           }
         ]
       }
