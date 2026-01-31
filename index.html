@@ -5,7 +5,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>JustHTML 只需网页！ - 全能工具箱</title>
-  <link rel="stylesheet" href="./assets/style.css">
+  <script>
+/**
+ * 动态加载（强制去除缓存） CSS 的函数
+ * @param {string} src - 要加载的 CSS 的 src 链接
+ * @returns {Promise} 返回一个 Promise 对象，用于处理异步加载
+ */
+function loadStyle(src) {
+  return new Promise((resolve, reject) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = src + '?v=' + new Date().getTime(); // 使用时间戳避免缓存
+    link.async = true;
+    link.onload = resolve;
+    link.onerror = reject;
+    document.head.appendChild(link);
+  });
+}
+</script>
+
+  <script>
+    loadStyle('./assets/style.css')
+  </script>
 
   <script src="./package/Vue/code/vue.global.prod.js"></script>
   <script src="./package/Marked/code/marked.umd.js"></script>
@@ -70,10 +91,113 @@ function urlSafeBase64Decode(input) {
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
     }).join(''));
 }
+
+// Cookie 操作工具函数
+const cookieUtils = {
+  /**
+   * 设置Cookie
+   * @param {string} name - Cookie名称
+   * @param {string} value - Cookie值
+   * @param {number} days - 过期天数
+   */
+  setCookie: function(name, value, days) {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+    document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + expires.toUTCString() + ';path=/';
+  },
+
+  /**
+   * 获取Cookie
+   * @param {string} name - Cookie名称
+   * @returns {string|null} Cookie值或null
+   */
+  getCookie: function(name) {
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(';');
+    for(let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
+    }
+    return null;
+  },
+
+  /**
+   * 删除Cookie
+   * @param {string} name - Cookie名称
+   */
+  removeCookie: function(name) {
+    document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:01 GMT;path=/';
+  }
+};
+
+// 收藏工具操作函数
+const favoriteUtils = {
+  FAVORITE_COOKIE_NAME: 'justhtml_favorites',
+
+  /**
+   * 获取收藏的工具列表
+   * @returns {Array} 收藏的工具链接数组
+   */
+  getFavorites: function() {
+    const favoritesStr = cookieUtils.getCookie(this.FAVORITE_COOKIE_NAME);
+    if (!favoritesStr) return [];
+    try {
+      return JSON.parse(favoritesStr);
+    } catch (e) {
+      console.error('Failed to parse favorites from cookie:', e);
+      return [];
+    }
+  },
+
+  /**
+   * 添加工具到收藏
+   * @param {string} toolLink - 工具链接
+   */
+  addToFavorites: function(toolLink) {
+    const favorites = this.getFavorites();
+    if (!favorites.includes(toolLink)) {
+      favorites.push(toolLink);
+      cookieUtils.setCookie(this.FAVORITE_COOKIE_NAME, JSON.stringify(favorites), 365);
+    }
+  },
+
+  /**
+   * 从收藏中移除工具
+   * @param {string} toolLink - 工具链接
+   */
+  removeFromFavorites: function(toolLink) {
+    const favorites = this.getFavorites();
+    const index = favorites.indexOf(toolLink);
+    if (index > -1) {
+      favorites.splice(index, 1);
+      cookieUtils.setCookie(this.FAVORITE_COOKIE_NAME, JSON.stringify(favorites), 365);
+    }
+  },
+
+  /**
+   * 检查工具是否已被收藏
+   * @param {string} toolLink - 工具链接
+   * @returns {boolean} 是否已被收藏
+   */
+  isFavorite: function(toolLink) {
+    const favorites = this.getFavorites();
+    return favorites.includes(toolLink);
+  },
+
+  /**
+   * 获取收藏总数
+   * @returns {number} 收藏总数
+   */
+  getFavoriteCount: function() {
+    return this.getFavorites().length;
+  }
+};
 </script>
   
   <script src="./assets/AddHeader.js"></script>
   <script src="./assets/AddFooter.js"></script>
+  <script src="./assets/AddIco.js"></script>
 
   <!-- <script>
     window.ToolsData = deepcopy(ToolsData);
@@ -92,6 +216,34 @@ function urlSafeBase64Decode(input) {
       background-color: var(--bg-secondary);
       color: var(--text-primary);
       font-size: 16px;
+    }
+
+    .tags-container {
+      margin: 20px auto;
+      max-width: 600px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      padding: 4px 12px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--bg-tertiary);
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: var(--transition);
+    }
+
+    .tag:hover {
+      background-color: var(--accent-color);
+      color: white;
+    }
+
+    .tag.active {
+      background-color: var(--accent-color);
+      color: white;
     }
 
     .categories {
@@ -121,6 +273,9 @@ function urlSafeBase64Decode(input) {
     .tools-list li {
       padding: 8px 0;
       border-bottom: 1px solid var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     .tools-list li:last-child {
@@ -130,7 +285,7 @@ function urlSafeBase64Decode(input) {
     .tool-link {
       color: var(--text-primary);
       text-decoration: none;
-      display: block;
+      flex-grow: 1;
       transition: var(--transition);
       padding: 5px 10px;
       border-radius: 4px;
@@ -139,6 +294,26 @@ function urlSafeBase64Decode(input) {
     .tool-link:hover {
       background-color: var(--bg-tertiary);
       color: var(--accent-color);
+    }
+
+    .favorite-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #ccc;
+      font-size: 18px;
+      margin-left: 10px;
+      padding: 5px;
+      border-radius: 4px;
+      transition: color 0.3s;
+    }
+
+    .favorite-btn.favorited {
+      color: #ffcc00;
+    }
+
+    .favorite-btn:hover {
+      background-color: var(--bg-tertiary);
     }
 
     .highlight {
@@ -160,6 +335,99 @@ function urlSafeBase64Decode(input) {
       padding: 40px;
       grid-column: 1 / -1;
     }
+
+    .favorites-section {
+      margin: 20px auto;
+      max-width: 1200px;
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      display: none;
+    }
+
+    .favorites-section.active {
+      display: block;
+    }
+
+    .favorites-section h2 {
+      color: var(--accent-color);
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--bg-tertiary);
+    }
+
+    .favorites-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 10px;
+    }
+
+    .favorite-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: var(--bg-primary);
+      padding: 10px 15px;
+      border-radius: 4px;
+      border: 1px solid var(--bg-tertiary);
+    }
+
+    .favorite-link {
+      color: var(--text-primary);
+      text-decoration: none;
+      flex-grow: 1;
+    }
+
+    .favorite-link:hover {
+      color: var(--accent-color);
+    }
+
+    .favorites-empty {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 20px;
+    }
+
+    .favorites-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .favorites-count {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .clear-favorites-btn {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .clear-favorites-btn:hover {
+      background-color: #c82333;
+    }
+
+    .favorites-toggle {
+      float: right;
+      margin-top: 10px;
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .favorites-toggle:hover {
+      opacity: 0.9;
+    }
   </style>
 </head>
 
@@ -170,11 +438,55 @@ function urlSafeBase64Decode(input) {
 
       <button onclick="showREDialog()"> README 文件 </button>
 
-      <div class="search-container">
-        <input type="text" id="searchBox" v-model="searchQuery" class="search-box" placeholder="搜索工具...">
+      <button class="favorites-toggle" @click="toggleFavoritesView" v-if="!showingFavorites">查看收藏 ({{ favoriteCount }})</button>
+      <button class="favorites-toggle" @click="toggleFavoritesView" v-else>返回工具列表</button>
+
+      <div class="favorites-section" :class="{ active: showingFavorites }">
+        <div class="favorites-header">
+          <h2>我的收藏</h2>
+          <div class="favorites-count">共 {{ filteredFavoriteTools.length }} / {{ favoriteCount }} 个工具</div>
+        </div>
+        
+        <div class="search-container">
+          <input type="text" v-model="favoriteSearchQuery" class="search-box" placeholder="搜索收藏的工具...">
+        </div>
+        
+        <div class="favorites-list" v-if="filteredFavoriteTools.length > 0">
+          <div v-for="tool in filteredFavoriteTools" :key="tool.link" class="favorite-item">
+            <a :href="tool.link" class="favorite-link">{{ tool.content.replace(/^[^-]* - /, '') }}</a>
+            <button 
+              @click.prevent="removeFromFavorites(tool.link)" 
+              class="favorite-btn favorited"
+              title="取消收藏此工具">
+              ★
+            </button>
+          </div>
+        </div>
+        <div v-else class="favorites-empty">
+          <p v-if="favoriteTools.length === 0">暂无收藏的工具</p>
+          <p v-else>没有找到匹配的收藏工具</p>
+        </div>
+        <div style="margin-top: 15px; text-align: right;" v-if="favoriteTools.length > 0">
+          <button @click="clearFavorites" class="clear-favorites-btn">清空收藏</button>
+        </div>
       </div>
 
-      <div ref="cate" class="categories">
+      <div class="search-container" v-if="!showingFavorites">
+        <input type="text" id="searchBox" v-model="searchQuery" class="search-box" placeholder="搜索工具...">
+      </div>
+      
+      <div class="tags-container" v-if="!showingFavorites && allTags.length > 0">
+        <div 
+          v-for="tag in allTags" 
+          :key="tag" 
+          :class="['tag', { active: selectedTags.includes(tag) }]"
+          @click="toggleTag(tag)"
+        >
+          {{ tag }}
+        </div>
+      </div>
+
+      <div ref="cate" class="categories" v-if="!showingFavorites">
         <!-- 使用 Vue v-for 循环生成工具分类 -->
         <div v-for="(category, catIndex) in filteredCategories" :key="catIndex" class="category"
           v-show="category.totalTools > 0">
@@ -190,6 +502,12 @@ function urlSafeBase64Decode(input) {
                   <a :href="subItem.link" class="tool-link">
                     {{ subItem.content.replace(/^[^-]* - /, '') }}
                   </a>
+                  <button 
+                    @click.prevent="toggleFavorite(subItem.link)" 
+                    :class="['favorite-btn', { favorited: isFavorite(subItem.link) }]"
+                    title="收藏/取消收藏此工具">
+                    ★
+                  </button>
                 </li>
               </template>
 
@@ -198,6 +516,12 @@ function urlSafeBase64Decode(input) {
                 <a :href="item.link" class="tool-link">
                   {{ item.content.replace(/^[^-]* - /, '') }}
                 </a>
+                <button 
+                  @click.prevent="toggleFavorite(item.link)" 
+                  :class="['favorite-btn', { favorited: isFavorite(item.link) }]"
+                  title="收藏/取消收藏此工具">
+                  ★
+                </button>
               </li>
             </template>
           </ul>
@@ -218,11 +542,6 @@ function urlSafeBase64Decode(input) {
           <p>加载中...</p>
         </div>
       </div>
-
-      <script>
-        
-      </script>
-
     </div>
   </div>
 
@@ -362,8 +681,64 @@ function urlSafeBase64Decode(input) {
         setup() {
           // 初始化搜索查询
           const searchQuery = ref('');
+          const favoriteSearchQuery = ref(''); // 为收藏列表新增搜索查询
+          const selectedTags = ref([]);
           const loading = ref(true);
           const isSearching = ref(false);
+          const showingFavorites = ref(false); // 控制是否显示收藏列表
+          
+          // 获取收藏工具列表
+          const favoriteTools = ref([]);
+          const favoriteCount = ref(0);
+
+          // 切换显示收藏列表或工具列表
+          function toggleFavoritesView() {
+            showingFavorites.value = !showingFavorites.value;
+          }
+
+          // 计算属性：根据搜索词过滤收藏的工具
+          const filteredFavoriteTools = computed(() => {
+            if (!favoriteSearchQuery.value.trim()) {
+              return favoriteTools.value;
+            }
+            
+            const query = favoriteSearchQuery.value.toLowerCase();
+            return favoriteTools.value.filter(tool => 
+              tool.content.toLowerCase().includes(query) || 
+              tool.link.toLowerCase().includes(query)
+            );
+          });
+
+          // 更新收藏工具列表
+          function updateFavoriteTools() {
+            const allTools = [];
+            const toolsData = window.ToolsData || [];
+            
+            toolsData.forEach(category => {
+              if (category.items && Array.isArray(category.items)) {
+                category.items.forEach(item => {
+                  if (item.items && Array.isArray(item.items)) {
+                    // 存在嵌套的items，遍历内部items
+                    item.items.forEach(subItem => {
+                      if (subItem.link) {
+                        allTools.push(subItem);
+                      }
+                    });
+                  } else {
+                    // 直接在items中有link
+                    if (item.link) {
+                      allTools.push(item);
+                    }
+                  }
+                });
+              }
+            });
+            
+            // 筛选出收藏的工具
+            const favorites = favoriteUtils.getFavorites();
+            favoriteTools.value = allTools.filter(tool => favorites.includes(tool.link));
+            favoriteCount.value = favoriteTools.value.length;
+          }
 
           // 获取工具数据并处理
           const toolsData = window.ToolsData || [];
@@ -373,57 +748,167 @@ function urlSafeBase64Decode(input) {
             loading.value = false;
             return {
               searchQuery,
+              selectedTags,
               loading,
               isSearching,
+              allTags: [],
+              toggleTag: () => {},
               filteredCategories: computed(() => []),
               isHighlighted: () => false,
               ToolsData: toolsData,
+              showingFavorites,
+              toggleFavoritesView,
+              favoriteTools,
+              favoriteCount,
+              isFavorite: () => false,
+              toggleFavorite: () => {},
+              removeFromFavorites: () => {},
+              clearFavorites: () => {}
             };
           }
 
-          // 将原始数据转换为包含总工具数的对象
-          const processedToolsData = toolsData.map(category => {
-            let totalTools = 0;
+          // 提取所有唯一标签
+          const allTagsSet = new Set();
+          
+          // 提取标签函数，从content中自动提取标签
+          function extractTagsFromContent(content) {
+            const lowerContent = content.toLowerCase();
+            const tags = [];
+            
+            // 基于关键词提取标签
+            if (lowerContent.includes('text') || lowerContent.includes('文本')) tags.push('文本处理');
+            if (lowerContent.includes('convert') || lowerContent.includes('转换')) tags.push('格式转换');
+            if (lowerContent.includes('encode') || lowerContent.includes('编码') || lowerContent.includes('decode')) tags.push('编码解码');
+            if (lowerContent.includes('image') || lowerContent.includes('图片')) tags.push('图像处理');
+            if (lowerContent.includes('color') || lowerContent.includes('颜色')) tags.push('颜色工具');
+            if (lowerContent.includes('json') || lowerContent.includes('xml') || lowerContent.includes('yaml')) tags.push('数据格式');
+            if (lowerContent.includes('css') || lowerContent.includes('样式')) tags.push('CSS工具');
+            if (lowerContent.includes('js') || lowerContent.includes('javascript')) tags.push('JavaScript工具');
+            if (lowerContent.includes('html')) tags.push('HTML工具');
+            if (lowerContent.includes('calc') || lowerContent.includes('计算') || lowerContent.includes('calculator')) tags.push('计算器');
+            if (lowerContent.includes('encrypt') || lowerContent.includes('cipher') || lowerContent.includes('加密')) tags.push('加密解密');
+            if (lowerContent.includes('hash') || lowerContent.includes('签名')) tags.push('哈希生成');
+            if (lowerContent.includes('qr') || lowerContent.includes('二维码')) tags.push('二维码');
+            if (lowerContent.includes('password') || lowerContent.includes('密码')) tags.push('密码工具');
+            if (lowerContent.includes('date') || lowerContent.includes('时间')) tags.push('日期时间');
+            if (lowerContent.includes('url') || lowerContent.includes('链接')) tags.push('URL工具');
+            if (lowerContent.includes('sql') || lowerContent.includes('数据库')) tags.push('数据库工具');
+            if (lowerContent.includes('regex') || lowerContent.includes('正则')) tags.push('正则表达式');
+            if (lowerContent.includes('binary') || lowerContent.includes('二进制')) tags.push('二进制工具');
+            if (lowerContent.includes('number') || lowerContent.includes('数字')) tags.push('数字工具');
+            if (lowerContent.includes('unit') || lowerContent.includes('单位')) tags.push('单位转换');
+            if (lowerContent.includes('game') || lowerContent.includes('游戏')) tags.push('游戏工具');
+            if (lowerContent.includes('generator') || lowerContent.includes('生成')) tags.push('生成器');
+            if (lowerContent.includes('validator') || lowerContent.includes('验证')) tags.push('验证器');
+            if (lowerContent.includes('formatter') || lowerContent.includes('格式化')) tags.push('格式化');
+            if (lowerContent.includes('minifier') || lowerContent.includes('压缩')) tags.push('压缩工具');
+            if (lowerContent.includes('cron') || lowerContent.includes('定时')) tags.push('Cron工具');
+            if (lowerContent.includes('jwt') || lowerContent.includes('令牌')) tags.push('JWT工具');
+            if (lowerContent.includes('git') || lowerContent.includes('ignore')) tags.push('Git工具');
+            if (lowerContent.includes('sitemap') || lowerContent.includes('站点地图')) tags.push('网站工具');
+            if (lowerContent.includes('random') || lowerContent.includes('随机')) tags.push('随机工具');
 
-            const itemsWithCounts = category.items.map(item => {
+            // 添加默认标签
+            tags.push('实用工具');
+
+            return [...new Set(tags)]; // 去重
+          }
+
+          // 处理数据，为每个工具添加标签
+          const processedToolsDataWithTags = toolsData.map(category => {
+            const itemsWithTags = category.items.map(item => {
               if (item.items) {
                 // 分组项目
-                totalTools += item.items.length;
+                const itemsWithTagged = item.items.map(subItem => {
+                  const tags = extractTagsFromContent(subItem.content);
+                  tags.forEach(tag => allTagsSet.add(tag)); // 收集所有标签
+                  return {
+                    ...subItem,
+                    tags: tags
+                  };
+                });
                 return {
                   ...item,
-                  count: item.items.length
+                  items: itemsWithTagged
                 };
               } else {
                 // 单个项目
-                totalTools++;
-                return item;
+                const tags = extractTagsFromContent(item.content);
+                tags.forEach(tag => allTagsSet.add(tag)); // 收集所有标签
+                return {
+                  ...item,
+                  tags: tags
+                };
               }
             });
 
             return {
               ...category,
-              items: itemsWithCounts,
-              totalTools: totalTools
+              items: itemsWithTags
             };
           });
 
-          // 计算属性：根据搜索词过滤工具
+          // 所有唯一标签列表
+          const allTags = [...allTagsSet].sort();
+
+          // 切换标签选择
+          function toggleTag(tag) {
+            const index = selectedTags.value.indexOf(tag);
+            if (index > -1) {
+              selectedTags.value.splice(index, 1); // 取消选择
+            } else {
+              selectedTags.value.push(tag); // 选择标签
+            }
+          }
+
+          // 计算属性：根据搜索词和标签过滤工具
           const filteredCategories = computed(() => {
-            if (!searchQuery.value.trim()) {
-              return processedToolsData;
+            // 如果没有搜索词和标签筛选，则返回原数据
+            if (!searchQuery.value.trim() && selectedTags.value.length === 0) {
+              return processedToolsDataWithTags.map(category => {
+                let totalTools = 0;
+
+                const itemsWithCounts = category.items.map(item => {
+                  if (item.items) {
+                    // 分组项目
+                    totalTools += item.items.length;
+                    return {
+                      ...item,
+                      count: item.items.length
+                    };
+                  } else {
+                    // 单个项目
+                    totalTools++;
+                    return item;
+                  }
+                });
+
+                return {
+                  ...category,
+                  items: itemsWithCounts,
+                  totalTools: totalTools
+                };
+              });
             }
 
             const query = searchQuery.value.toLowerCase();
 
-            return processedToolsData.map(category => {
+            return processedToolsDataWithTags.map(category => {
               let totalTools = 0;
 
               const filteredItems = category.items.flatMap(item => {
                 if (item.items) {
                   // 处理分组项目
-                  const filteredSubItems = item.items.filter(subItem =>
-                    subItem.content.toLowerCase().includes(query)
-                  );
+                  const filteredSubItems = item.items.filter(subItem => {
+                    // 检查搜索词匹配
+                    const matchesSearch = !query || subItem.content.toLowerCase().includes(query);
+                    
+                    // 检查标签匹配
+                    const matchesTags = selectedTags.value.length === 0 || 
+                                      selectedTags.value.every(tag => subItem.tags.includes(tag));
+
+                    return matchesSearch && matchesTags;
+                  });
 
                   if (filteredSubItems.length > 0) {
                     totalTools += filteredSubItems.length;
@@ -435,9 +920,11 @@ function urlSafeBase64Decode(input) {
                   }
                 } else {
                   // 处理单个项目
-                  if (
-                    item.content.toLowerCase().includes(query)
-                  ) {
+                  const matchesSearch = !query || item.content.toLowerCase().includes(query);
+                  const matchesTags = selectedTags.value.length === 0 || 
+                                    selectedTags.value.every(tag => item.tags.includes(tag));
+
+                  if (matchesSearch && matchesTags) {
                     totalTools++;
                     return [item];
                   }
@@ -454,6 +941,35 @@ function urlSafeBase64Decode(input) {
             }).filter(category => category.totalTools > 0); // 只显示有匹配工具的分类
           });
 
+          // 判断工具是否已被收藏
+          const isFavorite = (toolLink) => {
+            return favoriteUtils.isFavorite(toolLink);
+          };
+
+          // 切换收藏状态
+          const toggleFavorite = (toolLink) => {
+            if (isFavorite(toolLink)) {
+              favoriteUtils.removeFromFavorites(toolLink);
+            } else {
+              favoriteUtils.addToFavorites(toolLink);
+            }
+            updateFavoriteTools(); // 更新收藏列表
+          };
+
+          // 从收藏中移除
+          const removeFromFavorites = (toolLink) => {
+            favoriteUtils.removeFromFavorites(toolLink);
+            updateFavoriteTools(); // 更新收藏列表
+          };
+
+          // 清空收藏
+          const clearFavorites = () => {
+            if (confirm('确定要清空所有收藏吗？此操作不可撤销。')) {
+              cookieUtils.removeCookie('justhtml_favorites');
+              updateFavoriteTools(); // 更新收藏列表
+            }
+          };
+
           // 判断工具名称是否高亮显示
           const isHighlighted = (toolContent) => {
             if (!searchQuery.value.trim()) {
@@ -463,15 +979,31 @@ function urlSafeBase64Decode(input) {
             return toolContent.toLowerCase().includes(searchQuery.value.toLowerCase());
           };
 
+          // 初始化收藏工具列表
+          updateFavoriteTools();
+
           loading.value = false;
 
           return {
             searchQuery,
+            favoriteSearchQuery, // 返回收藏搜索查询
+            selectedTags,
             loading,
             isSearching,
+            allTags,
+            toggleTag,
             filteredCategories,
             isHighlighted,
-            ToolsData: toolsData,
+            ToolsData: processedToolsDataWithTags,
+            showingFavorites,
+            toggleFavoritesView,
+            favoriteTools,
+            favoriteCount,
+            filteredFavoriteTools, // 返回过滤后的收藏工具
+            isFavorite,
+            toggleFavorite,
+            removeFromFavorites,
+            clearFavorites
           };
         }
       })
@@ -518,12 +1050,12 @@ function urlSafeBase64Decode(input) {
 
       // 等待README和VersionHistory加载完成
       return Promise.all([
-        fetch('./README.md?timestamp=' + Date.now())
+        fetch('./README.md?v=' + Date.now())
           .then(rep => rep.text())
           .then(text => {
             document.getElementById('README').innerHTML = marked.parse(text);
           }),
-        fetch('./VersionHistory.txt?timestamp=' + Date.now())
+        fetch('./VersionHistory.txt?v=' + Date.now())
           .then(rep => rep.text())
           .then(text => {
             document.getElementById('VersionHistory').innerHTML = text;
