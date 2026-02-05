@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>工具名称 - JustHTML 只需网页</title>
+  <title>特别的 - 23XR - JustHTML 只需网页</title>
   <script>
 /**
  * 动态加载（强制去除缓存） CSS 的函数
@@ -56,28 +56,40 @@ function loadScript(src) {
   <script src="../package/Vue/code/vue.global.prod.js"></script>
   <script type="module" src="../package/Sober/code/main.js"></script>
 
+  <style>
+    ol li a{
+      font-size: 1.4rem;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    ol li::marker{
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: var(--text-secondary);
+    }
+  </style>
+
 </head>
 <body>
   <div id="app">
     <div class="container">
       <a href="../index.html" class="back-link">← 返回首页</a>
       
-      <div class="tool-section">
-        <h2>工具标题</h2>
-        
-        <!-- 工具主体内容 -->
-        <div>
-          <!-- 示例：输入区域 -->
-          <textarea v-model="inputText" placeholder="在这里输入内容..."></textarea>
-          
-          <!-- 示例：按钮 -->
-          <button @click="processData">处理</button>
-          
-          <!-- 示例：输出区域 -->
-          <div class="result" v-if="result">
-            {{ result }}
-          </div>
-        </div>
+      <h2 class="tips">
+        本部分为特殊部分，并非工具！
+      </h2>
+
+      <div class="section">
+        <h1>特殊部分</h1>
+
+        <ol>
+          <li>
+            <a href="./ArticleASELF.html">
+              作者本人的文章
+            </a>
+          </li>
+        </ol>
       </div>
     </div>
   </div>

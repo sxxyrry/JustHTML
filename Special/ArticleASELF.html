@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>作者本人的文章 - 特别的 - 23XR - JustHTML 只需网页</title>
+  <script>
+/**
+ * 动态加载（强制去除缓存） CSS 的函数
+ * @param {string} src - 要加载的 CSS 的 src 链接
+ * @returns {Promise} 返回一个 Promise 对象，用于处理异步加载
+ */
+function loadStyle(src) {
+  return new Promise((resolve, reject) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = src + '?v=' + new Date().getTime(); // 使用时间戳避免缓存
+    link.async = true;
+    link.onload = resolve;
+    link.onerror = reject;
+    document.head.appendChild(link);
+  });
+}
+
+/**
+ * 动态加载（强制去除缓存） JS 的函数
+ * @param {string} src - 要加载的 JS 的 src 链接
+ * @returns {Promise} 返回一个 Promise 对象，用于处理异步加载
+ */
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src + '?v=' + new Date().getTime(); // 使用时间戳避免缓存
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+</script>
+
+  <script>
+    loadStyle('../assets/style.css')
+    let scriptArray = [
+      "../assets/AddHeader_Tools.js",
+      "../assets/AddFooter.js",
+      "../assets/AddIco.js",
+      "../assets/AutoRun.js",
+    ]
+
+    scriptArray.forEach(script => {
+      loadScript(script);
+    });
+  </script>
+
+  <script src="../package/Vue/code/vue.global.prod.js"></script>
+  <script type="module" src="../package/Sober/code/main.js"></script>
+
+  <script src="../package/Marked/code/marked.umd.js"></script>
+
+  <style>
+    ol li a{
+      font-size: 1.4rem;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    ol li::marker{
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: var(--text-secondary);
+    }
+  </style>
+
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <a href="./index.html" class="back-link">← 返回 特别的 页面</a>
+      
+      <h2 class="tips">
+        本部分为特殊部分，并非工具！
+      </h2>
+
+      <div class="section">
+        <div v-html="AASELF"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 检查Vue是否已加载
+    function initializeApp() {
+      if (typeof Vue === 'undefined') {
+        console.error('Vue未加载完成，请检查Vue脚本引入');
+        setTimeout(initializeApp, 100); // 延迟重试
+        return;
+      }
+
+      console.log('Vue版本:', Vue.version);
+      console.log('Vue对象结构:', Object.keys(Vue));
+      
+      // 验证必要的API是否存在
+      if (typeof Vue.createApp !== 'function') {
+        console.error('Vue.createApp不存在');
+        return;
+      }
+      
+      if (typeof Vue.ref !== 'function') {
+        console.error('Vue.ref不存在');
+        return;
+      }
+
+      // 使用最安全的方式：直接调用Vue的方法
+      const app = Vue.createApp({
+        setup() {
+          // 直接使用Vue.ref而不是解构的ref
+          const AASELF = Vue.ref('')
+          
+          console.log('Vue ref函数可用');
+
+          // 将异步操作包装在立即执行的异步函数中
+          (async () => {
+            try {
+              console.log('开始加载文章...');
+              // 使用相对路径
+              const response = await fetch('./AASELF.md')
+              console.log('fetch响应状态:', response.status);
+              
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              }
+              
+              const text = await response.text()
+              console.log('文章内容长度:', text.length);
+              AASELF.value = marked.parse(text);
+              console.log('文章解析完成');
+            } catch (error) {
+              console.error('加载文章失败:', error);
+              AASELF.value = `<p>文章加载失败: ${error.message}</p>`;
+            }
+          })();
+
+          return {
+            AASELF
+          };
+        }
+      });
+      
+      console.log('开始挂载Vue应用...');
+      app.mount('#app');
+      console.log('Vue应用挂载完成');
+    }
+
+    // 等待DOM加载完成后再初始化Vue应用
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeApp);
+    } else {
+      // DOM已经加载完成
+      console.log('DOM已就绪，直接初始化');
+      initializeApp();
+    }
+  </script>
+</body>
+</html>

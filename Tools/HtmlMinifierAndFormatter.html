@@ -21,18 +21,210 @@ function loadStyle(src) {
     document.head.appendChild(link);
   });
 }
+
+/**
+ * 动态加载（强制去除缓存） JS 的函数
+ * @param {string} src - 要加载的 JS 的 src 链接
+ * @returns {Promise} 返回一个 Promise 对象，用于处理异步加载
+ */
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src + '?v=' + new Date().getTime(); // 使用时间戳避免缓存
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
 </script>
 
   <script>
     loadStyle('../assets/style.css')
+    let scriptArray = [
+      "../assets/AddHeader_Tools.js",
+      "../assets/AddFooter.js",
+      "../assets/AddIco.js",
+      "../assets/AutoRun.js",
+    ]
+
+    scriptArray.forEach(script => {
+      loadScript(script);
+    });
   </script>
 
   <script src="../package/Vue/code/vue.global.prod.js"></script>
   <script type="module" src="../package/Sober/code/main.js"></script>
 
-  <script src="../assets/AddHeader_Tools.js"></script>
-  <script src="../assets/AddFooter.js"></script>
-  <script src="../assets/AddIco.js"></script>
+  <style>
+    /* 自定义样式覆盖 */
+    textarea {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--bg-tertiary);
+      font-family: 'SarasaMonoSC-ExtraLightItalic', 'Courier New', monospace;
+      min-height: 250px;
+      padding: 15px;
+      border-radius: var(--border-radius);
+      resize: vertical;
+      width: 100%;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 15px;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.1);
+    }
+    
+    .tool-section {
+      background-color: var(--bg-secondary);
+      border-radius: var(--border-radius);
+      padding: 25px;
+      margin-bottom: 20px;
+      border: 1px solid var(--bg-tertiary);
+    }
+    
+    .tool-section h2 {
+      color: var(--accent-color);
+      margin-bottom: 10px;
+      font-size: 1.8rem;
+    }
+    
+    .tool-section p {
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+      font-size: 1rem;
+    }
+    
+    .button-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    button {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      font-size: 14px;
+      transition: var(--transition);
+      flex: 1;
+      min-width: 150px;
+    }
+    
+    button:hover {
+      background-color: #3a8bdf;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .result-container {
+      margin-top: 25px;
+      padding: 20px;
+      background-color: var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      border-left: 4px solid var(--accent-color);
+    }
+    
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    
+    .result-header h3 {
+      color: var(--accent-color);
+      margin: 0;
+      font-size: 1.2rem;
+    }
+    
+    .status-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      background-color: rgba(74, 158, 255, 0.2);
+      color: var(--accent-color);
+    }
+    
+    .status-badge.error {
+      background-color: rgba(255, 107, 107, 0.2);
+      color: #ff6b6b;
+    }
+    
+    .status-badge.success {
+      background-color: rgba(46, 204, 113, 0.2);
+      color: #2ecc71;
+    }
+    
+    pre {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: 'SarasaMonoSC-ExtraLightItalic', 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      border: 1px solid var(--bg-tertiary);
+      margin: 0;
+    }
+    
+    .error-message {
+      color: #ff6b6b;
+      padding: 10px 15px;
+      background-color: rgba(255, 107, 107, 0.1);
+      border-radius: 6px;
+      border-left: 4px solid #ff6b6b;
+      margin-top: 15px;
+      font-family: 'SarasaMonoSC-ExtraLightItalic';
+    }
+    
+    .placeholder-text {
+      color: #888;
+      font-style: italic;
+    }
+    
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+      .button-group {
+        flex-direction: column;
+      }
+      
+      button {
+        width: 100%;
+        min-width: unset;
+      }
+      
+      .tool-section {
+        padding: 20px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      textarea {
+        font-size: 13px;
+      }
+      
+      .tool-section h2 {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
 
 </head>
 <body>
@@ -44,143 +236,259 @@ function loadStyle(src) {
         <h2>HTML格式化与压缩工具</h2>
         <p>格式化混乱的HTML代码或将HTML压缩成一行</p>
         
-        <div>
-          <textarea 
-            v-model="inputText" 
-            placeholder="在此输入HTML代码..."
-            rows="15"
-            style="font-family: 'Courier New', monospace;"
-          ></textarea>
-          
-          <button @click="formatHtml">格式化HTML</button>
-          <button @click="minifyHtml">压缩HTML</button>
-          <button @click="validateHtml">验证HTML</button>
-          <button @click="copyResult">复制结果</button>
-          <button @click="clearText">清空</button>
-          
-          <div class="result" v-if="result">
-            <p><strong>结果:</strong></p>
-            <pre style="white-space: pre-wrap; word-break: break-word;">{{ result }}</pre>
+        <textarea 
+          v-model="inputText" 
+          placeholder="在此输入HTML代码...&#10;例如：&#10;&lt;div class=&quot;container&quot;&gt;&#10;  &lt;h1&gt;标题&lt;/h1&gt;&#10;  &lt;p&gt;段落内容&lt;/p&gt;&#10;&lt;/div&gt;"
+          rows="15"
+        ></textarea>
+        
+        <div class="button-group">
+          <button @click="formatHtml" title="格式化HTML代码">格式化HTML</button>
+          <button @click="minifyHtml" title="压缩HTML为一行">压缩HTML</button>
+          <button @click="validateHtml" title="验证HTML语法">验证HTML</button>
+          <button @click="copyResult" title="复制结果到剪贴板">复制结果</button>
+          <button @click="clearText" title="清空所有内容">清空</button>
+        </div>
+        
+        <div class="result-container" v-if="result || error">
+          <div class="result-header">
+            <h3>结果:</h3>
+            <span class="status-badge" :class="{ success: isValid && !error, error: error }">
+              {{ error ? '错误' : (isValid ? '有效' : '') }}
+            </span>
           </div>
           
-          <div class="result" v-if="error" style="color: #ff6b6b;">
-            <p><strong>错误:</strong></p>
-            <p>{{ error }}</p>
+          <pre v-if="result && !error">{{ result }}</pre>
+          
+          <div class="error-message" v-if="error">
+            <strong>错误:</strong> {{ error }}
           </div>
+        </div>
+        
+        <div v-else-if="showTips" class="result-container placeholder-text">
+          这里将显示格式化、压缩或验证的结果
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    const { createApp, ref } = Vue;
+    const { createApp, ref, computed } = Vue;
 
     createApp({
       setup() {
         const inputText = ref('');
         const result = ref('');
         const error = ref('');
+        const isValid = ref(false);
+        const showTips = ref(true);
 
-        // 格式化HTML
+        // 修复格式化HTML函数
         const formatHtml = () => {
           error.value = '';
+          isValid.value = false;
+          showTips.value = false;
+          
           try {
+            if (!inputText.value.trim()) {
+              error.value = '请输入HTML代码';
+              return;
+            }
+            
             let html = inputText.value;
-            
-            // 简单的HTML格式化
-            let formatted = '';
             let indentLevel = 0;
-            const indent = '  ';
+            const indentSize = 2;
+            let formatted = '';
+            let inTag = false;
+            let currentTag = '';
+            let inComment = false;
             
-            // 分割HTML为标签和内容
-            const parts = html.split(/(<[^>]+>)/);
+            // 先处理注释
+            html = html.replace(/<!--[\s\S]*?-->/g, match => {
+              return '\n' + match + '\n';
+            });
             
-            for (let part of parts) {
-              part = part.trim();
-              if (!part) continue;
+            // 按行处理
+            const lines = html.split('\n');
+            
+            for (let i = 0; i < lines.length; i++) {
+              let line = lines[i].trim();
               
-              // 检查是否是开始标签
-              if (part.startsWith('<') && !part.startsWith('</')) {
-                // 自闭合标签
-                if (part.match(/<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\b/i)) {
-                  formatted += indent.repeat(indentLevel) + part + '\n';
-                } 
-                // 普通开始标签
-                else if (!part.endsWith('/>')) {
-                  formatted += indent.repeat(indentLevel) + part + '\n';
-                  indentLevel++;
-                } 
-                // 自闭合标签 (带/)
-                else {
-                  formatted += indent.repeat(indentLevel) + part + '\n';
-                }
-              } 
-              // 结束标签
-              else if (part.startsWith('</')) {
-                indentLevel--;
-                formatted += indent.repeat(indentLevel) + part + '\n';
-              } 
-              // 文本内容
-              else {
-                const trimmedPart = part.trim();
-                if (trimmedPart) {
-                  formatted += indent.repeat(indentLevel) + trimmedPart + '\n';
+              if (!line) continue;
+              
+              // 检查是否是注释
+              if (line.startsWith('<!--')) {
+                formatted += ' '.repeat(indentLevel * indentSize) + line + '\n';
+                inComment = line.endsWith('-->') ? false : true;
+                continue;
+              }
+              
+              if (inComment) {
+                formatted += ' '.repeat(indentLevel * indentSize) + line + '\n';
+                if (line.endsWith('-->')) inComment = false;
+                continue;
+              }
+              
+              // 分割标签和文本
+              const parts = line.split(/(<[^>]+>)/g);
+              
+              for (let part of parts) {
+                part = part.trim();
+                if (!part) continue;
+                
+                if (part.startsWith('<')) {
+                  // 这是标签
+                  if (part.startsWith('</')) {
+                    // 结束标签
+                    indentLevel = Math.max(0, indentLevel - 1);
+                    formatted += ' '.repeat(indentLevel * indentSize) + part + '\n';
+                  } else if (part.endsWith('/>') || 
+                           part.match(/<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)\b[^>]*>/i)) {
+                    // 自闭合标签
+                    formatted += ' '.repeat(indentLevel * indentSize) + part + '\n';
+                  } else {
+                    // 开始标签
+                    formatted += ' '.repeat(indentLevel * indentSize) + part + '\n';
+                    indentLevel++;
+                  }
+                } else {
+                  // 这是文本内容
+                  if (part.trim()) {
+                    formatted += ' '.repeat(indentLevel * indentSize) + part + '\n';
+                  }
                 }
               }
             }
             
+            // 清理多余的换行
             result.value = formatted.trim();
+            isValid.value = true;
+            
           } catch (e) {
             error.value = `格式化HTML时出错: ${e.message}`;
+            result.value = '';
+            isValid.value = false;
           }
         };
 
-        // 压缩HTML
+        // 修复压缩HTML函数
         const minifyHtml = () => {
           error.value = '';
+          isValid.value = false;
+          showTips.value = false;
+          
           try {
+            if (!inputText.value.trim()) {
+              error.value = '请输入HTML代码';
+              return;
+            }
+            
             let html = inputText.value;
             
             // 移除注释
             html = html.replace(/<!--[\s\S]*?-->/g, '');
             
-            // 移除多余的空白字符
+            // 移除多余的空格（保留标签间的必要空格）
             html = html.replace(/\s+/g, ' ');
             
-            // 移除标签间的空白
-            html = html.replace( />\s+</g, '><' );
+            // 移除标签间的空格
+            html = html.replace(/>\s+</g, '><');
             
             // 移除首尾空白
-            result.value = html.trim();
+            html = html.trim();
+            
+            // 特殊处理：保留文本节点中的空格
+            // 将标签内的文本单独处理
+            const tagRegex = /(<[^>]+>)([^<]*)/g;
+            let minified = '';
+            let lastIndex = 0;
+            let match;
+            
+            while ((match = tagRegex.exec(html)) !== null) {
+              const tag = match[1];
+              let text = match[2];
+              
+              // 压缩文本中的多余空格，但保留一个空格
+              if (text.trim()) {
+                text = ' ' + text.trim().replace(/\s+/g, ' ') + ' ';
+              }
+              
+              minified += tag + text;
+              lastIndex = tagRegex.lastIndex;
+            }
+            
+            // 添加剩余的部分
+            if (lastIndex < html.length) {
+              let remaining = html.substring(lastIndex);
+              if (remaining.trim()) {
+                remaining = remaining.trim().replace(/\s+/g, ' ');
+                minified += remaining;
+              }
+            }
+            
+            // 最后清理
+            minified = minified.replace(/\s+/g, ' ').trim();
+            
+            result.value = minified;
+            isValid.value = true;
+            
           } catch (e) {
             error.value = `压缩HTML时出错: ${e.message}`;
+            result.value = '';
+            isValid.value = false;
           }
         };
 
-        // 验证HTML
+        // 修复验证HTML函数
         const validateHtml = () => {
           error.value = '';
-          result.value = '';
+          isValid.value = false;
+          showTips.value = false;
           
           try {
-            // 尝试创建一个临时元素来验证HTML
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = inputText.value;
+            if (!inputText.value.trim()) {
+              error.value = '请输入HTML代码';
+              return;
+            }
             
-            // 检查是否有未闭合的标签
+            const html = inputText.value;
+            
+            // 使用DOMParser验证HTML
             const parser = new DOMParser();
-            const doc = parser.parseFromString(inputText.value, 'text/html');
+            const doc = parser.parseFromString(html, 'text/html');
             
-            // 检查错误
+            // 检查解析错误
             const parserErrors = doc.querySelectorAll("parsererror");
             if (parserErrors.length > 0) {
-              error.value = 'HTML格式无效：' + parserErrors[0].textContent;
+              error.value = 'HTML格式无效';
+              result.value = '';
+              isValid.value = false;
+              return;
+            }
+            
+            // 检查标签平衡
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // 简单检查：比较innerHTML设置前后
+            const originalLength = html.replace(/[\s\n]/g, '').length;
+            const parsedLength = tempDiv.innerHTML.replace(/[\s\n]/g, '').length;
+            
+            if (Math.abs(originalLength - parsedLength) > 10) {
+              error.value = 'HTML可能存在未闭合的标签或语法错误';
+              result.value = '';
+              isValid.value = false;
               return;
             }
             
             result.value = '✓ HTML格式有效';
+            isValid.value = true;
+            error.value = '';
+            
           } catch (e) {
             error.value = `验证HTML时出错: ${e.message}`;
+            result.value = '';
+            isValid.value = false;
           }
         };
 
@@ -192,7 +500,7 @@ function loadStyle(src) {
               })
               .catch(err => {
                 console.error('复制失败: ', err);
-                error.value = '复制失败';
+                error.value = '复制失败: ' + err.message;
               });
           } else {
             error.value = '没有可复制的结果';
@@ -203,12 +511,16 @@ function loadStyle(src) {
           inputText.value = '';
           result.value = '';
           error.value = '';
+          isValid.value = false;
+          showTips.value = true;
         };
 
         return {
           inputText,
           result,
           error,
+          isValid,
+          showTips,
           formatHtml,
           minifyHtml,
           validateHtml,

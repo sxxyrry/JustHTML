@@ -19,8 +19,16 @@
      - [ImageConvert](./Tools/ImageConvert.html) - 图像格式转换
     删除工具
      - ImageToWebP - 图像转WebP
-    为 图像格式转换 工具增加库：
+    为 图像格式转换 工具 增加库：
      - IcoJS
      - JSZIP
      - Pica
     更新图标显示使其正常显示
+0.6.0 V:
+    在 README.md 中 添加 版本记录
+    在 README.md 中 修改 使用 （HTML） 和 使用方法 的 位置
+    在 README.md 中 修改 使用方法 ，使其只指向官网
+    现在不再使用 Github Pages 托管，所以进行了 较大修改
+    优化 HTML 压缩 / 格式化 工具
+    ----- （被划掉了）
+    

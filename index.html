@@ -31,6 +31,7 @@ function loadStyle(src) {
   <script src="./package/Vue/code/vue.global.prod.js"></script>
   <script src="./package/Marked/code/marked.umd.js"></script>
   <script type="module" src="./package/Sober/code/main.js"></script>
+  <script src="./assets/AutoRun.js"></script>
 
   <script>
 /**
@@ -567,59 +568,6 @@ const favoriteUtils = {
   <h1 id="wait">请等待</h1>
 
   <script>
-    window.addEventListener('click', (e) => {
-      e.preventDefault()
-
-      if (e.target.nodeName === 'A') {
-        if (e.target.href.startsWith(window.location.origin)) {
-          const relativePath = './' + e.target.href.substring(window.location.origin.length + '/JustHTML/'.length);
-
-          // console.log(relativePath)
-
-          if (window.Tools.includes(relativePath)) {
-            window.open(e.target.href, '_self');
-            return
-          }
-          const url = e.target.href
-          if (url.endsWith('.md') || url.endsWith('.Md') || url.endsWith('.mD') || url.endsWith('.MD')) {
-            fetch(url)
-              .then(response => response.text())
-              .then(text => {
-                const encodedURL = urlSafeBase64Encode(text)
-                const url_ = `${window.location.origin}/JustHTML/showMD.html?content=${encodedURL}`
-                window.open(url_)
-              })
-          } else if (url.endsWith('/package/Marked/LICENSE')) {
-            fetch(url)
-              .then(response => response.text())
-              .then(text => {
-                const encodedURL = urlSafeBase64Encode(text)
-                const url_ = `${window.location.origin}/JustHTML/showMD.html?content=${encodedURL}`
-                window.open(url_)
-              })
-          } else {
-            fetch(url)
-              .then(response => response.text())
-              .then(text => {
-                const encodedURL = urlSafeBase64Encode(text)
-                const url_ = `${window.location.origin}/JustHTML/showFile.html?content=${encodedURL}`
-                window.open(url_)
-              })
-          }
-        } else if (e.target.href.endsWith('.md') || e.target.href.endsWith('.Md') || e.target.href.endsWith('.mD') || e.target.href.endsWith('.MD')) {
-            fetch(url)
-              .then(response => response.text())
-              .then(text => {
-                const encodedURL = urlSafeBase64Encode(text)
-                const url_ = `${window.location.origin}/JustHTML/showMD.html?content=${encodedURL}`
-                window.open(url_)
-              })
-        } else {
-          window.open(e.target.href);
-        }
-      }
-    })
-
     document.addEventListener('DOMContentLoaded', () => {
       var dialog = document.getElementById('VersionHistoryDialog');
       var closeDialogBtn = document.getElementById('closeDialog_VerHis');
