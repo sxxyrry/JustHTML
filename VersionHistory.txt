@@ -31,4 +31,4 @@
     现在不再使用 Github Pages 托管，所以进行了 较大修改
     优化 HTML 压缩 / 格式化 工具
     ----- （被划掉了）
-    
+    修改官网到 https://justhtml.sxxyrry.qzz.io/
